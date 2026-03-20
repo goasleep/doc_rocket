@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime, timezone
 
 from beanie import Document
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from fastapi_users import schemas
+from fastapi_users_db_beanie import BeanieBaseUserDocument
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def get_datetime_utc() -> datetime:
@@ -13,31 +15,26 @@ def get_datetime_utc() -> datetime:
 # User
 # ---------------------------------------------------------------------------
 
-class UserBase(BaseModel):
-    email: EmailStr = Field(max_length=255)
-    is_active: bool = True
-    is_superuser: bool = False
+class User(BeanieBaseUserDocument):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
     full_name: str | None = Field(default=None, max_length=255)
+    created_at: datetime = Field(default_factory=get_datetime_utc)
+
+    class Settings(BeanieBaseUserDocument.Settings):
+        name = "users"
 
 
-class UserCreate(UserBase):
-    password: str = Field(min_length=8, max_length=128)
+class UserRead(schemas.BaseUser[uuid.UUID]):
+    full_name: str | None = None
+    created_at: datetime | None = None
 
 
-class UserRegister(BaseModel):
-    email: EmailStr = Field(max_length=255)
-    password: str = Field(min_length=8, max_length=128)
-    full_name: str | None = Field(default=None, max_length=255)
+class UserCreate(schemas.BaseUserCreate):
+    full_name: str | None = None
 
 
-class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
-    password: str | None = Field(default=None, min_length=8, max_length=128)
-
-
-class UserUpdateMe(BaseModel):
-    full_name: str | None = Field(default=None, max_length=255)
-    email: EmailStr | None = Field(default=None, max_length=255)
+class UserUpdate(schemas.BaseUserUpdate):
+    full_name: str | None = None
 
 
 class UpdatePassword(BaseModel):
@@ -45,28 +42,8 @@ class UpdatePassword(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
-class User(Document):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    email: EmailStr = Field(max_length=255)
-    is_active: bool = True
-    is_superuser: bool = False
-    full_name: str | None = Field(default=None, max_length=255)
-    hashed_password: str
-    created_at: datetime = Field(default_factory=get_datetime_utc)
-
-    class Settings:
-        name = "users"
-
-
-class UserPublic(UserBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    created_at: datetime | None = None
-
-
 class UsersPublic(BaseModel):
-    data: list[UserPublic]
+    data: list[UserRead]
     count: int
 
 
@@ -112,22 +89,8 @@ class ItemsPublic(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Generic / auth models
+# Generic models
 # ---------------------------------------------------------------------------
 
 class Message(BaseModel):
     message: str
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class TokenPayload(BaseModel):
-    sub: str | None = None
-
-
-class NewPassword(BaseModel):
-    token: str
-    new_password: str = Field(min_length=8, max_length=128)
