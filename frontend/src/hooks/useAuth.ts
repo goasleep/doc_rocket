@@ -8,7 +8,6 @@ import {
   type UserCreate,
   UsersService,
 } from "@/client"
-import { handleError } from "@/utils"
 import useCustomToast from "./useCustomToast"
 
 const isLoggedIn = () => {
@@ -57,7 +56,16 @@ const useAuth = () => {
     onSuccess: () => {
       navigate({ to: "/" })
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (error: any) => {
+      const detail = error?.body?.detail
+      const message =
+        detail === "LOGIN_BAD_CREDENTIALS"
+          ? "Incorrect email or password"
+          : detail === "LOGIN_USER_NOT_VERIFIED"
+            ? "Please verify your email before logging in"
+            : detail ?? "Something went wrong."
+      showErrorToast(message)
+    },
   })
 
   const logout = () => {
