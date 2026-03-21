@@ -8,6 +8,7 @@ import {
   Bot,
   Workflow,
   FileText,
+  FileCode,
   Settings,
 } from "lucide-react"
 
@@ -33,6 +34,7 @@ const contentItems: Item[] = [
   { icon: UploadCloud, title: "手动投稿", path: "/submit" },
   { icon: BookOpen, title: "文章库", path: "/articles" },
   { icon: Bot, title: "Agent 配置", path: "/agents" },
+  { icon: FileCode, title: "Prompt 模板", path: "/prompts" },
   { icon: Workflow, title: "工作流", path: "/workflow" },
   { icon: FileText, title: "仿写稿件", path: "/drafts" },
   { icon: Settings, title: "系统设置", path: "/settings" },

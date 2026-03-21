@@ -19,6 +19,7 @@ import { Route as LayoutWorkflowRouteImport } from './routes/_layout/workflow'
 import { Route as LayoutSubmitRouteImport } from './routes/_layout/submit'
 import { Route as LayoutSourcesRouteImport } from './routes/_layout/sources'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutPromptsRouteImport } from './routes/_layout/prompts'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutAgentsRouteImport } from './routes/_layout/agents'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
@@ -76,6 +77,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutPromptsRoute = LayoutPromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
+  '/prompts': typeof LayoutPromptsRoute
   '/settings': typeof LayoutSettingsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
+  '/prompts': typeof LayoutPromptsRoute
   '/settings': typeof LayoutSettingsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/agents': typeof LayoutAgentsRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/prompts': typeof LayoutPromptsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/sources': typeof LayoutSourcesRoute
   '/_layout/submit': typeof LayoutSubmitRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/items'
+    | '/prompts'
     | '/settings'
     | '/sources'
     | '/submit'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/items'
+    | '/prompts'
     | '/settings'
     | '/sources'
     | '/submit'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/_layout/admin'
     | '/_layout/agents'
     | '/_layout/items'
+    | '/_layout/prompts'
     | '/_layout/settings'
     | '/_layout/sources'
     | '/_layout/submit'
@@ -306,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/prompts': {
+      id: '/_layout/prompts'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof LayoutPromptsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/items': {
       id: '/_layout/items'
       path: '/items'
@@ -362,6 +381,7 @@ interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutAgentsRoute: typeof LayoutAgentsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutPromptsRoute: typeof LayoutPromptsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutSourcesRoute: typeof LayoutSourcesRoute
   LayoutSubmitRoute: typeof LayoutSubmitRoute
@@ -377,6 +397,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutAgentsRoute: LayoutAgentsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutPromptsRoute: LayoutPromptsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutSourcesRoute: LayoutSourcesRoute,
   LayoutSubmitRoute: LayoutSubmitRoute,
