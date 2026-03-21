@@ -48,7 +48,7 @@ const agentSchema = z.object({
   role: z.enum(["writer", "editor", "reviewer", "custom"]),
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
-  model_provider: z.enum(["kimi", "claude", "openai"]),
+  model_provider: z.enum(["kimi", "openai"]),
   model_id: z.string().min(1, "模型 ID 不能为空"),
   workflow_order: z.number().min(0),
 })
@@ -57,7 +57,6 @@ type AgentFormValues = z.infer<typeof agentSchema>
 
 const MODEL_PRESETS: Record<string, string> = {
   kimi: "moonshot-v1-32k",
-  claude: "claude-sonnet-4-6",
   openai: "gpt-4o",
 }
 
@@ -230,7 +229,6 @@ function AgentFormDialog({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
-                        <SelectItem value="claude">Claude (Anthropic)</SelectItem>
                         <SelectItem value="openai">OpenAI</SelectItem>
                       </SelectContent>
                     </Select>

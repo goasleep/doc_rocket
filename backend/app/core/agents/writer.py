@@ -30,4 +30,5 @@ class WriterAgent(BaseAgent):
                 ),
             },
         ]
-        return await llm.chat(messages)
+        response = await llm.chat(messages)
+        return response.content or ""

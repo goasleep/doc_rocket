@@ -5,11 +5,16 @@ export type AgentConfigCreate = {
     role: string;
     responsibilities?: string;
     system_prompt?: string;
-    model_provider?: string;
+    model_provider?: 'kimi' | 'openai';
     model_id?: string;
     workflow_order?: number;
     is_active?: boolean;
+    skills?: Array<(string)>;
+    tools?: Array<(string)>;
+    max_iterations?: number;
 };
+
+export type model_provider = 'kimi' | 'openai';
 
 export type AgentConfigPublic = {
     id: string;
@@ -21,6 +26,9 @@ export type AgentConfigPublic = {
     model_id: string;
     workflow_order: number;
     is_active: boolean;
+    skills: Array<(string)>;
+    tools: Array<(string)>;
+    max_iterations: number;
     created_at: string;
 };
 
@@ -34,10 +42,13 @@ export type AgentConfigUpdate = {
     role?: (string | null);
     responsibilities?: (string | null);
     system_prompt?: (string | null);
-    model_provider?: (string | null);
+    model_provider?: ('kimi' | 'openai' | null);
     model_id?: (string | null);
     workflow_order?: (number | null);
     is_active?: (boolean | null);
+    skills?: (Array<(string)> | null);
+    tools?: (Array<(string)> | null);
+    max_iterations?: (number | null);
 };
 
 export type AgentStep = {
@@ -52,6 +63,12 @@ export type AgentStep = {
     status?: string;
     started_at?: (string | null);
     ended_at?: (string | null);
+    messages?: Array<{
+        [key: string]: unknown;
+    }>;
+    tools_used?: Array<(string)>;
+    skills_activated?: Array<(string)>;
+    iteration_count?: number;
 };
 
 export type AnalysesPublic = {
@@ -220,9 +237,6 @@ export type ItemUpdate = {
     description?: (string | null);
 };
 
-/**
- * API key is masked in responses.
- */
 export type LLMProviderPublic = {
     api_key_masked?: (string | null);
     default_model: string;
@@ -252,6 +266,10 @@ export type ModelDefaults = {
     default_model_id?: string;
 };
 
+export type OrchestratorConfig = {
+    enabled?: boolean;
+};
+
 export type PrivateUserCreate = {
     email: string;
     password: string;
@@ -275,9 +293,74 @@ export type RewriteSectionResponse = {
     rewritten_text: string;
 };
 
+export type RoutingEvent = {
+    timestamp?: string;
+    from_agent: string;
+    to_agent: string;
+    reason?: string;
+};
+
 export type SchedulerConfig = {
     default_interval_minutes?: number;
     max_concurrent_fetches?: number;
+};
+
+export type SearchConfig = {
+    tavily_api_key?: string;
+};
+
+export type SkillCreate = {
+    name: string;
+    description?: string;
+    body?: string;
+    scripts?: Array<SkillScript>;
+    needs_network?: boolean;
+    is_active?: boolean;
+    source?: 'imported' | 'user';
+    imported_from?: (string | null);
+};
+
+export type source = 'imported' | 'user';
+
+export type SkillImportBody = {
+    content?: (string | null);
+    url?: (string | null);
+};
+
+export type SkillPublic = {
+    id: string;
+    name: string;
+    description: string;
+    body: string;
+    scripts: Array<SkillScript>;
+    needs_network: boolean;
+    is_active: boolean;
+    source: string;
+    imported_from: (string | null);
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * A script bundled with a skill.
+ */
+export type SkillScript = {
+    filename: string;
+    content: string;
+    language?: string;
+};
+
+export type SkillsPublic = {
+    data: Array<SkillPublic>;
+    count: number;
+};
+
+export type SkillUpdate = {
+    description?: (string | null);
+    body?: (string | null);
+    scripts?: (Array<SkillScript> | null);
+    needs_network?: (boolean | null);
+    is_active?: (boolean | null);
 };
 
 export type SourceCreate = {
@@ -340,6 +423,8 @@ export type SystemConfigPublic = {
     scheduler: SchedulerConfig;
     analysis: ModelDefaults;
     writing: ModelDefaults;
+    search: SearchConfig;
+    orchestrator: OrchestratorConfig;
 };
 
 export type SystemConfigUpdate = {
@@ -349,6 +434,37 @@ export type SystemConfigUpdate = {
     scheduler?: (SchedulerConfig | null);
     analysis?: (ModelDefaults | null);
     writing?: (ModelDefaults | null);
+    search?: (SearchConfig | null);
+    orchestrator?: (OrchestratorConfig | null);
+};
+
+export type ToolPublic = {
+    id: string;
+    name: string;
+    description: string;
+    parameters_schema: {
+        [key: string]: unknown;
+    };
+    executor: string;
+    function_name: string;
+    is_builtin: boolean;
+    is_active: boolean;
+    category: string;
+    created_at: string;
+};
+
+export type ToolsPublic = {
+    data: Array<ToolPublic>;
+    count: number;
+};
+
+export type ToolUpdate = {
+    description?: (string | null);
+    is_active?: (boolean | null);
+    category?: (string | null);
+    parameters_schema?: ({
+    [key: string]: unknown;
+} | null);
 };
 
 export type TriggerAnalysisRequest = {
@@ -439,6 +555,9 @@ export type WorkflowRunPublic = {
     final_output: (string | null);
     created_by: (string | null);
     created_at: string;
+    use_orchestrator: boolean;
+    routing_log: Array<RoutingEvent>;
+    iteration_count: number;
 };
 
 export type WorkflowRunsPublic = {
@@ -515,7 +634,7 @@ export type ArticlesArchiveArticleData = {
     id: string;
 };
 
-export type ArticlesArchiveArticleResponse = (void);
+export type ArticlesArchiveArticleResponse = (ArticlePublic);
 
 export type AuthAuthJwtLoginData = {
     formData: login;
@@ -640,6 +759,44 @@ export type PrivateCreateUserData = {
 
 export type PrivateCreateUserResponse = (UserRead);
 
+export type SkillsListSkillsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type SkillsListSkillsResponse = (SkillsPublic);
+
+export type SkillsCreateSkillData = {
+    requestBody: SkillCreate;
+};
+
+export type SkillsCreateSkillResponse = (SkillPublic);
+
+export type SkillsGetSkillData = {
+    skillId: string;
+};
+
+export type SkillsGetSkillResponse = (SkillPublic);
+
+export type SkillsUpdateSkillData = {
+    requestBody: SkillUpdate;
+    skillId: string;
+};
+
+export type SkillsUpdateSkillResponse = (SkillPublic);
+
+export type SkillsDeleteSkillData = {
+    skillId: string;
+};
+
+export type SkillsDeleteSkillResponse = (void);
+
+export type SkillsImportSkillData = {
+    requestBody: SkillImportBody;
+};
+
+export type SkillsImportSkillResponse = (SkillPublic);
+
 export type SourcesListSourcesData = {
     limit?: number;
     skip?: number;
@@ -691,6 +848,15 @@ export type SystemConfigUpdateSystemConfigData = {
 };
 
 export type SystemConfigUpdateSystemConfigResponse = (SystemConfigPublic);
+
+export type ToolsListToolsResponse = (ToolsPublic);
+
+export type ToolsUpdateToolData = {
+    requestBody: ToolUpdate;
+    toolId: string;
+};
+
+export type ToolsUpdateToolResponse = (ToolPublic);
 
 export type UsersReadUsersData = {
     limit?: number;

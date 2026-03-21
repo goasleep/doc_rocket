@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from beanie import Document
 from pydantic import BaseModel, ConfigDict, Field
@@ -7,6 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class RoutingEvent(BaseModel):
+    timestamp: datetime = Field(default_factory=get_datetime_utc)
+    from_agent: str
+    to_agent: str
+    reason: str = ""
 
 
 class AgentStep(BaseModel):
@@ -21,6 +29,11 @@ class AgentStep(BaseModel):
     status: str = "pending"  # pending | running | done | failed
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    # Agentic loop fields (all with defaults for backward compat)
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    tools_used: list[str] = Field(default_factory=list)
+    skills_activated: list[str] = Field(default_factory=list)
+    iteration_count: int = 0
 
 
 class WorkflowInput(BaseModel):
@@ -33,7 +46,7 @@ class WorkflowRun(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     type: str = "writing"
     input: WorkflowInput = Field(default_factory=WorkflowInput)
-    status: str = "pending"  # pending | running | waiting_human | done | failed
+    status: str = "pending"  # pending | running | waiting_human | done | failed | interrupted
     steps: list[AgentStep] = Field(default_factory=list)
     parent_run_id: uuid.UUID | None = None
     user_feedback: str | None = None
@@ -41,6 +54,11 @@ class WorkflowRun(Document):
     final_output: str | None = None
     created_by: uuid.UUID | None = None
     created_at: datetime = Field(default_factory=get_datetime_utc)
+    # Orchestrator fields (all with defaults for backward compat)
+    use_orchestrator: bool = False
+    orchestrator_messages: list[dict[str, Any]] = Field(default_factory=list)
+    routing_log: list[RoutingEvent] = Field(default_factory=list)
+    iteration_count: int = 0
 
     class Settings:
         name = "workflow_runs"
@@ -64,6 +82,9 @@ class WorkflowRunPublic(BaseModel):
     final_output: str | None
     created_by: uuid.UUID | None
     created_at: datetime
+    use_orchestrator: bool
+    routing_log: list[RoutingEvent]
+    iteration_count: int
 
 
 class WorkflowRunsPublic(BaseModel):

@@ -39,7 +39,8 @@ class ReviewerAgent(BaseAgent):
                 ),
             },
         ]
-        raw = await llm.chat(messages, response_format={"type": "json_object"})
+        chat_response = await llm.chat(messages, response_format={"type": "json_object"})
+        raw = chat_response.content or ""
 
         try:
             json.loads(raw)

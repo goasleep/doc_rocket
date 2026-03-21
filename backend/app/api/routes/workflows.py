@@ -36,13 +36,18 @@ async def list_workflows(
 
 @router.post("/", response_model=WorkflowRunPublic, status_code=202)
 async def trigger_workflow(current_user: CurrentUser, body: WorkflowRunCreate) -> Any:
+    from app.models import SystemConfig
     from app.models.workflow import WorkflowInput
+
+    sys_config = await SystemConfig.find_one()
+    use_orchestrator = sys_config.orchestrator.enabled if sys_config and sys_config.orchestrator else False
 
     run = WorkflowRun(
         type=body.type,
         input=WorkflowInput(article_ids=body.article_ids, topic=body.topic),
         status="pending",
         created_by=current_user.id,
+        use_orchestrator=use_orchestrator,
     )
     await run.insert()
 

@@ -26,15 +26,6 @@ async def get_llm_client(provider: str, model_id: str | None = None) -> LLMClien
         from app.core.llm.kimi import KimiClient
         return KimiClient(api_key=api_key, default_model=effective_model)
 
-    elif provider == "claude":
-        provider_cfg = config.llm_providers.claude
-        if not provider_cfg.api_key_encrypted:
-            raise LLMProviderNotConfiguredError("claude")
-        api_key = decrypt_value(provider_cfg.api_key_encrypted)
-        effective_model = model_id or provider_cfg.default_model or "claude-sonnet-4-6"
-        from app.core.llm.claude_client import ClaudeClient
-        return ClaudeClient(api_key=api_key, default_model=effective_model)
-
     elif provider == "openai":
         provider_cfg = config.llm_providers.openai
         if not provider_cfg.api_key_encrypted:
@@ -43,6 +34,9 @@ async def get_llm_client(provider: str, model_id: str | None = None) -> LLMClien
         effective_model = model_id or provider_cfg.default_model or "gpt-4o"
         from app.core.llm.openai_client import OpenAIClient
         return OpenAIClient(api_key=api_key, default_model=effective_model)
+
+    elif provider == "claude":
+        raise LLMProviderNotConfiguredError("claude")
 
     else:
         raise LLMProviderNotConfiguredError(provider)

@@ -46,14 +46,15 @@ class AnalyzerAgent(BaseAgent):
 
         llm = await self._get_llm()
         messages = [
-            {"role": "system", "content": self._system_prompt() + "\n\n" + ANALYSIS_SCHEMA_PROMPT},
+            {"role": "system", "content": self._base_system_prompt() + "\n\n" + ANALYSIS_SCHEMA_PROMPT},
             {"role": "user", "content": f"请分析以下文章：\n\n{content}"},
         ]
 
-        raw = await llm.chat(
+        chat_response = await llm.chat(
             messages,
             response_format={"type": "json_object"},
         )
+        raw = chat_response.content or ""
 
         try:
             data = json.loads(raw)
