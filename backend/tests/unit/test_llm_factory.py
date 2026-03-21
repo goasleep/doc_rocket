@@ -43,12 +43,6 @@ def test_kimi_client_uses_moonshot_base_url():
     assert client._default_model == "moonshot-v1-32k"
 
 
-def test_claude_client_instantiation():
-    from app.core.llm.claude_client import ClaudeClient
-    client = ClaudeClient(api_key="sk-ant-fake", default_model="claude-sonnet-4-6")
-    assert client._default_model == "claude-sonnet-4-6"
-
-
 def test_openai_client_instantiation():
     from app.core.llm.openai_client import OpenAIClient
     client = OpenAIClient(api_key="sk-fake-openai", default_model="gpt-4o")

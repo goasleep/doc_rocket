@@ -39,9 +39,9 @@ async def test_workflow_runs_all_agents_and_pauses(
 
     mock_agent = AsyncMock()
     mock_agent.run = AsyncMock(side_effect=[
-        "这是Writer的初稿内容。",  # writer
-        MOCK_EDITOR_RESPONSE,      # editor (JSON)
-        json.dumps({               # reviewer
+        "这是Writer的初稿内容。",         # writer
+        MOCK_EDITOR_RESPONSE.content,    # editor (JSON string)
+        json.dumps({                     # reviewer
             "fact_check_flags": [],
             "legal_notes": [],
             "format_issues": [],
@@ -76,7 +76,7 @@ async def test_workflow_editor_step_stores_title_candidates(
     mock_agent = AsyncMock()
     mock_agent.run = AsyncMock(side_effect=[
         "初稿内容",
-        MOCK_EDITOR_RESPONSE,
+        MOCK_EDITOR_RESPONSE.content,
         json.dumps({"fact_check_flags": [], "legal_notes": [], "format_issues": []}),
     ])
 

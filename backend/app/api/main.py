@@ -6,9 +6,11 @@ from app.api.routes import (
     analyses,
     articles,
     drafts,
+    skills,
     sources,
     submit,
     system_config,
+    tools,
     workflows,
 )
 from app.core.config import settings
@@ -61,6 +63,8 @@ api_router.include_router(agents.router)
 api_router.include_router(workflows.router)
 api_router.include_router(drafts.router)
 api_router.include_router(system_config.router)
+api_router.include_router(skills.router)
+api_router.include_router(tools.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

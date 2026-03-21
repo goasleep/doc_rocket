@@ -30,12 +30,22 @@ class ModelDefaults(BaseModel):
     default_model_id: str = "moonshot-v1-32k"
 
 
+class SearchConfig(BaseModel):
+    tavily_api_key: str = ""
+
+
+class OrchestratorConfig(BaseModel):
+    enabled: bool = False
+
+
 class SystemConfig(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     llm_providers: LLMProvidersConfig = Field(default_factory=LLMProvidersConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     analysis: ModelDefaults = Field(default_factory=ModelDefaults)
     writing: ModelDefaults = Field(default_factory=ModelDefaults)
+    search: SearchConfig = Field(default_factory=SearchConfig)
+    orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -61,6 +71,8 @@ class SystemConfigPublic(BaseModel):
     scheduler: SchedulerConfig
     analysis: ModelDefaults
     writing: ModelDefaults
+    search: SearchConfig
+    orchestrator: OrchestratorConfig
 
 
 class SystemConfigUpdate(BaseModel):
@@ -70,3 +82,5 @@ class SystemConfigUpdate(BaseModel):
     scheduler: SchedulerConfig | None = None
     analysis: ModelDefaults | None = None
     writing: ModelDefaults | None = None
+    search: SearchConfig | None = None
+    orchestrator: OrchestratorConfig | None = None

@@ -10,6 +10,8 @@ from app.models import (
     SystemConfigUpdate,
     LLMProviderPublic,
     LLMProvidersPublic,
+    SearchConfig,
+    OrchestratorConfig,
 )
 
 router = APIRouter(prefix="/system-config", tags=["system-config"])
@@ -45,6 +47,8 @@ def _to_public(config: SystemConfig) -> SystemConfigPublic:
         scheduler=config.scheduler,
         analysis=config.analysis,
         writing=config.writing,
+        search=SearchConfig(tavily_api_key=config.search.tavily_api_key if config.search else ""),
+        orchestrator=config.orchestrator if config.orchestrator else OrchestratorConfig(),
     )
 
 
@@ -76,6 +80,10 @@ async def update_system_config(current_user: SuperuserDep, body: SystemConfigUpd
         config.analysis = body.analysis
     if body.writing is not None:
         config.writing = body.writing
+    if body.search is not None:
+        config.search = body.search
+    if body.orchestrator is not None:
+        config.orchestrator = body.orchestrator
 
     await config.save()
     return _to_public(config)

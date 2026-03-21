@@ -8,8 +8,10 @@ from app.models import (
     ArticleAnalysis,
     Draft,
     Item,
+    Skill,
     Source,
     SystemConfig,
+    Tool,
     User,
     UserCreate,
     WorkflowRun,
@@ -30,6 +32,8 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             WorkflowRun,
             Draft,
             SystemConfig,
+            Skill,
+            Tool,
         ],
     )
 
