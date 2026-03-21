@@ -48,7 +48,7 @@ services:
   mongodb:
     restart: "no"
     ports:
-      - "27017:27017"
+      - "27019:27017"
 
   backend:
     restart: "no"
@@ -85,8 +85,8 @@ services:
   mailcatcher:
     image: schickling/mailcatcher
     ports:
-      - "1080:1080"
-      - "1025:1025"
+      - "1081:1080"
+      - "1026:1025"
 
   frontend:
     restart: "no"
