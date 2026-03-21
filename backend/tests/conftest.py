@@ -6,7 +6,17 @@ from httpx import ASGITransport, AsyncClient
 from app.core.config import settings
 from app.core.db import init_db
 from app.main import app
-from app.models import Item, User
+from app.models import (
+    Item,
+    User,
+    Source,
+    Article,
+    ArticleAnalysis,
+    AgentConfig,
+    WorkflowRun,
+    Draft,
+    SystemConfig,
+)
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
@@ -24,6 +34,13 @@ async def db() -> AsyncGenerator[None, None]:
 
     await Item.delete_all()
     await User.delete_all()
+    await Source.delete_all()
+    await Article.delete_all()
+    await ArticleAnalysis.delete_all()
+    await AgentConfig.delete_all()
+    await WorkflowRun.delete_all()
+    await Draft.delete_all()
+    await SystemConfig.delete_all()
     client.close()
 
 

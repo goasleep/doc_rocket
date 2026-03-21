@@ -1,0 +1,103 @@
+"""Article management routes."""
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+
+from app.api.deps import CurrentUser
+from app.models import Article, ArticleAnalysis, ArticleDetail, ArticlePublic, ArticlesPublic
+
+router = APIRouter(prefix="/articles", tags=["articles"])
+
+
+@router.get("/", response_model=ArticlesPublic)
+async def list_articles(
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    status: str | None = None,
+    source_id: uuid.UUID | None = None,
+    input_type: str | None = None,
+    sort: str = "created_at",
+) -> Any:
+    import asyncio
+
+    filters = [Article.status != "archived"]
+    if status:
+        filters = [Article.status == status]
+    if source_id:
+        filters.append(Article.source_id == source_id)
+    if input_type:
+        filters.append(Article.input_type == input_type)
+
+    query = Article.find(*filters)
+
+    count, articles = await asyncio.gather(
+        query.count(),
+        query.sort("-created_at").skip(skip).limit(limit).to_list(),
+    )
+
+    # Build public list (exclude content, optionally join quality_score)
+    public_items = []
+    for art in articles:
+        analysis = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == art.id)
+        public_items.append(ArticlePublic(
+            id=art.id,
+            source_id=art.source_id,
+            title=art.title,
+            url=art.url,
+            author=art.author,
+            published_at=art.published_at,
+            status=art.status,
+            input_type=art.input_type,
+            created_at=art.created_at,
+            quality_score=analysis.quality_score if analysis else None,
+        ))
+
+    return ArticlesPublic(data=public_items, count=count)
+
+
+@router.get("/{id}", response_model=ArticleDetail)
+async def get_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
+    article = await Article.find_one(Article.id == id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    analysis = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == id)
+    analysis_dict = analysis.model_dump() if analysis else None
+
+    return ArticleDetail(
+        id=article.id,
+        source_id=article.source_id,
+        title=article.title,
+        content=article.content,
+        url=article.url,
+        author=article.author,
+        published_at=article.published_at,
+        status=article.status,
+        input_type=article.input_type,
+        created_at=article.created_at,
+        quality_score=analysis.quality_score if analysis else None,
+        analysis=analysis_dict,
+    )
+
+
+@router.delete("/{id}", response_model=ArticlePublic)
+async def archive_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
+    article = await Article.find_one(Article.id == id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    article.status = "archived"
+    await article.save()
+    return ArticlePublic(
+        id=article.id,
+        source_id=article.source_id,
+        title=article.title,
+        url=article.url,
+        author=article.author,
+        published_at=article.published_at,
+        status=article.status,
+        input_type=article.input_type,
+        created_at=article.created_at,
+        quality_score=None,
+    )

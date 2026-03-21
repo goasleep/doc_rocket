@@ -1,4 +1,15 @@
-import { Briefcase, Home, Users } from "lucide-react"
+import {
+  Briefcase,
+  Home,
+  Users,
+  Rss,
+  BookOpen,
+  UploadCloud,
+  Bot,
+  Workflow,
+  FileText,
+  Settings,
+} from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -17,6 +28,16 @@ const baseItems: Item[] = [
   { icon: Briefcase, title: "Items", path: "/items" },
 ]
 
+const contentItems: Item[] = [
+  { icon: Rss, title: "订阅源", path: "/sources" },
+  { icon: UploadCloud, title: "手动投稿", path: "/submit" },
+  { icon: BookOpen, title: "文章库", path: "/articles" },
+  { icon: Bot, title: "Agent 配置", path: "/agents" },
+  { icon: Workflow, title: "工作流", path: "/workflow" },
+  { icon: FileText, title: "仿写稿件", path: "/drafts" },
+  { icon: Settings, title: "系统设置", path: "/settings" },
+]
+
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
@@ -31,6 +52,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <Main items={items} />
+        <Main items={contentItems} />
       </SidebarContent>
       <SidebarFooter>
         <SidebarAppearance />

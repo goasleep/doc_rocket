@@ -15,9 +15,17 @@ import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutWorkflowRouteImport } from './routes/_layout/workflow'
+import { Route as LayoutSubmitRouteImport } from './routes/_layout/submit'
+import { Route as LayoutSourcesRouteImport } from './routes/_layout/sources'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutAgentsRouteImport } from './routes/_layout/agents'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutDraftsIndexRouteImport } from './routes/_layout/drafts/index'
+import { Route as LayoutArticlesIndexRouteImport } from './routes/_layout/articles/index'
+import { Route as LayoutDraftsIdRouteImport } from './routes/_layout/drafts/$id'
+import { Route as LayoutArticlesIdRouteImport } from './routes/_layout/articles/$id'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -48,6 +56,21 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutWorkflowRoute = LayoutWorkflowRouteImport.update({
+  id: '/workflow',
+  path: '/workflow',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutSubmitRoute = LayoutSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutSourcesRoute = LayoutSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -58,9 +81,34 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutAgentsRoute = LayoutAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDraftsIndexRoute = LayoutDraftsIndexRouteImport.update({
+  id: '/drafts/',
+  path: '/drafts/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutArticlesIndexRoute = LayoutArticlesIndexRouteImport.update({
+  id: '/articles/',
+  path: '/articles/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDraftsIdRoute = LayoutDraftsIdRouteImport.update({
+  id: '/drafts/$id',
+  path: '/drafts/$id',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutArticlesIdRoute = LayoutArticlesIdRouteImport.update({
+  id: '/articles/$id',
+  path: '/articles/$id',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -71,8 +119,16 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/sources': typeof LayoutSourcesRoute
+  '/submit': typeof LayoutSubmitRoute
+  '/workflow': typeof LayoutWorkflowRoute
+  '/articles/$id': typeof LayoutArticlesIdRoute
+  '/drafts/$id': typeof LayoutDraftsIdRoute
+  '/articles/': typeof LayoutArticlesIndexRoute
+  '/drafts/': typeof LayoutDraftsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -80,9 +136,17 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/sources': typeof LayoutSourcesRoute
+  '/submit': typeof LayoutSubmitRoute
+  '/workflow': typeof LayoutWorkflowRoute
   '/': typeof LayoutIndexRoute
+  '/articles/$id': typeof LayoutArticlesIdRoute
+  '/drafts/$id': typeof LayoutDraftsIdRoute
+  '/articles': typeof LayoutArticlesIndexRoute
+  '/drafts': typeof LayoutDraftsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +156,17 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/agents': typeof LayoutAgentsRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/sources': typeof LayoutSourcesRoute
+  '/_layout/submit': typeof LayoutSubmitRoute
+  '/_layout/workflow': typeof LayoutWorkflowRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/articles/$id': typeof LayoutArticlesIdRoute
+  '/_layout/drafts/$id': typeof LayoutDraftsIdRoute
+  '/_layout/articles/': typeof LayoutArticlesIndexRoute
+  '/_layout/drafts/': typeof LayoutDraftsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +177,16 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/agents'
     | '/items'
     | '/settings'
+    | '/sources'
+    | '/submit'
+    | '/workflow'
+    | '/articles/$id'
+    | '/drafts/$id'
+    | '/articles/'
+    | '/drafts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -114,9 +194,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/agents'
     | '/items'
     | '/settings'
+    | '/sources'
+    | '/submit'
+    | '/workflow'
     | '/'
+    | '/articles/$id'
+    | '/drafts/$id'
+    | '/articles'
+    | '/drafts'
   id:
     | '__root__'
     | '/_layout'
@@ -125,9 +213,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/agents'
     | '/_layout/items'
     | '/_layout/settings'
+    | '/_layout/sources'
+    | '/_layout/submit'
+    | '/_layout/workflow'
     | '/_layout/'
+    | '/_layout/articles/$id'
+    | '/_layout/drafts/$id'
+    | '/_layout/articles/'
+    | '/_layout/drafts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,6 +278,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/workflow': {
+      id: '/_layout/workflow'
+      path: '/workflow'
+      fullPath: '/workflow'
+      preLoaderRoute: typeof LayoutWorkflowRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/submit': {
+      id: '/_layout/submit'
+      path: '/submit'
+      fullPath: '/submit'
+      preLoaderRoute: typeof LayoutSubmitRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/sources': {
+      id: '/_layout/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof LayoutSourcesRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
@@ -196,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/agents': {
+      id: '/_layout/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof LayoutAgentsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -203,21 +327,65 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/drafts/': {
+      id: '/_layout/drafts/'
+      path: '/drafts'
+      fullPath: '/drafts/'
+      preLoaderRoute: typeof LayoutDraftsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/articles/': {
+      id: '/_layout/articles/'
+      path: '/articles'
+      fullPath: '/articles/'
+      preLoaderRoute: typeof LayoutArticlesIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/drafts/$id': {
+      id: '/_layout/drafts/$id'
+      path: '/drafts/$id'
+      fullPath: '/drafts/$id'
+      preLoaderRoute: typeof LayoutDraftsIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/articles/$id': {
+      id: '/_layout/articles/$id'
+      path: '/articles/$id'
+      fullPath: '/articles/$id'
+      preLoaderRoute: typeof LayoutArticlesIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutAgentsRoute: typeof LayoutAgentsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSourcesRoute: typeof LayoutSourcesRoute
+  LayoutSubmitRoute: typeof LayoutSubmitRoute
+  LayoutWorkflowRoute: typeof LayoutWorkflowRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutArticlesIdRoute: typeof LayoutArticlesIdRoute
+  LayoutDraftsIdRoute: typeof LayoutDraftsIdRoute
+  LayoutArticlesIndexRoute: typeof LayoutArticlesIndexRoute
+  LayoutDraftsIndexRoute: typeof LayoutDraftsIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutAgentsRoute: LayoutAgentsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSourcesRoute: LayoutSourcesRoute,
+  LayoutSubmitRoute: LayoutSubmitRoute,
+  LayoutWorkflowRoute: LayoutWorkflowRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutArticlesIdRoute: LayoutArticlesIdRoute,
+  LayoutDraftsIdRoute: LayoutDraftsIdRoute,
+  LayoutArticlesIndexRoute: LayoutArticlesIndexRoute,
+  LayoutDraftsIndexRoute: LayoutDraftsIndexRoute,
 }
 
 const LayoutRouteWithChildren =
