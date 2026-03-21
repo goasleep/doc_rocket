@@ -1,24 +1,26 @@
-# FastAPI Project - Development
+# Development Guide
 
 ## Docker Compose
 
-* Start the local stack with Docker Compose:
+Start the full stack（含 Redis、Celery Worker/Beat、Flower）：
 
 ```bash
-docker compose watch
+docker compose watch   # 含文件监听热重载
+# 或
+docker compose up -d
 ```
 
-* Now you can open your browser and interact with these URLs:
+访问以下服务：
 
-Frontend, built with Docker, with routes handled based on the path: <http://localhost:5173>
-
-Backend, JSON based web API based on OpenAPI: <http://localhost:8000>
-
-Automatic interactive documentation with Swagger UI (from the OpenAPI backend): <http://localhost:8000/docs>
-
-Adminer, database web administration: <http://localhost:8080>
-
-Traefik UI, to see how the routes are being handled by the proxy: <http://localhost:8090>
+| 服务 | 地址 |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger 文档 | http://localhost:8000/docs |
+| Flower（Celery 监控） | http://localhost:5555 |
+| MongoDB（Adminer） | http://localhost:8080 |
+| Traefik UI | http://localhost:8090 |
+| MailCatcher | http://localhost:1080 |
 
 **Note**: The first time you start your stack, it might take a minute for it to be ready. While the backend waits for the database to be ready and configures everything. You can check the logs to monitor it.
 
@@ -46,7 +48,53 @@ This is useful for:
 
 The backend is automatically configured to use Mailcatcher when running with Docker Compose locally (SMTP on port 1025). All captured emails can be viewed at <http://localhost:1080>.
 
-## Local Development
+## 本地开发（不用 Docker）
+
+### Backend
+
+```bash
+cd backend
+
+# 安装依赖
+uv sync
+
+# 启动 FastAPI 开发服务器
+uv run fastapi dev app/main.py
+
+# 运行测试（需要本地 MongoDB 测试实例）
+MONGODB_URL=mongodb://localhost:27018 MONGODB_DB=test_app \
+  uv run pytest tests/ -v
+
+# 代码检查 & 格式化
+bash scripts/lint.sh
+bash scripts/format.sh
+```
+
+启动 Celery Worker（需本地 Redis）：
+
+```bash
+cd backend
+REDIS_URL=redis://localhost:6379/0 uv run celery -A app.celery_app worker --loglevel=info
+```
+
+### Frontend
+
+```bash
+cd frontend
+
+pnpm install
+pnpm dev          # Vite 开发服务器
+pnpm build        # 生产构建
+pnpm lint         # Biome 代码检查
+```
+
+重新生成 API 客户端（后端路由变更后执行）：
+
+```bash
+bash scripts/generate-client.sh   # 在项目根目录执行
+```
+
+## Local Development（Docker 混合模式）
 
 The Docker Compose files are configured so that each of the services is available in a different port in `localhost`.
 
@@ -186,21 +234,16 @@ The production or staging URLs would use these same paths, but with your own dom
 
 ### Development URLs
 
-Development URLs, for local development.
-
-Frontend: <http://localhost:5173>
-
-Backend: <http://localhost:8000>
-
-Automatic Interactive Docs (Swagger UI): <http://localhost:8000/docs>
-
-Automatic Alternative Docs (ReDoc): <http://localhost:8000/redoc>
-
-Adminer: <http://localhost:8080>
-
-Traefik UI: <http://localhost:8090>
-
-MailCatcher: <http://localhost:1080>
+| 服务 | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| Flower | http://localhost:5555 |
+| Adminer（MongoDB） | http://localhost:8080 |
+| Traefik UI | http://localhost:8090 |
+| MailCatcher | http://localhost:1080 |
 
 ### Development URLs with `localhost.tiangolo.com` Configured
 
