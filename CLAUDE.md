@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend:** FastAPI + Beanie ODM (v2.x) + MongoDB + Motor (async driver) + PyJWT + pwdlib (argon2 + bcrypt)
 - **Testing:** Pytest + anyio + httpx (AsyncClient + ASGITransport)
 - **Frontend:** React 19 + TypeScript + Vite + TanStack Router + TanStack Query + Tailwind CSS v4 + shadcn/ui
-- **Package managers:** `uv` (Python), `bun` (JS)
+- **Package managers:** `uv` (Python), `pnpm` (JS)
 - **Infrastructure:** Docker Compose + Traefik reverse proxy
 
 ## Development Commands
@@ -40,13 +40,13 @@ docker compose exec backend bash scripts/tests-start.sh -- -x  # stop on first f
 ### Frontend (run from `frontend/` or repo root)
 
 ```bash
-bun install
-bun run dev              # Vite dev server
-bun run build            # tsc + vite build
-bun run lint             # Biome check with autofix
-bunx playwright test     # all E2E tests
-bunx playwright test tests/login.spec.ts   # single test file
-bunx playwright test --ui                  # interactive UI mode
+pnpm install
+pnpm run dev              # Vite dev server
+pnpm run build            # tsc + vite build
+pnpm run lint             # Biome check with autofix
+pnpm exec playwright test     # all E2E tests
+pnpm exec playwright test tests/login.spec.ts   # single test file
+pnpm exec playwright test --ui                  # interactive UI mode
 ```
 
 ### Generate OpenAPI client (after backend changes)
@@ -54,7 +54,7 @@ bunx playwright test --ui                  # interactive UI mode
 ```bash
 bash scripts/generate-client.sh   # from repo root
 # or
-bun run generate-client           # from frontend/
+pnpm run generate-client           # from frontend/
 ```
 
 The generated client lives in `frontend/src/client/` — do not edit it manually.
