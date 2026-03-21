@@ -9,7 +9,7 @@ import {
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { LoginService } from "@/client"
+import { AuthService } from "@/client"
 import { AuthLayout } from "@/components/Common/AuthLayout"
 import {
   Form,
@@ -23,7 +23,6 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { PasswordInput } from "@/components/ui/password-input"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
 
 const searchSchema = z.object({
   token: z.string().catch(""),
@@ -83,13 +82,22 @@ function ResetPassword() {
 
   const mutation = useMutation({
     mutationFn: (data: { new_password: string; token: string }) =>
-      LoginService.resetPassword({ requestBody: data }),
+      AuthService.resetResetPassword({
+        requestBody: { token: data.token, password: data.new_password },
+      }),
     onSuccess: () => {
       showSuccessToast("Password updated successfully")
       form.reset()
       navigate({ to: "/login" })
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (error: any) => {
+      const detail = error?.body?.detail
+      const message =
+        detail === "RESET_PASSWORD_BAD_TOKEN"
+          ? "Invalid token"
+          : detail ?? "Something went wrong."
+      showErrorToast(message)
+    },
   })
 
   const onSubmit = (data: FormData) => {

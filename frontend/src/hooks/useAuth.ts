@@ -2,13 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import {
-  type Body_login_login_access_token as AccessToken,
-  LoginService,
-  type UserPublic,
-  type UserRegister,
+  type login as AccessToken,
+  AuthService,
+  type UserRead,
+  type UserCreate,
   UsersService,
 } from "@/client"
-import { handleError } from "@/utils"
 import useCustomToast from "./useCustomToast"
 
 const isLoggedIn = () => {
@@ -20,26 +19,33 @@ const useAuth = () => {
   const queryClient = useQueryClient()
   const { showErrorToast } = useCustomToast()
 
-  const { data: user } = useQuery<UserPublic | null, Error>({
+  const { data: user } = useQuery<UserRead | null, Error>({
     queryKey: ["currentUser"],
-    queryFn: UsersService.readUserMe,
+    queryFn: UsersService.usersCurrentUser,
     enabled: isLoggedIn(),
   })
 
   const signUpMutation = useMutation({
-    mutationFn: (data: UserRegister) =>
-      UsersService.registerUser({ requestBody: data }),
+    mutationFn: (data: UserCreate) =>
+      AuthService.registerRegister({ requestBody: data }),
     onSuccess: () => {
       navigate({ to: "/login" })
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (error: any) => {
+      const detail = error?.body?.detail
+      const message =
+        detail === "REGISTER_USER_ALREADY_EXISTS"
+          ? "The user with this email already exists in the system"
+          : detail ?? "Something went wrong."
+      showErrorToast(message)
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] })
     },
   })
 
   const login = async (data: AccessToken) => {
-    const response = await LoginService.loginAccessToken({
+    const response = await AuthService.authJwtLogin({
       formData: data,
     })
     localStorage.setItem("access_token", response.access_token)
@@ -50,7 +56,16 @@ const useAuth = () => {
     onSuccess: () => {
       navigate({ to: "/" })
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (error: any) => {
+      const detail = error?.body?.detail
+      const message =
+        detail === "LOGIN_BAD_CREDENTIALS"
+          ? "Incorrect email or password"
+          : detail === "LOGIN_USER_NOT_VERIFIED"
+            ? "Please verify your email before logging in"
+            : detail ?? "Something went wrong."
+      showErrorToast(message)
+    },
   })
 
   const logout = () => {

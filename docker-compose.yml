@@ -1,5 +1,17 @@
 services:
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    volumes:
+      - app-redis-data:/data
+
   mongodb:
     image: mongo:7
     restart: always
@@ -55,6 +67,9 @@ services:
       mongodb:
         condition: service_healthy
         restart: true
+      redis:
+        condition: service_healthy
+        restart: true
       prestart:
         condition: service_completed_successfully
     env_file:
@@ -74,6 +89,10 @@ services:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB=${MONGODB_DB}
       - SENTRY_DSN=${SENTRY_DSN}
+      - REDIS_URL=redis://redis:6379/0
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
@@ -131,8 +150,78 @@ services:
 
       # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
+  celery-worker:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    restart: always
+    networks:
+      - default
+    depends_on:
+      mongodb:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+      prestart:
+        condition: service_completed_successfully
+    command: celery -A app.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DOMAIN=${DOMAIN}
+      - SECRET_KEY=${SECRET_KEY?Variable not set}
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DB=${MONGODB_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  celery-beat:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    restart: always
+    networks:
+      - default
+    depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
+      prestart:
+        condition: service_completed_successfully
+    command: celery -A app.celery_app beat --scheduler redbeat.RedBeatScheduler --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DOMAIN=${DOMAIN}
+      - SECRET_KEY=${SECRET_KEY?Variable not set}
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DB=${MONGODB_DB}
+      - REDIS_URL=redis://redis:6379/0
+
+  flower:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    restart: always
+    networks:
+      - default
+    depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
+    command: celery -A app.celery_app flower --port=5555
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+
 volumes:
   app-db-data:
+  app-redis-data:
 
 networks:
   traefik-public:

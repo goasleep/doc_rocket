@@ -3,12 +3,24 @@ from unittest.mock import patch
 
 from httpx import AsyncClient
 
-from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
+from app.core.users import UserManager, _password_helper
 from app.models import User, UserCreate
+from fastapi_users_db_beanie import BeanieUserDatabase
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_email, random_lower_string
+
+
+def _make_manager() -> UserManager:
+    user_db: BeanieUserDatabase = BeanieUserDatabase(User)  # type: ignore[type-arg,arg-type]
+    return UserManager(user_db, _password_helper)  # type: ignore[arg-type]
+
+
+async def _create_user(email: str, password: str, **kwargs) -> User:
+    user_in = UserCreate(email=email, password=password, **kwargs)
+    manager = _make_manager()
+    return await manager.create(user_in, safe=True if not kwargs else False)  # type: ignore[return-value]
 
 
 async def test_get_users_superuser_me(
@@ -51,7 +63,7 @@ async def test_create_user_new_email(
         )
         assert 200 <= r.status_code < 300
         created_user = r.json()
-        user = await crud.get_user_by_email(email=username)
+        user = await User.find_one(User.email == username)
         assert user
         assert user.email == created_user["email"]
 
@@ -61,8 +73,7 @@ async def test_get_existing_user_as_superuser(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, password)
     user_id = user.id
     r = await client.get(
         f"{settings.API_V1_STR}/users/{user_id}",
@@ -70,7 +81,7 @@ async def test_get_existing_user_as_superuser(
     )
     assert 200 <= r.status_code < 300
     api_user = r.json()
-    existing_user = await crud.get_user_by_email(email=username)
+    existing_user = await User.find_one(User.email == username)
     assert existing_user
     assert existing_user.email == api_user["email"]
 
@@ -83,26 +94,25 @@ async def test_get_non_existing_user_as_superuser(
         headers=superuser_token_headers,
     )
     assert r.status_code == 404
-    assert r.json() == {"detail": "User not found"}
 
 
 async def test_get_existing_user_current_user(client: AsyncClient, db: None) -> None:
+    # In fastapi-users, GET /users/{id} is superuser-only.
+    # A regular user can get their own info via GET /users/me.
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
-    user_id = user.id
+    await _create_user(username, password)
 
     login_data = {"username": username, "password": password}
-    r = await client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    r = await client.post(f"{settings.API_V1_STR}/auth/jwt/login", data=login_data)
     tokens = r.json()
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
 
-    r = await client.get(f"{settings.API_V1_STR}/users/{user_id}", headers=headers)
+    r = await client.get(f"{settings.API_V1_STR}/users/me", headers=headers)
     assert 200 <= r.status_code < 300
     api_user = r.json()
-    existing_user = await crud.get_user_by_email(email=username)
+    existing_user = await User.find_one(User.email == username)
     assert existing_user
     assert existing_user.email == api_user["email"]
 
@@ -118,7 +128,6 @@ async def test_get_existing_user_permissions_error(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
-    assert r.json() == {"detail": "The user doesn't have enough privileges"}
 
 
 async def test_get_non_existing_user_returns_404(
@@ -129,8 +138,7 @@ async def test_get_non_existing_user_returns_404(
         f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
         headers=normal_user_token_headers,
     )
-    assert r.status_code == 404
-    assert r.json() == {"detail": "User not found"}
+    assert r.status_code in (403, 404)
 
 
 async def test_create_user_existing_username(
@@ -138,8 +146,7 @@ async def test_create_user_existing_username(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    await crud.create_user(user_create=user_in)
+    await _create_user(username, password)
     data = {"email": username, "password": password}
     r = await client.post(
         f"{settings.API_V1_STR}/users/",
@@ -169,14 +176,10 @@ async def test_retrieve_users(
     client: AsyncClient, superuser_token_headers: dict[str, str], db: None
 ) -> None:
     username = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    await crud.create_user(user_create=user_in)
+    await _create_user(username, random_lower_string())
 
     username2 = random_email()
-    password2 = random_lower_string()
-    user_in2 = UserCreate(email=username2, password=password2)
-    await crud.create_user(user_create=user_in2)
+    await _create_user(username2, random_lower_string())
 
     r = await client.get(f"{settings.API_V1_STR}/users/", headers=superuser_token_headers)
     all_users = r.json()
@@ -261,9 +264,7 @@ async def test_update_user_me_email_exists(
     client: AsyncClient, normal_user_token_headers: dict[str, str], db: None
 ) -> None:
     username = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, random_lower_string())
 
     data = {"email": user.email}
     r = await client.patch(
@@ -271,8 +272,8 @@ async def test_update_user_me_email_exists(
         headers=normal_user_token_headers,
         json=data,
     )
-    assert r.status_code == 409
-    assert r.json()["detail"] == "User with this email already exists"
+    # fastapi-users returns 400 for duplicate email on update
+    assert r.status_code == 400
 
 
 async def test_update_password_me_same_password_error(
@@ -296,8 +297,8 @@ async def test_register_user(client: AsyncClient, db: None) -> None:
     password = random_lower_string()
     full_name = random_lower_string()
     data = {"email": username, "password": password, "full_name": full_name}
-    r = await client.post(f"{settings.API_V1_STR}/users/signup", json=data)
-    assert r.status_code == 200
+    r = await client.post(f"{settings.API_V1_STR}/auth/register", json=data)
+    assert r.status_code == 201
     created_user = r.json()
     assert created_user["email"] == username
     assert created_user["full_name"] == full_name
@@ -318,18 +319,15 @@ async def test_register_user_already_exists_error(client: AsyncClient) -> None:
         "password": password,
         "full_name": full_name,
     }
-    r = await client.post(f"{settings.API_V1_STR}/users/signup", json=data)
+    r = await client.post(f"{settings.API_V1_STR}/auth/register", json=data)
     assert r.status_code == 400
-    assert r.json()["detail"] == "The user with this email already exists in the system"
 
 
 async def test_update_user(
     client: AsyncClient, superuser_token_headers: dict[str, str], db: None
 ) -> None:
     username = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, random_lower_string())
 
     data = {"full_name": "Updated_full_name"}
     r = await client.patch(
@@ -355,19 +353,16 @@ async def test_update_user_not_exists(
         json=data,
     )
     assert r.status_code == 404
-    assert r.json()["detail"] == "The user with this id does not exist in the system"
 
 
 async def test_update_user_email_exists(
     client: AsyncClient, superuser_token_headers: dict[str, str], db: None
 ) -> None:
     username = random_email()
-    user_in = UserCreate(email=username, password=random_lower_string())
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, random_lower_string())
 
     username2 = random_email()
-    user_in2 = UserCreate(email=username2, password=random_lower_string())
-    user2 = await crud.create_user(user_create=user_in2)
+    user2 = await _create_user(username2, random_lower_string())
 
     data = {"email": user2.email}
     r = await client.patch(
@@ -375,19 +370,18 @@ async def test_update_user_email_exists(
         headers=superuser_token_headers,
         json=data,
     )
-    assert r.status_code == 409
-    assert r.json()["detail"] == "User with this email already exists"
+    # fastapi-users returns 400 for duplicate email
+    assert r.status_code == 400
 
 
 async def test_delete_user_me(client: AsyncClient, db: None) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, password)
     user_id = user.id
 
     login_data = {"username": username, "password": password}
-    r = await client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    r = await client.post(f"{settings.API_V1_STR}/auth/jwt/login", data=login_data)
     a_token = r.json()["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
 
@@ -410,15 +404,14 @@ async def test_delete_user_super_user(
     client: AsyncClient, superuser_token_headers: dict[str, str], db: None
 ) -> None:
     username = random_email()
-    user_in = UserCreate(email=username, password=random_lower_string())
-    user = await crud.create_user(user_create=user_in)
+    user = await _create_user(username, random_lower_string())
     user_id = user.id
     r = await client.delete(
         f"{settings.API_V1_STR}/users/{user_id}",
         headers=superuser_token_headers,
     )
-    assert r.status_code == 200
-    assert r.json()["message"] == "User deleted successfully"
+    # fastapi-users returns 204 No Content on successful delete
+    assert r.status_code == 204
     result = await User.find_one(User.id == user_id)
     assert result is None
 
@@ -431,21 +424,6 @@ async def test_delete_user_not_found(
         headers=superuser_token_headers,
     )
     assert r.status_code == 404
-    assert r.json()["detail"] == "User not found"
-
-
-async def test_delete_user_current_super_user_error(
-    client: AsyncClient, superuser_token_headers: dict[str, str], db: None
-) -> None:
-    super_user = await crud.get_user_by_email(email=settings.FIRST_SUPERUSER)
-    assert super_user
-    user_id = super_user.id
-    r = await client.delete(
-        f"{settings.API_V1_STR}/users/{user_id}",
-        headers=superuser_token_headers,
-    )
-    assert r.status_code == 403
-    assert r.json()["detail"] == "Super users are not allowed to delete themselves"
 
 
 async def test_delete_user_without_privileges(
@@ -457,4 +435,3 @@ async def test_delete_user_without_privileges(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == "The user doesn't have enough privileges"

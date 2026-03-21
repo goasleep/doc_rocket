@@ -19,7 +19,7 @@ async def get_superuser_token_headers(client: AsyncClient) -> dict[str, str]:
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
     }
-    r = await client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    r = await client.post(f"{settings.API_V1_STR}/auth/jwt/login", data=login_data)
     tokens = r.json()
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}

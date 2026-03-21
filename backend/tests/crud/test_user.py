@@ -1,10 +1,16 @@
 import pytest
 from pwdlib.hashers.bcrypt import BcryptHasher
 
-from app import crud
 from app.core.security import verify_password
-from app.models import User, UserCreate, UserUpdate
+from app.core.users import UserManager, _password_helper
+from app.models import User, UserCreate
+from fastapi_users_db_beanie import BeanieUserDatabase
 from tests.utils.utils import random_email, random_lower_string
+
+
+def _make_manager() -> UserManager:
+    user_db: BeanieUserDatabase = BeanieUserDatabase(User)  # type: ignore[type-arg,arg-type]
+    return UserManager(user_db, _password_helper)  # type: ignore[arg-type]
 
 
 @pytest.mark.anyio
@@ -12,28 +18,25 @@ async def test_create_user(db: None) -> None:
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password)
-    user = await crud.create_user(user_create=user_in)
+    manager = _make_manager()
+    user = await manager.create(user_in)
     assert user.email == email
     assert hasattr(user, "hashed_password")
 
 
 @pytest.mark.anyio
-async def test_authenticate_user(db: None) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password)
-    user = await crud.create_user(user_create=user_in)
-    authenticated_user = await crud.authenticate(email=email, password=password)
-    assert authenticated_user
-    assert user.email == authenticated_user.email
-
-
-@pytest.mark.anyio
 async def test_not_authenticate_user(db: None) -> None:
+    """Verifying a wrong password fails."""
     email = random_email()
     password = random_lower_string()
-    user = await crud.authenticate(email=email, password=password)
-    assert user is None
+    wrong_password = random_lower_string()
+    user_in = UserCreate(email=email, password=password)
+    manager = _make_manager()
+    user = await manager.create(user_in)
+    verified, _ = manager.password_helper.verify_and_update(
+        wrong_password, user.hashed_password
+    )
+    assert not verified
 
 
 @pytest.mark.anyio
@@ -41,7 +44,8 @@ async def test_check_if_user_is_active(db: None) -> None:
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password)
-    user = await crud.create_user(user_create=user_in)
+    manager = _make_manager()
+    user = await manager.create(user_in)
     assert user.is_active is True
 
 
@@ -50,7 +54,8 @@ async def test_check_if_user_is_active_inactive(db: None) -> None:
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password, is_active=False)
-    user = await crud.create_user(user_create=user_in)
+    manager = _make_manager()
+    user = await manager.create(user_in, safe=False)
     assert user.is_active is False
 
 
@@ -59,25 +64,28 @@ async def test_check_if_user_is_superuser(db: None) -> None:
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password, is_superuser=True)
-    user = await crud.create_user(user_create=user_in)
+    manager = _make_manager()
+    user = await manager.create(user_in, safe=False)
     assert user.is_superuser is True
 
 
 @pytest.mark.anyio
 async def test_check_if_user_is_superuser_normal_user(db: None) -> None:
-    username = random_email()
+    email = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = await crud.create_user(user_create=user_in)
+    user_in = UserCreate(email=email, password=password)
+    manager = _make_manager()
+    user = await manager.create(user_in)
     assert user.is_superuser is False
 
 
 @pytest.mark.anyio
 async def test_get_user(db: None) -> None:
     password = random_lower_string()
-    username = random_email()
-    user_in = UserCreate(email=username, password=password, is_superuser=True)
-    user = await crud.create_user(user_create=user_in)
+    email = random_email()
+    user_in = UserCreate(email=email, password=password, is_superuser=True)
+    manager = _make_manager()
+    user = await manager.create(user_in, safe=False)
     user_2 = await User.find_one(User.id == user.id)
     assert user_2
     assert user.email == user_2.email
@@ -86,15 +94,16 @@ async def test_get_user(db: None) -> None:
 
 
 @pytest.mark.anyio
-async def test_update_user(db: None) -> None:
+async def test_update_user_password(db: None) -> None:
     password = random_lower_string()
     email = random_email()
     user_in = UserCreate(email=email, password=password, is_superuser=True)
-    user = await crud.create_user(user_create=user_in)
+    manager = _make_manager()
+    user = await manager.create(user_in, safe=False)
     new_password = random_lower_string()
-    user_in_update = UserUpdate(password=new_password, is_superuser=True)
-    if user.id is not None:
-        await crud.update_user(db_user=user, user_in=user_in_update)
+    # Update password directly via Beanie save
+    user.hashed_password = manager.password_helper.hash(new_password)
+    await user.save()
     user_2 = await User.find_one(User.id == user.id)
     assert user_2
     assert user.email == user_2.email
@@ -103,37 +112,33 @@ async def test_update_user(db: None) -> None:
 
 
 @pytest.mark.anyio
-async def test_authenticate_user_with_bcrypt_upgrades_to_argon2(db: None) -> None:
-    """Test that a user with bcrypt password hash gets upgraded to argon2 on login."""
+async def test_password_helper_bcrypt_upgrades_to_argon2(db: None) -> None:
+    """Test that verify_and_update upgrades bcrypt hashes to argon2."""
     email = random_email()
     password = random_lower_string()
 
-    # Create a bcrypt hash directly (simulating legacy password)
     bcrypt_hasher = BcryptHasher()
     bcrypt_hash = bcrypt_hasher.hash(password)
-    assert bcrypt_hash.startswith("$2")  # bcrypt hashes start with $2
+    assert bcrypt_hash.startswith("$2")
 
-    # Create user with bcrypt hash directly in the database
-    user = User(email=email, hashed_password=bcrypt_hash)
+    user = User(email=email, hashed_password=bcrypt_hash, is_active=True)
     await user.insert()
 
-    # Verify the hash is bcrypt before authentication
-    assert user.hashed_password.startswith("$2")
+    manager = _make_manager()
+    verified, updated_hash = manager.password_helper.verify_and_update(
+        password, user.hashed_password
+    )
+    assert verified
+    assert updated_hash is not None
+    assert updated_hash.startswith("$argon2")
 
-    # Authenticate - this should upgrade the hash to argon2
-    authenticated_user = await crud.authenticate(email=email, password=password)
-    assert authenticated_user
-    assert authenticated_user.email == email
+    # Save the updated hash (simulating what UserManager.authenticate does)
+    user.hashed_password = updated_hash
+    await user.save()
 
     user_db = await User.find_one(User.id == user.id)
     assert user_db
-
-    # Verify the hash was upgraded to argon2
     assert user_db.hashed_password.startswith("$argon2")
-
-    verified, updated_hash = verify_password(
-        password, user_db.hashed_password
-    )
-    assert verified
-    # Should not need another update since it's already argon2
-    assert updated_hash is None
+    verified2, updated2 = verify_password(password, user_db.hashed_password)
+    assert verified2
+    assert updated2 is None

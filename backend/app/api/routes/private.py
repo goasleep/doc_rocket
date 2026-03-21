@@ -1,10 +1,10 @@
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app import crud
-from app.models import UserCreate, UserPublic
+from app.core.users import UserManager, get_user_manager
+from app.models import UserCreate, UserRead
 
 router = APIRouter(tags=["private"], prefix="/private")
 
@@ -16,8 +16,11 @@ class PrivateUserCreate(BaseModel):
     is_verified: bool = False
 
 
-@router.post("/users/", response_model=UserPublic)
-async def create_user(user_in: PrivateUserCreate) -> Any:
+@router.post("/users/", response_model=UserRead)
+async def create_user(
+    user_in: PrivateUserCreate,
+    user_manager: UserManager = Depends(get_user_manager),
+) -> Any:
     """
     Create a new user.
     """
@@ -26,5 +29,5 @@ async def create_user(user_in: PrivateUserCreate) -> Any:
         full_name=user_in.full_name,
         password=user_in.password,
     )
-    user = await crud.create_user(user_create=user_create)
+    user = await user_manager.create(user_create)
     return user

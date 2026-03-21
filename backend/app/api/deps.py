@@ -1,55 +1,15 @@
 from typing import Annotated
 
-import uuid
+from fastapi import Depends
 
-import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import InvalidTokenError
-from pydantic import ValidationError
+from app.core.users import current_active_user, current_superuser
+from app.models import User
 
-from app.core import security
-from app.core.config import settings
-from app.models import TokenPayload, User
+CurrentUser = Annotated[User, Depends(current_active_user)]
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
-)
-
-TokenDep = Annotated[str, Depends(reusable_oauth2)]
+SuperuserDep = Annotated[User, Depends(current_superuser)]
 
 
-async def get_current_user(token: TokenDep) -> User:
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = TokenPayload(**payload)
-    except (InvalidTokenError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    if token_data.sub is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    try:
-        user_id = uuid.UUID(token_data.sub)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="User not found")
-    user = await User.find_one(User.id == user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return user
-
-
-CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-def get_current_active_superuser(current_user: CurrentUser) -> User:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
-        )
+def get_current_active_superuser(current_user: SuperuserDep) -> User:
+    # fastapi_users.current_user(superuser=True) already validates superuser status
     return current_user

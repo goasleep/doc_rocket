@@ -1,14 +1,66 @@
 from fastapi import APIRouter
 
-from app.api.routes import items, login, private, users, utils
+from app.api.routes import items, private, users, utils
+from app.api.routes import (
+    agents,
+    analyses,
+    articles,
+    drafts,
+    sources,
+    submit,
+    system_config,
+    workflows,
+)
 from app.core.config import settings
+from app.core.users import auth_backend, fastapi_users
+from app.models import UserCreate, UserRead, UserUpdate
 
 api_router = APIRouter()
-api_router.include_router(login.router)
+
+# fastapi-users auth routes
+api_router.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth/jwt",
+    tags=["auth"],
+)
+api_router.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
+api_router.include_router(
+    fastapi_users.get_reset_password_router(),
+    prefix="/auth",
+    tags=["auth"],
+)
+api_router.include_router(
+    fastapi_users.get_verify_router(UserRead),
+    prefix="/auth",
+    tags=["auth"],
+)
+
+# Custom admin/password routes first so /me/* paths take priority over /{id}
 api_router.include_router(users.router)
+
+# fastapi-users /users/me, /users/{id} routes
+api_router.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/users",
+    tags=["users"],
+)
+
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
 
+# Content Intelligence Engine routes
+api_router.include_router(sources.router)
+api_router.include_router(articles.router)
+api_router.include_router(submit.router)
+api_router.include_router(analyses.router)
+api_router.include_router(agents.router)
+api_router.include_router(workflows.router)
+api_router.include_router(drafts.router)
+api_router.include_router(system_config.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
