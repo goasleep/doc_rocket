@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { Suspense } from "react"
-import { BarChart3, BookOpen, Bot, CheckCircle2, Clock, History, RefreshCw, Pen, XCircle } from "lucide-react"
+import { Suspense, useState } from "react"
+import { BarChart3, BookOpen, Bot, CheckCircle2, Clock, FileText, History, RefreshCw, Pen, XCircle } from "lucide-react"
+import MDEditor from "@uiw/react-md-editor"
 
 import {
   ArticlesService,
   AnalysesService,
   TaskRunsService,
   WorkflowsService,
+  type AnalysisTraceStep,
   type ArticleAnalysisPublic,
   type TaskRunPublic,
 } from "@/client"
@@ -137,7 +139,7 @@ function formatDuration(startedAt?: string | null, endedAt?: string | null) {
 }
 
 function TimelineNode({ run }: { run: TaskRunPublic }) {
-  const typeLabels: Record<string, string> = { analyze: "分析", fetch: "抓取", workflow: "仿写" }
+  const typeLabels: Record<string, string> = { analyze: "分析", fetch: "抓取", refine: "精修", workflow: "仿写" }
   const duration = formatDuration(run.started_at, run.ended_at)
 
   return (
@@ -225,6 +227,70 @@ function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string
 
       {taskRuns.length === 0 && (
         <div className="text-sm text-muted-foreground py-4">暂无任务记录</div>
+      )}
+    </div>
+  )
+}
+
+function AnalysisTraceSection({ trace }: { trace: AnalysisTraceStep[] }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (!trace || trace.length === 0) return null
+
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>{expanded ? "▼" : "▶"}</span>
+        分析过程追溯
+        <Badge variant="outline" className="text-xs">{trace.length} 步</Badge>
+      </button>
+      {expanded && (
+        <div className="mt-3 space-y-4">
+          {trace.map((step, idx) => (
+            <Card key={idx}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <span>步骤 {step.step_index ?? idx + 1}</span>
+                  <Badge variant={step.parsed_ok ? "default" : "destructive"} className="text-xs">
+                    {step.parsed_ok ? "解析成功" : "解析失败"}
+                  </Badge>
+                  {step.duration_ms != null && (
+                    <span className="text-xs text-muted-foreground font-normal">{step.duration_ms}ms</span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {step.messages_sent && step.messages_sent.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">发送的消息</div>
+                    <div className="space-y-2">
+                      {step.messages_sent.map((msg: any, mIdx: number) => (
+                        <div key={mIdx} className="text-xs">
+                          <span className="font-mono font-medium uppercase text-muted-foreground">{msg.role}</span>
+                          <pre className="mt-1 p-2 bg-muted rounded text-xs whitespace-pre-wrap break-words overflow-auto max-h-32 font-mono">
+                            {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {step.raw_response != null && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">原始响应</div>
+                    <pre className="p-2 bg-muted rounded text-xs whitespace-pre-wrap break-words overflow-auto max-h-48 font-mono">
+                      {step.raw_response}
+                    </pre>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -356,6 +422,10 @@ function ArticleDetailContent() {
             <BarChart3 className="h-4 w-4 mr-1" />
             分析结果
           </TabsTrigger>
+          <TabsTrigger value="refined">
+            <FileText className="h-4 w-4 mr-1" />
+            精修版
+          </TabsTrigger>
           <TabsTrigger value="history">
             <History className="h-4 w-4 mr-1" />
             任务历史
@@ -370,6 +440,7 @@ function ArticleDetailContent() {
           {!analysis && article.status !== "analyzed" && (
             <div className="text-center py-8 text-muted-foreground">尚未分析</div>
           )}
+          <AnalysisTraceSection trace={analysis?.trace ?? []} />
 
           {/* Article content */}
           <Card className="mt-4">
@@ -387,6 +458,22 @@ function ArticleDetailContent() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="refined" className="mt-4">
+          {article.content_md ? (
+            <div data-color-mode="light">
+              <MDEditor.Markdown source={article.content_md} />
+            </div>
+          ) : article.refine_status === "failed" ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>精修失败，分析已降级使用原文内容</p>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground animate-pulse">
+              <p>{article.refine_status === "refining" ? "正在精修中..." : "等待精修..."}</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">

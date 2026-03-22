@@ -71,6 +71,15 @@ export type AnalysesPublic = {
     count: number;
 };
 
+export type AnalysisTraceStep = {
+    step_index: number;
+    messages_sent: Array<unknown>;
+    raw_response: string;
+    parsed_ok: boolean;
+    duration_ms: number;
+    timestamp: string;
+};
+
 export type ApiConfig = {
     items_path: string;
     title_field: string;
@@ -93,6 +102,7 @@ export type ArticleAnalysisPublic = {
     structure: ArticleStructure;
     style: ArticleStyle;
     target_audience: string;
+    trace?: Array<AnalysisTraceStep>;
     created_at: string;
 };
 
@@ -105,9 +115,11 @@ export type ArticleDetail = {
     published_at: (string | null);
     status: string;
     input_type: string;
+    refine_status: string;
     created_at: string;
     quality_score?: (number | null);
     content: string;
+    content_md?: (string | null);
     analysis?: ({
     [key: string]: unknown;
 } | null);
@@ -122,6 +134,7 @@ export type ArticlePublic = {
     published_at: (string | null);
     status: string;
     input_type: string;
+    refine_status: string;
     created_at: string;
     quality_score?: (number | null);
 };
@@ -471,7 +484,7 @@ export type SystemConfigUpdate = {
 
 export type TaskRunPublic = {
     id: string;
-    task_type: 'analyze' | 'fetch' | 'workflow';
+    task_type: 'analyze' | 'fetch' | 'refine' | 'workflow';
     celery_task_id: (string | null);
     triggered_by: 'manual' | 'scheduler' | 'agent';
     triggered_by_label: (string | null);
@@ -486,7 +499,7 @@ export type TaskRunPublic = {
     ended_at: (string | null);
 };
 
-export type task_type = 'analyze' | 'fetch' | 'workflow';
+export type task_type = 'analyze' | 'fetch' | 'refine' | 'workflow';
 
 export type triggered_by = 'manual' | 'scheduler' | 'agent';
 

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 
-async def _analyze_article_async(article_id: str, task_run_id: str) -> None:
+async def _analyze_article_async(article_id: str, task_run_id: str = "") -> None:
     """Analyze an article with the AnalyzerAgent.
 
     Idempotent: skips articles already in 'analyzing' or 'analyzed' status.
@@ -13,7 +13,7 @@ async def _analyze_article_async(article_id: str, task_run_id: str) -> None:
     """
     from app.models import Article, ArticleAnalysis, TaskRun
 
-    task_run = await TaskRun.find_one(TaskRun.id == uuid.UUID(task_run_id))
+    task_run = await TaskRun.find_one(TaskRun.id == uuid.UUID(task_run_id)) if task_run_id else None
 
     article = await Article.find_one(Article.id == uuid.UUID(article_id))
     if not article:
@@ -44,7 +44,12 @@ async def _analyze_article_async(article_id: str, task_run_id: str) -> None:
         )
 
         agent = AnalyzerAgent(agent_config=agent_config)
-        analysis_data = await agent.run(article.content)
+        analysis_data = await agent.run(article.content_md or article.content)
+
+        # Extract trace steps (raw dicts) and construct model objects
+        from app.models.analysis import AnalysisTraceStep
+        trace_raw = analysis_data.pop("trace", [])
+        trace_steps = [AnalysisTraceStep(**s) for s in trace_raw]
 
         # Replace existing analysis (delete old, insert fresh)
         existing = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == article.id)
@@ -53,6 +58,7 @@ async def _analyze_article_async(article_id: str, task_run_id: str) -> None:
 
         analysis = ArticleAnalysis(
             article_id=article.id,
+            trace=trace_steps,
             **analysis_data,
         )
         await analysis.insert()

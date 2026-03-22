@@ -402,6 +402,40 @@ export const AnalysesPublicSchema = {
     title: 'AnalysesPublic'
 } as const;
 
+export const AnalysisTraceStepSchema = {
+    properties: {
+        step_index: {
+            type: 'integer',
+            title: 'Step Index'
+        },
+        messages_sent: {
+            items: {},
+            type: 'array',
+            title: 'Messages Sent'
+        },
+        raw_response: {
+            type: 'string',
+            title: 'Raw Response'
+        },
+        parsed_ok: {
+            type: 'boolean',
+            title: 'Parsed Ok'
+        },
+        duration_ms: {
+            type: 'integer',
+            title: 'Duration Ms'
+        },
+        timestamp: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Timestamp'
+        }
+    },
+    type: 'object',
+    required: ['step_index', 'messages_sent', 'raw_response', 'parsed_ok', 'duration_ms', 'timestamp'],
+    title: 'AnalysisTraceStep'
+} as const;
+
 export const ApiConfigSchema = {
     properties: {
         items_path: {
@@ -506,6 +540,13 @@ export const ArticleAnalysisPublicSchema = {
             type: 'string',
             title: 'Target Audience'
         },
+        trace: {
+            items: {
+                '$ref': '#/components/schemas/AnalysisTraceStep'
+            },
+            type: 'array',
+            title: 'Trace'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -582,6 +623,10 @@ export const ArticleDetailSchema = {
             type: 'string',
             title: 'Input Type'
         },
+        refine_status: {
+            type: 'string',
+            title: 'Refine Status'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -602,6 +647,17 @@ export const ArticleDetailSchema = {
             type: 'string',
             title: 'Content'
         },
+        content_md: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Content Md'
+        },
         analysis: {
             anyOf: [
                 {
@@ -616,7 +672,7 @@ export const ArticleDetailSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'source_id', 'title', 'url', 'author', 'published_at', 'status', 'input_type', 'created_at', 'content'],
+    required: ['id', 'source_id', 'title', 'url', 'author', 'published_at', 'status', 'input_type', 'refine_status', 'created_at', 'content'],
     title: 'ArticleDetail'
 } as const;
 
@@ -685,6 +741,10 @@ export const ArticlePublicSchema = {
             type: 'string',
             title: 'Input Type'
         },
+        refine_status: {
+            type: 'string',
+            title: 'Refine Status'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -703,7 +763,7 @@ export const ArticlePublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'source_id', 'title', 'url', 'author', 'published_at', 'status', 'input_type', 'created_at'],
+    required: ['id', 'source_id', 'title', 'url', 'author', 'published_at', 'status', 'input_type', 'refine_status', 'created_at'],
     title: 'ArticlePublic'
 } as const;
 
@@ -2232,7 +2292,7 @@ export const TaskRunPublicSchema = {
         },
         task_type: {
             type: 'string',
-            enum: ['analyze', 'fetch', 'workflow'],
+            enum: ['analyze', 'fetch', 'refine', 'workflow'],
             title: 'Task Type'
         },
         celery_task_id: {

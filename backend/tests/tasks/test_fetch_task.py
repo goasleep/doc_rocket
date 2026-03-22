@@ -7,12 +7,13 @@ import pytest
 from tests.fixtures.content import (  # noqa: F401
     sample_source,
     fake_redis_sync,
+    sample_article,
 )
 
 
 @pytest.mark.anyio
 async def test_fetch_creates_new_articles(db: None, sample_source, fake_redis_sync):
-    """Two new articles are created and analyze_article_task.delay called for each."""
+    """Two new articles are created and refine_article_task.apply_async called for each."""
     from app.tasks.fetch import _fetch_source_async
     from app.models import Article
 
@@ -24,9 +25,12 @@ async def test_fetch_creates_new_articles(db: None, sample_source, fake_redis_sy
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_source = AsyncMock(return_value=raw_articles)
 
+    mock_refine = MagicMock()
+    mock_refine.apply_async.return_value = MagicMock(id="fake-refine-id")
+
     with (
         patch("app.tasks.fetch.FetcherAgent", return_value=mock_fetcher),
-        patch("app.tasks.fetch.analyze_article_task") as mock_analyze,
+        patch("app.tasks.fetch.refine_article_task", mock_refine),
     ):
         await _fetch_source_async(str(sample_source.id))
 
@@ -37,7 +41,7 @@ async def test_fetch_creates_new_articles(db: None, sample_source, fake_redis_sy
         "https://example.com/2",
     }
     assert all(a.status == "raw" for a in articles)
-    assert mock_analyze.apply_async.call_count == 2
+    assert mock_refine.apply_async.call_count == 2
 
 
 @pytest.mark.anyio
@@ -65,16 +69,19 @@ async def test_fetch_deduplicates_existing_url(db: None, sample_source, fake_red
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_source = AsyncMock(return_value=raw_articles)
 
+    mock_refine = MagicMock()
+    mock_refine.apply_async.return_value = MagicMock(id="fake-refine-id")
+
     with (
         patch("app.tasks.fetch.FetcherAgent", return_value=mock_fetcher),
-        patch("app.tasks.fetch.analyze_article_task") as mock_analyze,
+        patch("app.tasks.fetch.refine_article_task", mock_refine),
     ):
         await _fetch_source_async(str(sample_source.id))
 
     # Only 1 new article should be created (plus the pre-existing one = 2 total)
     all_articles = await Article.find(Article.source_id == sample_source.id).to_list()
     assert len(all_articles) == 2
-    assert mock_analyze.apply_async.call_count == 1
+    assert mock_refine.apply_async.call_count == 1
 
 
 @pytest.mark.anyio
@@ -109,3 +116,47 @@ async def test_fetch_respects_redis_lock(db: None, sample_source):
         await _fetch_source_async(str(sample_source.id))
 
     mock_agent_class.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_refetch_resets_refine_fields(db: None, sample_source, fake_redis_sync):
+    """_refetch_article_async resets content_md=None and refine_status='pending' on refetch."""
+    from app.tasks.fetch import _refetch_article_async
+    from app.models import Article
+
+    # Create article with existing refined content
+    article = Article(
+        source_id=sample_source.id,
+        title="已精修文章",
+        content="原始内容",
+        url="https://example.com/refetch-test",
+        status="analyzed",
+        input_type="fetched",
+        content_md="# 旧精修版\n\n旧内容",
+        refine_status="refined",
+    )
+    await article.insert()
+
+    mock_fetcher = AsyncMock()
+    mock_fetcher.fetch_url = AsyncMock(return_value={
+        "title": "更新后标题",
+        "content": "新内容",
+    })
+
+    mock_refine = MagicMock()
+    mock_refine.apply_async.return_value = MagicMock(id="fake-refine-id")
+
+    with (
+        patch("app.tasks.fetch.FetcherAgent", return_value=mock_fetcher),
+        patch("app.tasks.fetch.refine_article_task", mock_refine),
+    ):
+        await _refetch_article_async(str(article.id))
+
+    updated = await Article.find_one(Article.id == article.id)
+    assert updated is not None
+    assert updated.content_md is None
+    assert updated.refine_status == "pending"
+    assert updated.status == "raw"
+
+    # refine_article_task should be enqueued
+    mock_refine.apply_async.assert_called_once()

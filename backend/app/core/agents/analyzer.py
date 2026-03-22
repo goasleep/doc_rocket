@@ -1,5 +1,6 @@
 """AnalyzerAgent — analyzes article content and returns structured ArticleAnalysis data."""
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from app.core.agents.base import BaseAgent
@@ -50,20 +51,29 @@ class AnalyzerAgent(BaseAgent):
             {"role": "user", "content": f"请分析以下文章：\n\n{content}"},
         ]
 
+        t_start = datetime.now(timezone.utc)
         chat_response = await llm.chat(
             messages,
             response_format={"type": "json_object"},
         )
+        t_end = datetime.now(timezone.utc)
+        duration_ms = int((t_end - t_start).total_seconds() * 1000)
         raw = chat_response.content or ""
 
+        parsed_ok = True
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
+            parsed_ok = False
             # Fallback: extract JSON block from response
             import re
             match = re.search(r"\{.*\}", raw, re.DOTALL)
             if match:
-                data = json.loads(match.group())
+                try:
+                    data = json.loads(match.group())
+                    parsed_ok = True
+                except json.JSONDecodeError:
+                    data = {}
             else:
                 data = {}
 
@@ -79,4 +89,14 @@ class AnalyzerAgent(BaseAgent):
             "structure": data.get("structure", {}),
             "style": data.get("style", {}),
             "target_audience": data.get("target_audience", ""),
+            "trace": [
+                {
+                    "step_index": 0,
+                    "messages_sent": messages,
+                    "raw_response": raw,
+                    "parsed_ok": parsed_ok,
+                    "duration_ms": duration_ms,
+                    "timestamp": t_start.isoformat(),
+                }
+            ],
         }
