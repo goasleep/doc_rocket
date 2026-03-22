@@ -19,6 +19,8 @@ class Article(Document):
     published_at: datetime | None = None
     status: str = "raw"  # raw | analyzing | analyzed | archived
     input_type: str = "fetched"  # fetched | manual
+    content_md: str | None = None
+    refine_status: str = "pending"
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -45,12 +47,15 @@ class ArticlePublic(BaseModel):
     published_at: datetime | None
     status: str
     input_type: str
+    refine_status: str
     created_at: datetime
     quality_score: float | None = None  # joined from ArticleAnalysis
 
 
 class ArticleDetail(ArticlePublic):
     content: str
+    content_md: str | None = None
+    refine_status: str
     analysis: dict | None = None  # embedded ArticleAnalysis data
 
 

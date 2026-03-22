@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
 from app.models import Article
-from app.tasks.analyze import analyze_article_task
 from app.tasks.fetch import fetch_url_and_analyze_task
 
 router = APIRouter(prefix="/submit", tags=["submit"])
@@ -67,10 +66,27 @@ async def submit_article(
         )
         await article.insert()
 
-        analyze_article_task.apply_async(
-            args=[str(article.id)],
-            task_id=f"analyze_{article.id}",
+        from app.models import TaskRun
+
+        refine_task_run = TaskRun(
+            task_type="refine",
+            triggered_by="manual",
+            entity_type="article",
+            entity_id=article.id,
+            entity_name=article.title,
+            status="pending",
         )
+        await refine_task_run.insert()
+
+        from app.tasks.refine import refine_article_task
+
+        result = refine_article_task.apply_async(
+            args=[str(article.id)],
+            kwargs={"task_run_id": str(refine_task_run.id)},
+            task_id=f"refine_{article.id}",
+        )
+        refine_task_run.celery_task_id = result.id
+        await refine_task_run.save()
 
         response.status_code = 201
         return SubmitResponse(

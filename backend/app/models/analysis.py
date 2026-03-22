@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from beanie import Document
 from pydantic import BaseModel, ConfigDict, Field
@@ -7,6 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class AnalysisTraceStep(BaseModel):
+    step_index: int
+    messages_sent: list[Any]
+    raw_response: str
+    parsed_ok: bool
+    duration_ms: int
+    timestamp: datetime
 
 
 class QualityBreakdown(BaseModel):
@@ -41,6 +51,7 @@ class ArticleAnalysis(Document):
     structure: ArticleStructure = Field(default_factory=ArticleStructure)
     style: ArticleStyle = Field(default_factory=ArticleStyle)
     target_audience: str = ""
+    trace: list[AnalysisTraceStep] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -61,6 +72,7 @@ class ArticleAnalysisPublic(BaseModel):
     structure: ArticleStructure
     style: ArticleStyle
     target_audience: str
+    trace: list[AnalysisTraceStep] = Field(default_factory=list)
     created_at: datetime
 
 

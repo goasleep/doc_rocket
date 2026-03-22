@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from app.celery_app import celery_app, get_worker_loop
 from app.core.agents.fetcher import FetcherAgent
 from app.core.redis_client import sync_redis
-from app.tasks.analyze import analyze_article_task
+from app.tasks.refine import refine_article_task
 
 
 async def _fetch_source_async(source_id: str) -> None:
@@ -65,25 +65,25 @@ async def _fetch_source_async(source_id: str) -> None:
             await article.insert()
             new_count += 1
 
-            # Create analyze TaskRun before enqueuing
-            analyze_task_run = TaskRun(
-                task_type="analyze",
+            # Create refine TaskRun before enqueuing
+            refine_task_run = TaskRun(
+                task_type="refine",
                 triggered_by="scheduler",
                 entity_type="article",
                 entity_id=article.id,
                 entity_name=article.title,
                 status="pending",
             )
-            await analyze_task_run.insert()
+            await refine_task_run.insert()
 
-            # Enqueue analysis with unique task_id for dedup
-            result = analyze_article_task.apply_async(
+            # Enqueue refinement (refine → analyze chain)
+            result = refine_article_task.apply_async(
                 args=[str(article.id)],
-                kwargs={"task_run_id": str(analyze_task_run.id)},
-                task_id=f"analyze_{article.id}",
+                kwargs={"task_run_id": str(refine_task_run.id)},
+                task_id=f"refine_{article.id}",
             )
-            analyze_task_run.celery_task_id = result.id
-            await analyze_task_run.save()
+            refine_task_run.celery_task_id = result.id
+            await refine_task_run.save()
 
         # Update last_fetched_at and mark fetch TaskRun done
         source.last_fetched_at = datetime.now(timezone.utc)
@@ -151,24 +151,24 @@ async def _fetch_url_and_analyze_async(url: str, user_id: str | None = None) -> 
         fetch_task_run.entity_name = article.title
         await fetch_task_run.save()
 
-        # Create analyze TaskRun before enqueuing
-        analyze_task_run = TaskRun(
-            task_type="analyze",
+        # Create refine TaskRun before enqueuing
+        refine_task_run = TaskRun(
+            task_type="refine",
             triggered_by="manual",
             entity_type="article",
             entity_id=article.id,
             entity_name=article.title,
             status="pending",
         )
-        await analyze_task_run.insert()
+        await refine_task_run.insert()
 
-        result = analyze_article_task.apply_async(
+        result = refine_article_task.apply_async(
             args=[str(article.id)],
-            kwargs={"task_run_id": str(analyze_task_run.id)},
-            task_id=f"analyze_{article.id}",
+            kwargs={"task_run_id": str(refine_task_run.id)},
+            task_id=f"refine_{article.id}",
         )
-        analyze_task_run.celery_task_id = result.id
-        await analyze_task_run.save()
+        refine_task_run.celery_task_id = result.id
+        await refine_task_run.save()
 
         fetch_task_run.status = "done"
         fetch_task_run.ended_at = datetime.now(timezone.utc)
@@ -218,30 +218,32 @@ async def _refetch_article_async(article_id: str) -> str:
         if raw.get("title") and raw["title"] != "Untitled":
             article.title = raw["title"]
         article.status = "raw"
+        article.refine_status = "pending"
+        article.content_md = None
         await article.save()
 
         fetch_task_run.status = "done"
         fetch_task_run.ended_at = datetime.now(timezone.utc)
         await fetch_task_run.save()
 
-        # Enqueue fresh analysis
-        analyze_task_run = TaskRun(
-            task_type="analyze",
+        # Enqueue fresh refinement (refine → analyze chain)
+        refine_task_run = TaskRun(
+            task_type="refine",
             triggered_by="manual",
             entity_type="article",
             entity_id=article.id,
             entity_name=article.title,
             status="pending",
         )
-        await analyze_task_run.insert()
+        await refine_task_run.insert()
 
-        result = analyze_article_task.apply_async(
+        result = refine_article_task.apply_async(
             args=[str(article.id)],
-            kwargs={"task_run_id": str(analyze_task_run.id)},
-            task_id=f"analyze_{article.id}_{int(datetime.now(timezone.utc).timestamp())}",
+            kwargs={"task_run_id": str(refine_task_run.id)},
+            task_id=f"refine_{article.id}_{int(datetime.now(timezone.utc).timestamp())}",
         )
-        analyze_task_run.celery_task_id = result.id
-        await analyze_task_run.save()
+        refine_task_run.celery_task_id = result.id
+        await refine_task_run.save()
 
         return str(article.id)
 

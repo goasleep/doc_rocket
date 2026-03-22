@@ -33,6 +33,7 @@ from app.models.agent_config import (
 )
 from app.models.analysis import (
     AnalysesPublic,
+    AnalysisTraceStep,
     ArticleAnalysis,
     ArticleAnalysisPublic,
     ArticleStructure,
@@ -128,6 +129,7 @@ __all__ = [
     "Article", "ArticleCreate", "ArticlePublic", "ArticleDetail", "ArticlesPublic",
     # Analysis
     "ArticleAnalysis", "ArticleAnalysisPublic", "AnalysesPublic",
+    "AnalysisTraceStep",
     "QualityBreakdown", "ArticleStructure", "ArticleStyle",
     # LLMModelConfig
     "LLMModelConfig", "LLMModelConfigCreate", "LLMModelConfigUpdate",
