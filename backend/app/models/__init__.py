@@ -17,6 +17,13 @@ from app.models.user import (
 )
 
 # New content intelligence models
+from app.models.llm_model_config import (
+    LLMModelConfig,
+    LLMModelConfigCreate,
+    LLMModelConfigPublic,
+    LLMModelConfigsPublic,
+    LLMModelConfigUpdate,
+)
 from app.models.agent_config import (
     AgentConfig,
     AgentConfigCreate,
@@ -117,6 +124,9 @@ __all__ = [
     # Analysis
     "ArticleAnalysis", "ArticleAnalysisPublic", "AnalysesPublic",
     "QualityBreakdown", "ArticleStructure", "ArticleStyle",
+    # LLMModelConfig
+    "LLMModelConfig", "LLMModelConfigCreate", "LLMModelConfigUpdate",
+    "LLMModelConfigPublic", "LLMModelConfigsPublic",
     # AgentConfig
     "AgentConfig", "AgentConfigCreate", "AgentConfigUpdate",
     "AgentConfigPublic", "AgentConfigsPublic",

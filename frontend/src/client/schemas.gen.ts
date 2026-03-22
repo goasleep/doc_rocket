@@ -20,16 +20,10 @@ export const AgentConfigCreateSchema = {
             title: 'System Prompt',
             default: ''
         },
-        model_provider: {
+        model_config_name: {
             type: 'string',
-            enum: ['kimi', 'openai'],
-            title: 'Model Provider',
-            default: 'kimi'
-        },
-        model_id: {
-            type: 'string',
-            title: 'Model Id',
-            default: 'moonshot-v1-32k'
+            title: 'Model Config Name',
+            default: ''
         },
         workflow_order: {
             type: 'integer',
@@ -89,13 +83,9 @@ export const AgentConfigPublicSchema = {
             type: 'string',
             title: 'System Prompt'
         },
-        model_provider: {
+        model_config_name: {
             type: 'string',
-            title: 'Model Provider'
-        },
-        model_id: {
-            type: 'string',
-            title: 'Model Id'
+            title: 'Model Config Name'
         },
         workflow_order: {
             type: 'integer',
@@ -130,7 +120,7 @@ export const AgentConfigPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_provider', 'model_id', 'workflow_order', 'is_active', 'skills', 'tools', 'max_iterations', 'created_at'],
+    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_config_name', 'workflow_order', 'is_active', 'skills', 'tools', 'max_iterations', 'created_at'],
     title: 'AgentConfigPublic'
 } as const;
 
@@ -180,19 +170,7 @@ export const AgentConfigUpdateSchema = {
             ],
             title: 'System Prompt'
         },
-        model_provider: {
-            anyOf: [
-                {
-                    type: 'string',
-                    enum: ['kimi', 'openai']
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Model Provider'
-        },
-        model_id: {
+        model_config_name: {
             anyOf: [
                 {
                     type: 'string'
@@ -201,7 +179,7 @@ export const AgentConfigUpdateSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Model Id'
+            title: 'Model Config Name'
         },
         workflow_order: {
             anyOf: [
@@ -1185,6 +1163,204 @@ export const ItemsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ItemsPublic'
+} as const;
+
+export const LLMModelConfigCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        provider_type: {
+            type: 'string',
+            enum: ['openai_compatible', 'kimi'],
+            title: 'Provider Type',
+            default: 'kimi'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key'
+        },
+        model_id: {
+            type: 'string',
+            title: 'Model Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active',
+            default: true
+        }
+    },
+    type: 'object',
+    required: ['name', 'model_id'],
+    title: 'LLMModelConfigCreate'
+} as const;
+
+export const LLMModelConfigPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        provider_type: {
+            type: 'string',
+            title: 'Provider Type'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key_masked: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key Masked'
+        },
+        model_id: {
+            type: 'string',
+            title: 'Model Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'provider_type', 'base_url', 'api_key_masked', 'model_id', 'is_active', 'created_at'],
+    title: 'LLMModelConfigPublic'
+} as const;
+
+export const LLMModelConfigUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        provider_type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    enum: ['openai_compatible', 'kimi']
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Provider Type'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key'
+        },
+        model_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Model Id'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'LLMModelConfigUpdate'
+} as const;
+
+export const LLMModelConfigsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/LLMModelConfigPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'LLMModelConfigsPublic'
 } as const;
 
 export const LLMProviderPublicSchema = {

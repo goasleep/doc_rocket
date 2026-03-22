@@ -5,8 +5,7 @@ export type AgentConfigCreate = {
     role: string;
     responsibilities?: string;
     system_prompt?: string;
-    model_provider?: 'kimi' | 'openai';
-    model_id?: string;
+    model_config_name?: string;
     workflow_order?: number;
     is_active?: boolean;
     skills?: Array<(string)>;
@@ -14,16 +13,13 @@ export type AgentConfigCreate = {
     max_iterations?: number;
 };
 
-export type model_provider = 'kimi' | 'openai';
-
 export type AgentConfigPublic = {
     id: string;
     name: string;
     role: string;
     responsibilities: string;
     system_prompt: string;
-    model_provider: string;
-    model_id: string;
+    model_config_name: string;
     workflow_order: number;
     is_active: boolean;
     skills: Array<(string)>;
@@ -42,8 +38,7 @@ export type AgentConfigUpdate = {
     role?: (string | null);
     responsibilities?: (string | null);
     system_prompt?: (string | null);
-    model_provider?: ('kimi' | 'openai' | null);
-    model_id?: (string | null);
+    model_config_name?: (string | null);
     workflow_order?: (number | null);
     is_active?: (boolean | null);
     skills?: (Array<(string)> | null);
@@ -235,6 +230,42 @@ export type ItemsPublic = {
 export type ItemUpdate = {
     title?: (string | null);
     description?: (string | null);
+};
+
+export type LLMModelConfigCreate = {
+    name: string;
+    provider_type?: 'openai_compatible' | 'kimi';
+    base_url?: (string | null);
+    api_key?: (string | null);
+    model_id: string;
+    is_active?: boolean;
+};
+
+export type provider_type = 'openai_compatible' | 'kimi';
+
+export type LLMModelConfigPublic = {
+    id: string;
+    name: string;
+    provider_type: string;
+    base_url: (string | null);
+    api_key_masked: (string | null);
+    model_id: string;
+    is_active: boolean;
+    created_at: string;
+};
+
+export type LLMModelConfigsPublic = {
+    data: Array<LLMModelConfigPublic>;
+    count: number;
+};
+
+export type LLMModelConfigUpdate = {
+    name?: (string | null);
+    provider_type?: ('openai_compatible' | 'kimi' | null);
+    base_url?: (string | null);
+    api_key?: (string | null);
+    model_id?: (string | null);
+    is_active?: (boolean | null);
 };
 
 export type LLMProviderPublic = {
@@ -752,6 +783,27 @@ export type ItemsDeleteItemData = {
 };
 
 export type ItemsDeleteItemResponse = (Message);
+
+export type LlmModelConfigsListLlmModelConfigsResponse = (LLMModelConfigsPublic);
+
+export type LlmModelConfigsCreateLlmModelConfigData = {
+    requestBody: LLMModelConfigCreate;
+};
+
+export type LlmModelConfigsCreateLlmModelConfigResponse = (LLMModelConfigPublic);
+
+export type LlmModelConfigsUpdateLlmModelConfigData = {
+    id: string;
+    requestBody: LLMModelConfigUpdate;
+};
+
+export type LlmModelConfigsUpdateLlmModelConfigResponse = (LLMModelConfigPublic);
+
+export type LlmModelConfigsDeleteLlmModelConfigData = {
+    id: string;
+};
+
+export type LlmModelConfigsDeleteLlmModelConfigResponse = (void);
 
 export type PrivateCreateUserData = {
     requestBody: PrivateUserCreate;

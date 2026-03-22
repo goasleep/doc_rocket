@@ -6,6 +6,7 @@ from app.api.routes import (
     analyses,
     articles,
     drafts,
+    llm_model_configs,
     skills,
     sources,
     submit,
@@ -63,6 +64,7 @@ api_router.include_router(agents.router)
 api_router.include_router(workflows.router)
 api_router.include_router(drafts.router)
 api_router.include_router(system_config.router)
+api_router.include_router(llm_model_configs.router)
 api_router.include_router(skills.router)
 api_router.include_router(tools.router)
 

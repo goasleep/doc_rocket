@@ -24,22 +24,19 @@ class BaseAgent:
         self.agent_config = agent_config
 
     async def _get_llm(self) -> Any:
-        from app.core.llm.factory import get_llm_client
+        from app.core.llm.factory import get_llm_client_by_config_name
 
-        if self.agent_config:
-            return await get_llm_client(
-                provider=self.agent_config.model_provider,
-                model_id=self.agent_config.model_id,
-            )
-        # Fallback: use system default
-        from app.models import SystemConfig
-        config = await SystemConfig.find_one()
-        provider = "kimi"
-        model = "moonshot-v1-32k"
-        if config:
-            provider = config.writing.default_model_provider
-            model = config.writing.default_model_id
-        return await get_llm_client(provider=provider, model_id=model)
+        config_name = getattr(self.agent_config, "model_config_name", "") if self.agent_config else ""
+        if config_name:
+            return await get_llm_client_by_config_name(config_name)
+
+        # Fallback: use the first active LLMModelConfig
+        from app.models import LLMModelConfig
+        first = await LLMModelConfig.find_one(LLMModelConfig.is_active == True)  # noqa: E712
+        if first:
+            return await get_llm_client_by_config_name(first.name)
+
+        raise RuntimeError("No LLM model config found. Please add one in the model config page.")
 
     def _base_system_prompt(self) -> str:
         if self.agent_config and self.agent_config.system_prompt:

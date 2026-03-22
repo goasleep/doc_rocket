@@ -78,19 +78,18 @@ async def delete_agent(current_user: CurrentUser, id: uuid.UUID) -> None:
 
 @router.get("/models/available")
 async def get_available_models(current_user: CurrentUser) -> Any:
-    """Return model IDs for each configured (API key set) provider."""
-    from app.models import SystemConfig
+    """Return active LLMModelConfig names available for selection."""
+    from app.models import LLMModelConfig
 
-    config = await SystemConfig.find_one()
-    if not config:
-        return {"providers": []}
-
-    available = []
-    if config.llm_providers.kimi.api_key_encrypted:
-        available.append({"provider": "kimi", "model_id": config.llm_providers.kimi.default_model})
-    if config.llm_providers.claude.api_key_encrypted:
-        available.append({"provider": "claude", "model_id": config.llm_providers.claude.default_model})
-    if config.llm_providers.openai.api_key_encrypted:
-        available.append({"provider": "openai", "model_id": config.llm_providers.openai.default_model})
-
-    return {"providers": available}
+    cfgs = await LLMModelConfig.find(LLMModelConfig.is_active == True).to_list()  # noqa: E712
+    return {
+        "models": [
+            {
+                "name": c.name,
+                "provider_type": c.provider_type,
+                "model_id": c.model_id,
+            }
+            for c in cfgs
+            if c.api_key_encrypted
+        ]
+    }

@@ -16,6 +16,7 @@ from app.models import (
     WorkflowRun,
     Draft,
     SystemConfig,
+    LLMModelConfig,
 )
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
@@ -41,6 +42,7 @@ async def db() -> AsyncGenerator[None, None]:
     await WorkflowRun.delete_all()
     await Draft.delete_all()
     await SystemConfig.delete_all()
+    await LLMModelConfig.delete_all()
     client.close()
 
 

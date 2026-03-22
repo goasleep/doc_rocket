@@ -1,4 +1,4 @@
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Zap, Plus, Trash2, Edit2, Upload, Link } from "lucide-react"
@@ -210,6 +210,16 @@ function ImportSkillDialog({
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [mode, setMode] = useState<ImportMode>("content")
 
+  // Focus URL input when switching to URL mode (works around Radix Dialog focus trap)
+  useEffect(() => {
+    if (mode === "url") {
+      const t = setTimeout(() => {
+        document.getElementById("skill-import-url-input")?.focus()
+      }, 30)
+      return () => clearTimeout(t)
+    }
+  }, [mode])
+
   const contentForm = useForm<ImportContentFormValues>({
     resolver: zodResolver(importContentSchema),
     defaultValues: { content: "" },
@@ -325,7 +335,7 @@ function ImportSkillDialog({
                   <FormItem>
                     <FormLabel>SKILL.md URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <Input id="skill-import-url-input" placeholder="https://..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

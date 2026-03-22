@@ -8,6 +8,7 @@ from app.models import (
     ArticleAnalysis,
     Draft,
     Item,
+    LLMModelConfig,
     Skill,
     Source,
     SystemConfig,
@@ -28,6 +29,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             Source,
             Article,
             ArticleAnalysis,
+            LLMModelConfig,
             AgentConfig,
             WorkflowRun,
             Draft,
@@ -78,17 +80,12 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
         from app.core.agents.reviewer import DEFAULT_SYSTEM as REVIEWER_DEFAULT
         from app.core.agents.writer import DEFAULT_SYSTEM as WRITER_DEFAULT
 
-        default_provider = config.writing.default_model_provider
-        default_model = config.writing.default_model_id
-
         defaults = [
             AgentConfig(
                 name="Writer",
                 role="writer",
                 responsibilities="根据参考文章的分析结果撰写初稿，融合多篇文章的风格与结构",
                 system_prompt=WRITER_DEFAULT,
-                model_provider=default_provider,
-                model_id=default_model,
                 workflow_order=1,
             ),
             AgentConfig(
@@ -96,8 +93,6 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
                 role="editor",
                 responsibilities="对初稿进行润色、去AI味处理，并生成3个标题候选",
                 system_prompt=EDITOR_DEFAULT,
-                model_provider=default_provider,
-                model_id=default_model,
                 workflow_order=2,
             ),
             AgentConfig(
@@ -105,8 +100,6 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
                 role="reviewer",
                 responsibilities="对终稿进行事实核查、法律风险和格式问题审查",
                 system_prompt=REVIEWER_DEFAULT,
-                model_provider=default_provider,
-                model_id=default_model,
                 workflow_order=3,
             ),
         ]
