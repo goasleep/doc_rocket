@@ -20,15 +20,10 @@ export const AgentConfigCreateSchema = {
             title: 'System Prompt',
             default: ''
         },
-        model_provider: {
+        model_config_name: {
             type: 'string',
-            title: 'Model Provider',
-            default: 'kimi'
-        },
-        model_id: {
-            type: 'string',
-            title: 'Model Id',
-            default: 'moonshot-v1-32k'
+            title: 'Model Config Name',
+            default: ''
         },
         workflow_order: {
             type: 'integer',
@@ -39,6 +34,25 @@ export const AgentConfigCreateSchema = {
             type: 'boolean',
             title: 'Is Active',
             default: true
+        },
+        skills: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Skills'
+        },
+        tools: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Tools'
+        },
+        max_iterations: {
+            type: 'integer',
+            title: 'Max Iterations',
+            default: 5
         }
     },
     type: 'object',
@@ -69,13 +83,9 @@ export const AgentConfigPublicSchema = {
             type: 'string',
             title: 'System Prompt'
         },
-        model_provider: {
+        model_config_name: {
             type: 'string',
-            title: 'Model Provider'
-        },
-        model_id: {
-            type: 'string',
-            title: 'Model Id'
+            title: 'Model Config Name'
         },
         workflow_order: {
             type: 'integer',
@@ -85,6 +95,24 @@ export const AgentConfigPublicSchema = {
             type: 'boolean',
             title: 'Is Active'
         },
+        skills: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Skills'
+        },
+        tools: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Tools'
+        },
+        max_iterations: {
+            type: 'integer',
+            title: 'Max Iterations'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -92,7 +120,7 @@ export const AgentConfigPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_provider', 'model_id', 'workflow_order', 'is_active', 'created_at'],
+    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_config_name', 'workflow_order', 'is_active', 'skills', 'tools', 'max_iterations', 'created_at'],
     title: 'AgentConfigPublic'
 } as const;
 
@@ -142,7 +170,7 @@ export const AgentConfigUpdateSchema = {
             ],
             title: 'System Prompt'
         },
-        model_provider: {
+        model_config_name: {
             anyOf: [
                 {
                     type: 'string'
@@ -151,18 +179,7 @@ export const AgentConfigUpdateSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Model Provider'
-        },
-        model_id: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Model Id'
+            title: 'Model Config Name'
         },
         workflow_order: {
             anyOf: [
@@ -185,6 +202,45 @@ export const AgentConfigUpdateSchema = {
                 }
             ],
             title: 'Is Active'
+        },
+        skills: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Skills'
+        },
+        tools: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tools'
+        },
+        max_iterations: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Max Iterations'
         }
     },
     type: 'object',
@@ -293,6 +349,33 @@ export const AgentStepSchema = {
                 }
             ],
             title: 'Ended At'
+        },
+        messages: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Messages'
+        },
+        tools_used: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Tools Used'
+        },
+        skills_activated: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Skills Activated'
+        },
+        iteration_count: {
+            type: 'integer',
+            title: 'Iteration Count',
+            default: 0
         }
     },
     type: 'object',
@@ -1082,6 +1165,204 @@ export const ItemsPublicSchema = {
     title: 'ItemsPublic'
 } as const;
 
+export const LLMModelConfigCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        provider_type: {
+            type: 'string',
+            enum: ['openai_compatible', 'kimi'],
+            title: 'Provider Type',
+            default: 'kimi'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key'
+        },
+        model_id: {
+            type: 'string',
+            title: 'Model Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active',
+            default: true
+        }
+    },
+    type: 'object',
+    required: ['name', 'model_id'],
+    title: 'LLMModelConfigCreate'
+} as const;
+
+export const LLMModelConfigPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        provider_type: {
+            type: 'string',
+            title: 'Provider Type'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key_masked: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key Masked'
+        },
+        model_id: {
+            type: 'string',
+            title: 'Model Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'provider_type', 'base_url', 'api_key_masked', 'model_id', 'is_active', 'created_at'],
+    title: 'LLMModelConfigPublic'
+} as const;
+
+export const LLMModelConfigUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        provider_type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    enum: ['openai_compatible', 'kimi']
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Provider Type'
+        },
+        base_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Base Url'
+        },
+        api_key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Api Key'
+        },
+        model_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Model Id'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'LLMModelConfigUpdate'
+} as const;
+
+export const LLMModelConfigsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/LLMModelConfigPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'LLMModelConfigsPublic'
+} as const;
+
 export const LLMProviderPublicSchema = {
     properties: {
         api_key_masked: {
@@ -1102,8 +1383,7 @@ export const LLMProviderPublicSchema = {
     },
     type: 'object',
     required: ['default_model'],
-    title: 'LLMProviderPublic',
-    description: 'API key is masked in responses.'
+    title: 'LLMProviderPublic'
 } as const;
 
 export const LLMProvidersPublicSchema = {
@@ -1150,6 +1430,18 @@ export const ModelDefaultsSchema = {
     },
     type: 'object',
     title: 'ModelDefaults'
+} as const;
+
+export const OrchestratorConfigSchema = {
+    properties: {
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'OrchestratorConfig'
 } as const;
 
 export const PrivateUserCreateSchema = {
@@ -1233,6 +1525,32 @@ export const RewriteSectionResponseSchema = {
     title: 'RewriteSectionResponse'
 } as const;
 
+export const RoutingEventSchema = {
+    properties: {
+        timestamp: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Timestamp'
+        },
+        from_agent: {
+            type: 'string',
+            title: 'From Agent'
+        },
+        to_agent: {
+            type: 'string',
+            title: 'To Agent'
+        },
+        reason: {
+            type: 'string',
+            title: 'Reason',
+            default: ''
+        }
+    },
+    type: 'object',
+    required: ['from_agent', 'to_agent'],
+    title: 'RoutingEvent'
+} as const;
+
 export const SchedulerConfigSchema = {
     properties: {
         default_interval_minutes: {
@@ -1248,6 +1566,274 @@ export const SchedulerConfigSchema = {
     },
     type: 'object',
     title: 'SchedulerConfig'
+} as const;
+
+export const SearchConfigSchema = {
+    properties: {
+        tavily_api_key: {
+            type: 'string',
+            title: 'Tavily Api Key',
+            default: ''
+        }
+    },
+    type: 'object',
+    title: 'SearchConfig'
+} as const;
+
+export const SkillCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            type: 'string',
+            title: 'Description',
+            default: ''
+        },
+        body: {
+            type: 'string',
+            title: 'Body',
+            default: ''
+        },
+        scripts: {
+            items: {
+                '$ref': '#/components/schemas/SkillScript'
+            },
+            type: 'array',
+            title: 'Scripts'
+        },
+        needs_network: {
+            type: 'boolean',
+            title: 'Needs Network',
+            default: false
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active',
+            default: true
+        },
+        source: {
+            type: 'string',
+            enum: ['imported', 'user'],
+            title: 'Source',
+            default: 'user'
+        },
+        imported_from: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Imported From'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'SkillCreate'
+} as const;
+
+export const SkillImportBodySchema = {
+    properties: {
+        content: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Content'
+        },
+        url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Url'
+        }
+    },
+    type: 'object',
+    title: 'SkillImportBody'
+} as const;
+
+export const SkillPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        body: {
+            type: 'string',
+            title: 'Body'
+        },
+        scripts: {
+            items: {
+                '$ref': '#/components/schemas/SkillScript'
+            },
+            type: 'array',
+            title: 'Scripts'
+        },
+        needs_network: {
+            type: 'boolean',
+            title: 'Needs Network'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        source: {
+            type: 'string',
+            title: 'Source'
+        },
+        imported_from: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Imported From'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'description', 'body', 'scripts', 'needs_network', 'is_active', 'source', 'imported_from', 'created_at', 'updated_at'],
+    title: 'SkillPublic'
+} as const;
+
+export const SkillScriptSchema = {
+    properties: {
+        filename: {
+            type: 'string',
+            title: 'Filename'
+        },
+        content: {
+            type: 'string',
+            title: 'Content'
+        },
+        language: {
+            type: 'string',
+            title: 'Language',
+            default: 'python'
+        }
+    },
+    type: 'object',
+    required: ['filename', 'content'],
+    title: 'SkillScript',
+    description: 'A script bundled with a skill.'
+} as const;
+
+export const SkillUpdateSchema = {
+    properties: {
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        body: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Body'
+        },
+        scripts: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/SkillScript'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Scripts'
+        },
+        needs_network: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Needs Network'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'SkillUpdate'
+} as const;
+
+export const SkillsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/SkillPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'SkillsPublic'
 } as const;
 
 export const SourceCreateSchema = {
@@ -1534,10 +2120,16 @@ export const SystemConfigPublicSchema = {
         },
         writing: {
             '$ref': '#/components/schemas/ModelDefaults'
+        },
+        search: {
+            '$ref': '#/components/schemas/SearchConfig'
+        },
+        orchestrator: {
+            '$ref': '#/components/schemas/OrchestratorConfig'
         }
     },
     type: 'object',
-    required: ['llm_providers', 'scheduler', 'analysis', 'writing'],
+    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator'],
     title: 'SystemConfigPublic'
 } as const;
 
@@ -1605,10 +2197,152 @@ export const SystemConfigUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        search: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/SearchConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        orchestrator: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/OrchestratorConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     title: 'SystemConfigUpdate'
+} as const;
+
+export const ToolPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        parameters_schema: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Parameters Schema'
+        },
+        executor: {
+            type: 'string',
+            title: 'Executor'
+        },
+        function_name: {
+            type: 'string',
+            title: 'Function Name'
+        },
+        is_builtin: {
+            type: 'boolean',
+            title: 'Is Builtin'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        category: {
+            type: 'string',
+            title: 'Category'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'description', 'parameters_schema', 'executor', 'function_name', 'is_builtin', 'is_active', 'category', 'created_at'],
+    title: 'ToolPublic'
+} as const;
+
+export const ToolUpdateSchema = {
+    properties: {
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        },
+        category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Category'
+        },
+        parameters_schema: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parameters Schema'
+        }
+    },
+    type: 'object',
+    title: 'ToolUpdate'
+} as const;
+
+export const ToolsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ToolPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ToolsPublic'
 } as const;
 
 export const TriggerAnalysisRequestSchema = {
@@ -2077,10 +2811,25 @@ export const WorkflowRunPublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Created At'
+        },
+        use_orchestrator: {
+            type: 'boolean',
+            title: 'Use Orchestrator'
+        },
+        routing_log: {
+            items: {
+                '$ref': '#/components/schemas/RoutingEvent'
+            },
+            type: 'array',
+            title: 'Routing Log'
+        },
+        iteration_count: {
+            type: 'integer',
+            title: 'Iteration Count'
         }
     },
     type: 'object',
-    required: ['id', 'type', 'input', 'status', 'steps', 'parent_run_id', 'user_feedback', 'final_output', 'created_by', 'created_at'],
+    required: ['id', 'type', 'input', 'status', 'steps', 'parent_run_id', 'user_feedback', 'final_output', 'created_by', 'created_at', 'use_orchestrator', 'routing_log', 'iteration_count'],
     title: 'WorkflowRunPublic'
 } as const;
 

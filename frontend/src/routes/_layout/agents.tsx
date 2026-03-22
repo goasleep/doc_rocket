@@ -1,23 +1,25 @@
 import { useState } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bot, Plus, Trash2, Edit2 } from "lucide-react"
+import { Bot, Plus, Trash2, Edit2, Search } from "lucide-react"
 import { Suspense } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 
-import { AgentsService, type AgentConfigPublic } from "@/client"
+import { AgentsService, LlmModelConfigsService, SkillsService, type AgentConfigPublic } from "@/client"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from "@/components/ui/sheet"
 import {
   Form,
   FormControl,
@@ -48,20 +50,14 @@ const agentSchema = z.object({
   role: z.enum(["writer", "editor", "reviewer", "custom"]),
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
-  model_provider: z.enum(["kimi", "claude", "openai"]),
-  model_id: z.string().min(1, "模型 ID 不能为空"),
+  model_config_name: z.string(),
   workflow_order: z.number().min(0),
+  skills: z.array(z.string()),
 })
 
 type AgentFormValues = z.infer<typeof agentSchema>
 
-const MODEL_PRESETS: Record<string, string> = {
-  kimi: "moonshot-v1-32k",
-  claude: "claude-sonnet-4-6",
-  openai: "gpt-4o",
-}
-
-function AgentFormDialog({
+function AgentFormSheet({
   open,
   onOpenChange,
   initialData,
@@ -73,6 +69,7 @@ function AgentFormDialog({
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const isEdit = !!initialData
+  const [skillSearch, setSkillSearch] = useState("")
 
   const form = useForm<AgentFormValues>({
     resolver: zodResolver(agentSchema),
@@ -82,27 +79,34 @@ function AgentFormDialog({
           role: initialData.role as AgentFormValues["role"],
           responsibilities: initialData.responsibilities,
           system_prompt: initialData.system_prompt,
-          model_provider: initialData.model_provider as AgentFormValues["model_provider"],
-          model_id: initialData.model_id,
+          model_config_name: initialData.model_config_name ?? "",
           workflow_order: initialData.workflow_order,
+          skills: initialData.skills ?? [],
         }
       : {
           role: "writer",
-          model_provider: "kimi",
-          model_id: "moonshot-v1-32k",
+          model_config_name: "",
           workflow_order: 0,
+          skills: [],
         },
   })
 
-  const provider = form.watch("model_provider")
+  const selectedSkills = form.watch("skills")
 
-  // Auto-fill model_id when provider changes
-  const handleProviderChange = (v: string) => {
-    form.setValue("model_provider", v as AgentFormValues["model_provider"])
-    if (!form.getValues("model_id") || Object.values(MODEL_PRESETS).includes(form.getValues("model_id"))) {
-      form.setValue("model_id", MODEL_PRESETS[v] ?? "")
-    }
-  }
+  const { data: skillsData } = useQuery({
+    queryKey: ["skills"],
+    queryFn: () => SkillsService.listSkills(),
+  })
+
+  const { data: modelConfigsData } = useQuery({
+    queryKey: ["llm-model-configs"],
+    queryFn: () => LlmModelConfigsService.listLlmModelConfigs(),
+  })
+
+  const filteredSkills = skillsData?.data.filter((s) =>
+    s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
+    (s.description ?? "").toLowerCase().includes(skillSearch.toLowerCase())
+  ) ?? []
 
   const createMutation = useMutation({
     mutationFn: (data: AgentFormValues) =>
@@ -134,13 +138,13 @@ function AgentFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "编辑 Agent" : "新建 Agent"}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{isEdit ? "编辑 Agent" : "新建 Agent"}</SheetTitle>
+        </SheetHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 mt-6 pb-6">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control as any}
@@ -212,41 +216,37 @@ function AgentFormDialog({
               )}
             />
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control as any}
-                name="model_provider"
+                name="model_config_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>模型提供商</FormLabel>
-                    <Select
-                      onValueChange={handleProviderChange}
-                      defaultValue={field.value}
-                    >
+                    <FormLabel>模型配置</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="选择模型配置..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
-                        <SelectItem value="claude">Claude (Anthropic)</SelectItem>
-                        <SelectItem value="openai">OpenAI</SelectItem>
+                        {modelConfigsData?.data
+                          .filter((c) => c.is_active && c.api_key_masked)
+                          .map((c) => (
+                            <SelectItem key={c.id} value={c.name}>
+                              {c.name}
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({c.model_id})
+                              </span>
+                            </SelectItem>
+                          ))}
+                        {(!modelConfigsData || modelConfigsData.count === 0) && (
+                          <SelectItem value="" disabled>
+                            请先在"模型配置"页面添加配置
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control as any}
-                name="model_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>模型 ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder={MODEL_PRESETS[provider] ?? ""} {...field} />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -266,18 +266,70 @@ function AgentFormDialog({
               />
             </div>
 
-            <DialogFooter>
+            {/* Skills selector with search */}
+            {skillsData && skillsData.count > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">关联技能</p>
+                  {selectedSkills.length > 0 && (
+                    <span className="text-xs text-muted-foreground">已选 {selectedSkills.length} 个</span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="搜索技能..."
+                    value={skillSearch}
+                    onChange={(e) => setSkillSearch(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                  />
+                </div>
+                <div className="rounded-md border max-h-48 overflow-y-auto">
+                  {filteredSkills.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-3 text-center">无匹配技能</p>
+                  ) : (
+                    filteredSkills.map((skill) => (
+                      <label
+                        key={skill.name}
+                        className="flex items-start gap-2.5 px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={selectedSkills.includes(skill.name)}
+                          onCheckedChange={(checked) => {
+                            const current = form.getValues("skills")
+                            if (checked) {
+                              form.setValue("skills", [...current, skill.name])
+                            } else {
+                              form.setValue("skills", current.filter((s) => s !== skill.name))
+                            }
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-tight">{skill.name}</p>
+                          {skill.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{skill.description}</p>
+                          )}
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            <SheetFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 取消
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "保存中..." : "保存"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -316,8 +368,10 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
                 <StatusBadge status={agent.is_active ? "active" : "inactive"} />
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                #{agent.workflow_order} · {ROLE_LABEL[agent.role] ?? agent.role} ·{" "}
-                {agent.model_provider}/{agent.model_id}
+                #{agent.workflow_order} · {ROLE_LABEL[agent.role] ?? agent.role}
+                {agent.model_config_name && (
+                  <> · <span className="font-mono">{agent.model_config_name}</span></>
+                )}
               </div>
             </div>
             <div className="flex gap-1">
@@ -338,13 +392,20 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">{agent.responsibilities}</p>
+          {agent.skills && agent.skills.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {agent.skills.map((s) => (
+                <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+              ))}
+            </div>
+          )}
           <div className="text-xs bg-muted p-2 rounded font-mono truncate">
             {agent.system_prompt.slice(0, 100)}
             {agent.system_prompt.length > 100 && "..."}
           </div>
         </CardContent>
       </Card>
-      <AgentFormDialog open={editOpen} onOpenChange={setEditOpen} initialData={agent} />
+      <AgentFormSheet open={editOpen} onOpenChange={setEditOpen} initialData={agent} />
     </>
   )
 }
@@ -398,7 +459,7 @@ function Agents() {
       >
         <AgentsContent />
       </Suspense>
-      <AgentFormDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <AgentFormSheet open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }

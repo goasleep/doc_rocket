@@ -21,8 +21,7 @@ async def test_create_agent(
             "role": "custom",
             "responsibilities": "自定义职责",
             "system_prompt": "你是一个自定义助手。",
-            "model_provider": "kimi",
-            "model_id": "moonshot-v1-32k",
+            "model_config_name": "my-model",
             "workflow_order": 5,
         },
         headers=normal_user_token_headers,
@@ -31,6 +30,7 @@ async def test_create_agent(
     data = r.json()
     assert data["name"] == "Custom Agent"
     assert data["role"] == "custom"
+    assert data["model_config_name"] == "my-model"
 
 
 @pytest.mark.anyio

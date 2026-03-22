@@ -18,8 +18,10 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutWorkflowRouteImport } from './routes/_layout/workflow'
 import { Route as LayoutSubmitRouteImport } from './routes/_layout/submit'
 import { Route as LayoutSourcesRouteImport } from './routes/_layout/sources'
+import { Route as LayoutSkillsRouteImport } from './routes/_layout/skills'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutPromptsRouteImport } from './routes/_layout/prompts'
+import { Route as LayoutLlmModelsRouteImport } from './routes/_layout/llm-models'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutAgentsRouteImport } from './routes/_layout/agents'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
@@ -72,6 +74,11 @@ const LayoutSourcesRoute = LayoutSourcesRouteImport.update({
   path: '/sources',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSkillsRoute = LayoutSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -80,6 +87,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
 const LayoutPromptsRoute = LayoutPromptsRouteImport.update({
   id: '/prompts',
   path: '/prompts',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLlmModelsRoute = LayoutLlmModelsRouteImport.update({
+  id: '/llm-models',
+  path: '/llm-models',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
@@ -127,8 +139,10 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
+  '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
   '/workflow': typeof LayoutWorkflowRoute
@@ -145,8 +159,10 @@ export interface FileRoutesByTo {
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
   '/items': typeof LayoutItemsRoute
+  '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
   '/workflow': typeof LayoutWorkflowRoute
@@ -166,8 +182,10 @@ export interface FileRoutesById {
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/agents': typeof LayoutAgentsRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/llm-models': typeof LayoutLlmModelsRoute
   '/_layout/prompts': typeof LayoutPromptsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/skills': typeof LayoutSkillsRoute
   '/_layout/sources': typeof LayoutSourcesRoute
   '/_layout/submit': typeof LayoutSubmitRoute
   '/_layout/workflow': typeof LayoutWorkflowRoute
@@ -188,8 +206,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/items'
+    | '/llm-models'
     | '/prompts'
     | '/settings'
+    | '/skills'
     | '/sources'
     | '/submit'
     | '/workflow'
@@ -206,8 +226,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/items'
+    | '/llm-models'
     | '/prompts'
     | '/settings'
+    | '/skills'
     | '/sources'
     | '/submit'
     | '/workflow'
@@ -226,8 +248,10 @@ export interface FileRouteTypes {
     | '/_layout/admin'
     | '/_layout/agents'
     | '/_layout/items'
+    | '/_layout/llm-models'
     | '/_layout/prompts'
     | '/_layout/settings'
+    | '/_layout/skills'
     | '/_layout/sources'
     | '/_layout/submit'
     | '/_layout/workflow'
@@ -311,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSourcesRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/skills': {
+      id: '/_layout/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof LayoutSkillsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
@@ -323,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/prompts'
       fullPath: '/prompts'
       preLoaderRoute: typeof LayoutPromptsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/llm-models': {
+      id: '/_layout/llm-models'
+      path: '/llm-models'
+      fullPath: '/llm-models'
+      preLoaderRoute: typeof LayoutLlmModelsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/items': {
@@ -381,8 +419,10 @@ interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutAgentsRoute: typeof LayoutAgentsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutLlmModelsRoute: typeof LayoutLlmModelsRoute
   LayoutPromptsRoute: typeof LayoutPromptsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSkillsRoute: typeof LayoutSkillsRoute
   LayoutSourcesRoute: typeof LayoutSourcesRoute
   LayoutSubmitRoute: typeof LayoutSubmitRoute
   LayoutWorkflowRoute: typeof LayoutWorkflowRoute
@@ -397,8 +437,10 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutAgentsRoute: LayoutAgentsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutLlmModelsRoute: LayoutLlmModelsRoute,
   LayoutPromptsRoute: LayoutPromptsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSkillsRoute: LayoutSkillsRoute,
   LayoutSourcesRoute: LayoutSourcesRoute,
   LayoutSubmitRoute: LayoutSubmitRoute,
   LayoutWorkflowRoute: LayoutWorkflowRoute,

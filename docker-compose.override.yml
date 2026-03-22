@@ -48,7 +48,7 @@ services:
   mongodb:
     restart: "no"
     ports:
-      - "27017:27017"
+      - "27019:27017"
 
   backend:
     restart: "no"
@@ -82,11 +82,23 @@ services:
       SMTP_TLS: "false"
       EMAILS_FROM_EMAIL: "noreply@example.com"
 
+  celery-worker:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+  celery-beat:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
   mailcatcher:
     image: schickling/mailcatcher
     ports:
-      - "1080:1080"
-      - "1025:1025"
+      - "1081:1080"
+      - "1026:1025"
 
   frontend:
     restart: "no"
@@ -96,7 +108,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        - VITE_API_URL=http://localhost:8000
+        - VITE_API_URL=http://100.121.41.112:8000
         - NODE_ENV=development
 
   playwright:

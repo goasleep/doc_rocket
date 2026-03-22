@@ -36,7 +36,8 @@ class EditorAgent(BaseAgent):
                 ),
             },
         ]
-        raw = await llm.chat(messages, response_format={"type": "json_object"})
+        chat_response = await llm.chat(messages, response_format={"type": "json_object"})
+        raw = chat_response.content or ""
 
         # Validate and ensure title_candidates has exactly 3 entries
         try:
@@ -49,7 +50,7 @@ class EditorAgent(BaseAgent):
             return json.dumps(data, ensure_ascii=False)
         except json.JSONDecodeError:
             # Extract JSON block if wrapped in markdown
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
+            match = re.search(r"\{.*\}", raw, re.DOTALL)  # type: ignore[arg-type]
             if match:
                 return match.group()
             # Fallback: wrap raw content

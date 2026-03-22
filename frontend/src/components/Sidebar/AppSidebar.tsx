@@ -1,5 +1,4 @@
 import {
-  Briefcase,
   Home,
   Users,
   Rss,
@@ -8,8 +7,9 @@ import {
   Bot,
   Workflow,
   FileText,
-  FileCode,
   Settings,
+  Zap,
+  KeyRound,
 } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
@@ -26,15 +26,15 @@ import { User } from "./User"
 
 const baseItems: Item[] = [
   { icon: Home, title: "Dashboard", path: "/" },
-  { icon: Briefcase, title: "Items", path: "/items" },
 ]
 
 const contentItems: Item[] = [
   { icon: Rss, title: "订阅源", path: "/sources" },
   { icon: UploadCloud, title: "手动投稿", path: "/submit" },
   { icon: BookOpen, title: "文章库", path: "/articles" },
+  { icon: KeyRound, title: "模型配置", path: "/llm-models" },
   { icon: Bot, title: "Agent 配置", path: "/agents" },
-  { icon: FileCode, title: "Prompt 模板", path: "/prompts" },
+  { icon: Zap, title: "技能库", path: "/skills" },
   { icon: Workflow, title: "工作流", path: "/workflow" },
   { icon: FileText, title: "仿写稿件", path: "/drafts" },
   { icon: Settings, title: "系统设置", path: "/settings" },

@@ -1,5 +1,6 @@
 """Abstract base class for LLM clients."""
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -11,6 +12,21 @@ class LLMProviderNotConfiguredError(Exception):
         self.provider = provider
 
 
+@dataclass
+class ToolCall:
+    """Represents a single tool call returned by the LLM."""
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass
+class ChatResponse:
+    """Unified response from any LLM client."""
+    content: str | None = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+
 class LLMClient(ABC):
     """Unified interface for all LLM providers."""
 
@@ -20,7 +36,8 @@ class LLMClient(ABC):
         messages: list[dict[str, Any]],
         model: str | None = None,
         response_format: dict[str, str] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> str:
-        """Send a chat completion request and return the response text."""
+    ) -> ChatResponse:
+        """Send a chat completion request and return a ChatResponse."""
         ...

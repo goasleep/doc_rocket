@@ -70,6 +70,9 @@ async def create_source(current_user: CurrentUser, body: SourceCreate) -> Any:
     source = Source(**body.model_dump())
     await source.insert()
     _update_redbeat(source, "create")
+    # Trigger an immediate first fetch so the source is populated right away
+    from app.tasks.fetch import fetch_source_task
+    fetch_source_task.delay(str(source.id))
     return source
 
 

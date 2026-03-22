@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { BookOpen, Trash2 } from "lucide-react"
+import { BookOpen, FlaskConical, Trash2 } from "lucide-react"
 import { Suspense } from "react"
 
-import { ArticlesService, WorkflowsService, type ArticlePublic } from "@/client"
+import { ArticlesService, AnalysesService, SourcesService, WorkflowsService, type ArticlePublic } from "@/client"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -34,6 +34,25 @@ function ArticlesTableContent() {
   const { data } = useSuspenseQuery({
     queryKey: ["articles"],
     queryFn: () => ArticlesService.listArticles({ skip: 0, limit: 200 }),
+  })
+
+  const { data: sourcesData } = useQuery({
+    queryKey: ["sources"],
+    queryFn: () => SourcesService.listSources({ skip: 0, limit: 200 }),
+  })
+
+  const sourceMap = new Map(
+    sourcesData?.data.map((s) => [s.id, s.name]) ?? []
+  )
+
+  const analyzeMutation = useMutation({
+    mutationFn: (articleId: string) =>
+      AnalysesService.triggerAnalysis({ requestBody: { article_id: articleId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      showSuccessToast("分析任务已触发")
+    },
+    onError: () => showErrorToast("触发失败"),
   })
 
   const archiveMutation = useMutation({
@@ -158,26 +177,48 @@ function ArticlesTableContent() {
                   <span className="text-muted-foreground text-sm">—</span>
                 )}
               </TableCell>
-              <TableCell>
-                <span className="text-xs uppercase bg-muted px-1.5 py-0.5 rounded font-mono">
-                  {article.input_type}
-                </span>
-              </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                {new Date(article.created_at).toLocaleDateString("zh-CN")}
+                {article.source_id && sourceMap.has(article.source_id)
+                  ? sourceMap.get(article.source_id)
+                  : article.input_type === "manual"
+                  ? "手动投稿"
+                  : article.input_type}
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                {new Date(article.created_at).toLocaleString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
               </TableCell>
               <TableCell>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    if (confirm("确认归档此文章？"))
-                      archiveMutation.mutate(article.id)
-                  }}
-                  disabled={archiveMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {article.status === "raw" && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="分析"
+                      onClick={() => analyzeMutation.mutate(article.id)}
+                      disabled={analyzeMutation.isPending}
+                    >
+                      <FlaskConical className="h-4 w-4 text-amber-500" />
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      if (confirm("确认归档此文章？"))
+                        archiveMutation.mutate(article.id)
+                    }}
+                    disabled={archiveMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -12,13 +12,15 @@ def get_datetime_utc() -> datetime:
 class AgentConfig(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     name: str
-    role: str  # writer | editor | reviewer | custom
+    role: str  # writer | editor | reviewer | orchestrator | custom
     responsibilities: str = ""
     system_prompt: str = ""
-    model_provider: str = "kimi"  # kimi | claude | openai
-    model_id: str = "moonshot-v1-32k"
+    model_config_name: str = ""
     workflow_order: int = 1
     is_active: bool = True
+    skills: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
+    max_iterations: int = 5
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -30,10 +32,12 @@ class AgentConfigCreate(BaseModel):
     role: str
     responsibilities: str = ""
     system_prompt: str = ""
-    model_provider: str = "kimi"
-    model_id: str = "moonshot-v1-32k"
+    model_config_name: str = ""
     workflow_order: int = 1
     is_active: bool = True
+    skills: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
+    max_iterations: int = 5
 
 
 class AgentConfigUpdate(BaseModel):
@@ -41,10 +45,12 @@ class AgentConfigUpdate(BaseModel):
     role: str | None = None
     responsibilities: str | None = None
     system_prompt: str | None = None
-    model_provider: str | None = None
-    model_id: str | None = None
+    model_config_name: str | None = None
     workflow_order: int | None = None
     is_active: bool | None = None
+    skills: list[str] | None = None
+    tools: list[str] | None = None
+    max_iterations: int | None = None
 
 
 class AgentConfigPublic(BaseModel):
@@ -54,10 +60,12 @@ class AgentConfigPublic(BaseModel):
     role: str
     responsibilities: str
     system_prompt: str
-    model_provider: str
-    model_id: str
+    model_config_name: str
     workflow_order: int
     is_active: bool
+    skills: list[str]
+    tools: list[str]
+    max_iterations: int
     created_at: datetime
 
 
