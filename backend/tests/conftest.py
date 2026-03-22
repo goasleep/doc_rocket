@@ -13,6 +13,7 @@ from app.models import (
     Article,
     ArticleAnalysis,
     AgentConfig,
+    TaskRun,
     WorkflowRun,
     Draft,
     SystemConfig,
@@ -43,6 +44,7 @@ async def db() -> AsyncGenerator[None, None]:
     await Draft.delete_all()
     await SystemConfig.delete_all()
     await LLMModelConfig.delete_all()
+    await TaskRun.delete_all()
     client.close()
 
 

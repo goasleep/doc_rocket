@@ -1,12 +1,12 @@
 """Article analysis routes."""
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
-from app.models import AnalysesPublic, Article, ArticleAnalysis, ArticleAnalysisPublic, Message
+from app.models import AnalysesPublic, Article, ArticleAnalysis, ArticleAnalysisPublic, Message, TaskRun
 from app.tasks.analyze import analyze_article_task
 
 router = APIRouter(prefix="/analyses", tags=["analyses"])
@@ -14,6 +14,8 @@ router = APIRouter(prefix="/analyses", tags=["analyses"])
 
 class TriggerAnalysisRequest(BaseModel):
     article_id: uuid.UUID
+    triggered_by: Literal["manual", "agent"] = "manual"
+    triggered_by_label: str | None = None
 
 
 class TriggerAnalysisResponse(BaseModel):
@@ -54,10 +56,25 @@ async def trigger_analysis(current_user: CurrentUser, body: TriggerAnalysisReque
     article.status = "raw"
     await article.save()
 
-    analyze_article_task.apply_async(
+    # Create TaskRun before enqueuing
+    task_run = TaskRun(
+        task_type="analyze",
+        triggered_by=body.triggered_by,
+        triggered_by_label=body.triggered_by_label,
+        entity_type="article",
+        entity_id=article.id,
+        entity_name=article.title,
+        status="pending",
+    )
+    await task_run.insert()
+
+    result = analyze_article_task.apply_async(
         args=[str(article.id)],
+        kwargs={"task_run_id": str(task_run.id)},
         task_id=f"analyze_{article.id}",
     )
+    task_run.celery_task_id = result.id
+    await task_run.save()
 
     return TriggerAnalysisResponse(
         message="Analysis task enqueued",

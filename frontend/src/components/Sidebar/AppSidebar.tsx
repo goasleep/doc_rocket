@@ -10,6 +10,7 @@ import {
   Settings,
   Zap,
   KeyRound,
+  ListTodo,
 } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
@@ -36,6 +37,7 @@ const contentItems: Item[] = [
   { icon: Bot, title: "Agent 配置", path: "/agents" },
   { icon: Zap, title: "技能库", path: "/skills" },
   { icon: Workflow, title: "工作流", path: "/workflow" },
+  { icon: ListTodo, title: "任务中心", path: "/tasks" },
   { icon: FileText, title: "仿写稿件", path: "/drafts" },
   { icon: Settings, title: "系统设置", path: "/settings" },
 ]
