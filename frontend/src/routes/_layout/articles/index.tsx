@@ -8,6 +8,14 @@ import { ArticlesService, AnalysesService, SourcesService, WorkflowsService, typ
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -30,6 +38,9 @@ function ArticlesTableContent() {
   const navigate = useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState("")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterSource, setFilterSource] = useState<string>("all")
 
   const { data } = useSuspenseQuery({
     queryKey: ["articles"],
@@ -85,11 +96,25 @@ function ArticlesTableContent() {
     })
   }
 
+  // Filter articles
+  const filtered = data.data.filter((a) => {
+    if (search.trim() && !a.title.toLowerCase().includes(search.trim().toLowerCase())) return false
+    if (filterStatus !== "all" && a.status !== filterStatus) return false
+    if (filterSource !== "all") {
+      if (filterSource === "manual") {
+        if (a.input_type !== "manual") return false
+      } else {
+        if (a.source_id !== filterSource) return false
+      }
+    }
+    return true
+  })
+
   const toggleAll = () => {
-    if (selected.size === data.data.length) {
+    if (selected.size === filtered.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(data.data.map((a) => a.id)))
+      setSelected(new Set(filtered.map((a) => a.id)))
     }
   }
 
@@ -105,123 +130,167 @@ function ArticlesTableContent() {
     )
   }
 
+  // Build source options for filter
+  const sourceOptions = sourcesData?.data ?? []
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Search + filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="搜索标题..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 w-56"
+        />
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="h-8 w-32">
+            <SelectValue placeholder="状态" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部状态</SelectItem>
+            <SelectItem value="raw">待分析</SelectItem>
+            <SelectItem value="analyzing">分析中</SelectItem>
+            <SelectItem value="analyzed">已分析</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterSource} onValueChange={setFilterSource}>
+          <SelectTrigger className="h-8 w-36">
+            <SelectValue placeholder="来源" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部来源</SelectItem>
+            <SelectItem value="manual">手动投稿</SelectItem>
+            {sourceOptions.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || filterStatus !== "all" || filterSource !== "all") && (
+          <span className="text-xs text-muted-foreground">
+            共 {filtered.length} 篇
+          </span>
+        )}
+      </div>
+
       {selected.size > 0 && (
         <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
           <span className="text-sm">已选 {selected.size} 篇</span>
           <Button
             size="sm"
-            onClick={() =>
-              triggerWorkflowMutation.mutate(Array.from(selected))
-            }
+            onClick={() => triggerWorkflowMutation.mutate(Array.from(selected))}
             disabled={triggerWorkflowMutation.isPending}
           >
             触发仿写
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSelected(new Set())}
-          >
+          <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
             取消选择
           </Button>
         </div>
       )}
+
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
-                checked={
-                  data.data.length > 0 && selected.size === data.data.length
-                }
+                checked={filtered.length > 0 && selected.size === filtered.length}
                 onCheckedChange={toggleAll}
               />
             </TableHead>
-            <TableHead>标题</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>质量分</TableHead>
-            <TableHead>来源</TableHead>
-            <TableHead>创建时间</TableHead>
-            <TableHead>操作</TableHead>
+            <TableHead className="min-w-0">标题</TableHead>
+            <TableHead className="w-24 shrink-0">状态</TableHead>
+            <TableHead className="w-16 shrink-0">质量分</TableHead>
+            <TableHead className="w-28 shrink-0">来源</TableHead>
+            <TableHead className="w-36 shrink-0">创建时间</TableHead>
+            <TableHead className="w-16 shrink-0">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.data.map((article: ArticlePublic) => (
-            <TableRow key={article.id}>
-              <TableCell>
-                <Checkbox
-                  checked={selected.has(article.id)}
-                  onCheckedChange={() => toggleSelect(article.id)}
-                />
-              </TableCell>
-              <TableCell>
-                <Link
-                  to="/articles/$id"
-                  params={{ id: article.id }}
-                  className="font-medium hover:underline line-clamp-2"
-                >
-                  {article.title}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={article.status} />
-              </TableCell>
-              <TableCell>
-                {article.quality_score != null ? (
-                  <span className="font-mono font-semibold">
-                    {article.quality_score.toFixed(0)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground text-sm">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {article.source_id && sourceMap.has(article.source_id)
-                  ? sourceMap.get(article.source_id)
-                  : article.input_type === "manual"
-                  ? "手动投稿"
-                  : article.input_type}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                {new Date(article.created_at).toLocaleString("zh-CN", {
-                  year: "numeric",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1">
-                  {article.status === "raw" && (
+          {filtered.length === 0 ? (
+            <TableRow>
+              <td colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
+                无匹配文章
+              </td>
+            </TableRow>
+          ) : (
+            filtered.map((article: ArticlePublic) => (
+              <TableRow key={article.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(article.id)}
+                    onCheckedChange={() => toggleSelect(article.id)}
+                  />
+                </TableCell>
+                <TableCell className="min-w-0">
+                  <Link
+                    to="/articles/$id"
+                    params={{ id: article.id }}
+                    className="font-medium hover:underline block truncate max-w-[280px]"
+                    title={article.title}
+                  >
+                    {article.title}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={article.status} />
+                </TableCell>
+                <TableCell>
+                  {article.quality_score != null ? (
+                    <span className="font-mono font-semibold">
+                      {article.quality_score.toFixed(0)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[112px] truncate">
+                  {article.source_id && sourceMap.has(article.source_id)
+                    ? sourceMap.get(article.source_id)
+                    : article.input_type === "manual"
+                    ? "手动投稿"
+                    : article.input_type}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(article.created_at).toLocaleString("zh-CN", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    {article.status === "raw" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="分析"
+                        onClick={() => analyzeMutation.mutate(article.id)}
+                        disabled={analyzeMutation.isPending}
+                      >
+                        <FlaskConical className="h-4 w-4 text-amber-500" />
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
-                      title="分析"
-                      onClick={() => analyzeMutation.mutate(article.id)}
-                      disabled={analyzeMutation.isPending}
+                      onClick={() => {
+                        if (confirm("确认归档此文章？"))
+                          archiveMutation.mutate(article.id)
+                      }}
+                      disabled={archiveMutation.isPending}
                     >
-                      <FlaskConical className="h-4 w-4 text-amber-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => {
-                      if (confirm("确认归档此文章？"))
-                        archiveMutation.mutate(article.id)
-                    }}
-                    disabled={archiveMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </div>

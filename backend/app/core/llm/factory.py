@@ -20,6 +20,14 @@ async def get_llm_client_by_config_name(name: str) -> LLMClient:
 
     api_key = decrypt_value(cfg.api_key_encrypted)
 
+    try:
+        api_key.encode("ascii")
+    except UnicodeEncodeError:
+        raise LLMProviderNotConfiguredError(
+            f"model config '{name}' has an invalid API key (contains non-ASCII characters). "
+            "Please update it in the model config settings."
+        )
+
     if cfg.provider_type == "kimi":
         from app.core.llm.kimi import KimiClient
         return KimiClient(api_key=api_key, default_model=cfg.model_id)

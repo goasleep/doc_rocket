@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useCallback } from "react"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Zap, Plus, Trash2, Edit2, Upload, Link } from "lucide-react"
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -460,23 +461,27 @@ function EditSkillDialog({
 // Skill row
 // ---------------------------------------------------------------------------
 
-function SkillRow({ skill }: { skill: SkillPublic }) {
-  const queryClient = useQueryClient()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
+function SkillRow({
+  skill,
+  selected,
+  onToggle,
+  onDelete,
+  deleteDisabled,
+}: {
+  skill: SkillPublic
+  selected: boolean
+  onToggle: (id: string) => void
+  onDelete: (id: string, name: string) => void
+  deleteDisabled: boolean
+}) {
   const [editOpen, setEditOpen] = useState(false)
-
-  const deleteMutation = useMutation({
-    mutationFn: () => SkillsService.deleteSkill({ skillId: skill.id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills"] })
-      showSuccessToast("技能已删除")
-    },
-    onError: () => showErrorToast("操作失败"),
-  })
 
   return (
     <>
-      <TableRow>
+      <TableRow data-state={selected ? "selected" : undefined}>
+        <TableCell>
+          <Checkbox checked={selected} onCheckedChange={() => onToggle(skill.id)} />
+        </TableCell>
         <TableCell className="font-medium">{skill.name}</TableCell>
         <TableCell className="text-muted-foreground text-sm max-w-48 truncate">
           {skill.description}
@@ -505,12 +510,8 @@ function SkillRow({ skill }: { skill: SkillPublic }) {
             <Button
               size="icon"
               variant="ghost"
-              onClick={() => {
-                if (confirm(`确认删除技能 "${skill.name}"？`)) {
-                  deleteMutation.mutate()
-                }
-              }}
-              disabled={deleteMutation.isPending}
+              onClick={() => onDelete(skill.id, skill.name)}
+              disabled={deleteDisabled}
               title="删除"
             >
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -528,10 +529,52 @@ function SkillRow({ skill }: { skill: SkillPublic }) {
 // ---------------------------------------------------------------------------
 
 function SkillsTableContent() {
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
   const { data } = useSuspenseQuery({
     queryKey: ["skills"],
     queryFn: () => SkillsService.listSkills({ skip: 0, limit: 100 }),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => SkillsService.deleteSkill({ skillId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skills"] })
+      showSuccessToast("技能已删除")
+    },
+    onError: () => showErrorToast("操作失败"),
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => SkillsService.deleteSkill({ skillId: id }))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skills"] })
+      showSuccessToast(`已删除 ${selected.size} 个技能`)
+      setSelected(new Set())
+    },
+    onError: () => showErrorToast("批量删除失败"),
+  })
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleAll = () => {
+    if (selected.size === data.data.length) setSelected(new Set())
+    else setSelected(new Set(data.data.map((s) => s.id)))
+  }
+
+  const handleDelete = useCallback((id: string, name: string) => {
+    if (confirm(`确认删除技能 "${name}"？`)) deleteMutation.mutate(id)
+  }, [deleteMutation])
 
   if (data.count === 0) {
     return (
@@ -546,23 +589,58 @@ function SkillsTableContent() {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>名称</TableHead>
-          <TableHead>描述</TableHead>
-          <TableHead>来源</TableHead>
-          <TableHead>状态</TableHead>
-          <TableHead>创建时间</TableHead>
-          <TableHead>操作</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.data.map((skill) => (
-          <SkillRow key={skill.id} skill={skill} />
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-2">
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
+          <span className="text-sm">已选 {selected.size} 个</span>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkDeleteMutation.isPending}
+            onClick={() => {
+              if (confirm(`确认删除选中的 ${selected.size} 个技能？`))
+                bulkDeleteMutation.mutate(Array.from(selected))
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            批量删除
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+            取消选择
+          </Button>
+        </div>
+      )}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={data.data.length > 0 && selected.size === data.data.length}
+                onCheckedChange={toggleAll}
+              />
+            </TableHead>
+            <TableHead>名称</TableHead>
+            <TableHead>描述</TableHead>
+            <TableHead>来源</TableHead>
+            <TableHead>状态</TableHead>
+            <TableHead>创建时间</TableHead>
+            <TableHead>操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.data.map((skill) => (
+            <SkillRow
+              key={skill.id}
+              skill={skill}
+              selected={selected.has(skill.id)}
+              onToggle={toggleSelect}
+              onDelete={handleDelete}
+              deleteDisabled={deleteMutation.isPending}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 

@@ -10,6 +10,7 @@ import { LlmModelConfigsService, type LLMModelConfigPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -277,6 +278,7 @@ function ModelFormDialog({
 function LLMModels() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<LLMModelConfigPublic | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { user } = useAuth()
@@ -297,6 +299,32 @@ function LLMModels() {
       showErrorToast(err?.body?.detail ?? "删除失败")
     },
   })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => LlmModelConfigsService.deleteLlmModelConfig({ id }))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["llm-model-configs"] })
+      showSuccessToast(`已删除 ${selected.size} 个配置`)
+      setSelected(new Set())
+    },
+    onError: () => showErrorToast("批量删除失败"),
+  })
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (!data) return
+    if (selected.size === data.data.length) setSelected(new Set())
+    else setSelected(new Set(data.data.map((c) => c.id)))
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -326,71 +354,109 @@ function LLMModels() {
           </p>
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>配置名称</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>Base URL</TableHead>
-                <TableHead>模型 ID</TableHead>
-                <TableHead>API Key</TableHead>
-                <TableHead>状态</TableHead>
-                {isSuperuser && <TableHead className="w-20">操作</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.data.map((cfg) => (
-                <TableRow key={cfg.id}>
-                  <TableCell className="font-medium">{cfg.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {PROVIDER_LABELS[cfg.provider_type] ?? cfg.provider_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground font-mono">
-                    {cfg.provider_type === "kimi"
-                      ? "https://api.moonshot.cn/v1"
-                      : cfg.base_url ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{cfg.model_id}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {cfg.api_key_masked ?? "未配置"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={cfg.is_active ? "default" : "secondary"}>
-                      {cfg.is_active ? "启用" : "停用"}
-                    </Badge>
-                  </TableCell>
+        <>
+          {isSuperuser && selected.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
+              <span className="text-sm">已选 {selected.size} 个</span>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={bulkDeleteMutation.isPending}
+                onClick={() => {
+                  if (confirm(`确认删除选中的 ${selected.size} 个配置？`))
+                    bulkDeleteMutation.mutate(Array.from(selected))
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                批量删除
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+                取消选择
+              </Button>
+            </div>
+          )}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
                   {isSuperuser && (
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditTarget(cfg)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (confirm(`确认删除配置 "${cfg.name}"？`))
-                              deleteMutation.mutate(cfg.id)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={data.data.length > 0 && selected.size === data.data.length}
+                        onCheckedChange={toggleAll}
+                      />
+                    </TableHead>
                   )}
+                  <TableHead>配置名称</TableHead>
+                  <TableHead>类型</TableHead>
+                  <TableHead>Base URL</TableHead>
+                  <TableHead>模型 ID</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>状态</TableHead>
+                  {isSuperuser && <TableHead className="w-20">操作</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {data.data.map((cfg) => (
+                  <TableRow key={cfg.id} data-state={selected.has(cfg.id) ? "selected" : undefined}>
+                    {isSuperuser && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selected.has(cfg.id)}
+                          onCheckedChange={() => toggleSelect(cfg.id)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium">{cfg.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {PROVIDER_LABELS[cfg.provider_type] ?? cfg.provider_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      {cfg.provider_type === "kimi"
+                        ? "https://api.moonshot.cn/v1"
+                        : cfg.base_url ?? "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{cfg.model_id}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {cfg.api_key_masked ?? "未配置"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={cfg.is_active ? "default" : "secondary"}>
+                        {cfg.is_active ? "启用" : "停用"}
+                      </Badge>
+                    </TableCell>
+                    {isSuperuser && (
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditTarget(cfg)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                              if (confirm(`确认删除配置 "${cfg.name}"？`))
+                                deleteMutation.mutate(cfg.id)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       {isSuperuser && (

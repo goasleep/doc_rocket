@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { z } from "zod"
-import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock, Loader2 } from "lucide-react"
+import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock, Loader2, ChevronsUpDown, X, Search } from "lucide-react"
 
 import {
   WorkflowsService,
@@ -14,9 +14,146 @@ import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useSSE } from "@/hooks/useSSE"
 import { useWorkflowPolling } from "@/hooks/useWorkflowPolling"
 import useCustomToast from "@/hooks/useCustomToast"
+
+// ─── Searchable Multi-Select ───────────────────────────────────────────────────
+
+type ArticleOption = { id: string; title: string; quality_score?: number | null }
+
+function ArticleMultiSelect({
+  options,
+  selectedIds,
+  onChange,
+}: {
+  options: ArticleOption[]
+  selectedIds: Set<string>
+  onChange: (ids: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
+  const filtered = search.trim()
+    ? options.filter((o) => o.title.toLowerCase().includes(search.trim().toLowerCase()))
+    : options
+
+  const toggle = (id: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange(next)
+  }
+
+  const clearAll = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onChange(new Set())
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+      >
+        <span className="text-muted-foreground truncate">
+          {selectedIds.size === 0
+            ? "选择素材文章（可选，可搜索）"
+            : `已选 ${selectedIds.size} 篇`}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {selectedIds.size > 0 && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={clearAll}
+              onKeyDown={(e) => e.key === "Enter" && clearAll(e as any)}
+              className="rounded-sm hover:bg-muted p-0.5"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </span>
+          )}
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </button>
+
+      {/* Selected badges */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {Array.from(selectedIds).map((id) => {
+            const opt = options.find((o) => o.id === id)
+            if (!opt) return null
+            return (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 max-w-[200px]"
+              >
+                <span className="truncate">{opt.title}</span>
+                <button type="button" onClick={() => toggle(id)} className="shrink-0 hover:opacity-70">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div className="flex items-center gap-2 px-3 py-2 border-b">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              placeholder="搜索文章..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">无匹配文章</p>
+            ) : (
+              filtered.map((opt) => (
+                <label
+                  key={opt.id}
+                  className="flex items-center gap-2.5 px-3 py-1.5 text-sm cursor-pointer hover:bg-muted"
+                >
+                  <Checkbox
+                    checked={selectedIds.has(opt.id)}
+                    onCheckedChange={() => toggle(opt.id)}
+                  />
+                  <span className="flex-1 truncate">{opt.title}</span>
+                  {opt.quality_score != null && (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {opt.quality_score.toFixed(0)}分
+                    </span>
+                  )}
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const searchSchema = z.object({
   run_id: z.string().optional(),
@@ -363,15 +500,6 @@ function NewWorkflowPanel() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const toggleId = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   const triggerMutation = useMutation({
     mutationFn: () =>
       WorkflowsService.triggerWorkflow({
@@ -400,29 +528,17 @@ function NewWorkflowPanel() {
           <p className="text-xs font-medium text-muted-foreground mb-2">
             选择素材文章（可选）
           </p>
-          <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
-            {analyzed.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                暂无已分析文章
-              </p>
-            )}
-            {analyzed.map((a) => (
-              <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted px-1 py-0.5 rounded">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(a.id)}
-                  onChange={() => toggleId(a.id)}
-                  className="rounded"
-                />
-                <span className="line-clamp-1">{a.title}</span>
-                {a.quality_score != null && (
-                  <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                    {a.quality_score.toFixed(0)}分
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
+          {analyzed.length === 0 ? (
+            <p className="text-sm text-muted-foreground border rounded px-3 py-2">
+              暂无已分析文章
+            </p>
+          ) : (
+            <ArticleMultiSelect
+              options={analyzed}
+              selectedIds={selectedIds}
+              onChange={setSelectedIds}
+            />
+          )}
         </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-1">或输入主题</p>
