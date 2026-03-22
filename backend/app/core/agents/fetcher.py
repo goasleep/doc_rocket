@@ -15,20 +15,116 @@ class FetcherAgent:
             return await self._fetch_api(source)
 
     async def fetch_url(self, url: str) -> dict[str, Any]:
-        """Fetch and extract content from a single URL."""
+        """Fetch and extract content from a single URL.
+
+        Strategy:
+        1. Try plain HTTP fetch.
+        2. Let an LLM agent judge whether the extracted content is valid.
+        3. If invalid, fall back to Playwright (headless Chromium).
+        4. Return Playwright result regardless of its validity.
+        """
         import httpx
 
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; ContentBot/1.0)"}
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            content = self._extract_text(response.text)
-
-        return {
-            "title": self._extract_title(response.text),
-            "content": content,
-            "url": url,
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            )
         }
+
+        html_text: str = ""
+        http_content: str = ""
+        http_title: str = "Untitled"
+
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                html_text = response.text
+            http_content = self._extract_text(html_text)
+            http_title = self._extract_title(html_text)
+        except Exception:
+            pass
+
+        # Agent validity check
+        if http_content and await self._is_content_valid(http_content, url):
+            return {"title": http_title, "content": http_content, "url": url}
+
+        # Fall back to Playwright
+        pw_result = await self._fetch_url_with_playwright(url)
+        return pw_result
+
+    async def _is_content_valid(self, content: str, url: str) -> bool:
+        """Ask the LLM whether the extracted text looks like real article content."""
+        # Quick heuristic: if content is shorter than 200 chars it's almost certainly invalid
+        if len(content.strip()) < 200:
+            return False
+
+        try:
+            from app.models import LLMModelConfig
+            from app.core.llm.factory import get_llm_client_by_config_name
+
+            first = await LLMModelConfig.find_one(LLMModelConfig.is_active == True)  # noqa: E712
+            if not first:
+                # No LLM configured — fall back to length heuristic only
+                return len(content.strip()) >= 500
+
+            llm = await get_llm_client_by_config_name(first.name)
+            snippet = content[:1500]
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是一个内容质量判断助手。"
+                        "判断以下文本是否包含真实的文章正文内容（而非导航栏、广告、登录提示、空白骨架页等无效内容）。"
+                        "只回复 YES 或 NO，不要解释。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"URL: {url}\n\n文本片段:\n{snippet}",
+                },
+            ]
+            resp = await llm.chat(messages)
+            answer = (resp.content or "").strip().upper()
+            return answer.startswith("YES")
+        except Exception:
+            # LLM unavailable — treat long content as valid
+            return len(content.strip()) >= 500
+
+    async def _fetch_url_with_playwright(self, url: str) -> dict[str, Any]:
+        """Render the page with headless Chromium and extract content."""
+        from playwright.async_api import async_playwright
+
+        html_text = ""
+        final_url = url
+        try:
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    executable_path="/usr/bin/chromium",
+                    args=["--no-sandbox", "--disable-setuid-sandbox"],
+                )
+                page = await browser.new_page(
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    )
+                )
+                await page.goto(url, wait_until="networkidle", timeout=30000)
+                # Give JS-heavy pages a moment to finish rendering
+                await page.wait_for_timeout(2000)
+                html_text = await page.content()
+                final_url = page.url
+                await browser.close()
+        except Exception:
+            pass
+
+        content = self._extract_text(html_text) if html_text else ""
+        title = self._extract_title(html_text) if html_text else "Untitled"
+        return {"title": title, "content": content, "url": final_url}
 
     async def _fetch_api(self, source: Any) -> list[dict[str, Any]]:
         import httpx

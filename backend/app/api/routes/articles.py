@@ -82,6 +82,21 @@ async def get_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
     )
 
 
+@router.post("/{id}/refetch", status_code=202)
+async def refetch_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
+    """Re-fetch the original URL for an existing article, bypassing duplicate checks."""
+    from app.tasks.fetch import refetch_article_task
+
+    article = await Article.find_one(Article.id == id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if not article.url:
+        raise HTTPException(status_code=400, detail="Article has no URL to re-fetch")
+
+    refetch_article_task.apply_async(args=[str(id)])
+    return {"message": "重新抓取已触发", "article_id": str(id)}
+
+
 @router.delete("/{id}", response_model=ArticlePublic)
 async def archive_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
     article = await Article.find_one(Article.id == id)

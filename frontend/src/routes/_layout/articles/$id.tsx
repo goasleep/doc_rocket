@@ -250,6 +250,16 @@ function ArticleDetailContent() {
     onError: () => showErrorToast("触发失败"),
   })
 
+  const refetchMutation = useMutation({
+    mutationFn: () => ArticlesService.refetchArticle({ id }),
+    onSuccess: () => {
+      showSuccessToast("重新抓取已触发")
+      queryClient.invalidateQueries({ queryKey: ["article", id] })
+      queryClient.invalidateQueries({ queryKey: ["task-runs", "article", id] })
+    },
+    onError: () => showErrorToast("触发失败"),
+  })
+
   const triggerWorkflowMutation = useMutation({
     mutationFn: () =>
       WorkflowsService.triggerWorkflow({
@@ -288,6 +298,17 @@ function ArticleDetailContent() {
           )}
         </div>
         <div className="flex gap-2 shrink-0">
+          {article.url && article.status !== "analyzing" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchMutation.mutate()}
+              disabled={refetchMutation.isPending}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              重新抓取
+            </Button>
+          )}
           {article.status === "analyzed" && (
             <>
               <Button
@@ -359,9 +380,11 @@ function ArticleDetailContent() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[600px] overflow-y-auto">
-                {article.content}
-              </div>
+              <div
+                className="text-sm leading-relaxed max-h-[600px] overflow-y-auto prose prose-sm max-w-none dark:prose-invert"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: article content is scraped HTML from trusted sources
+                dangerouslySetInnerHTML={{ __html: article.content ?? "" }}
+              />
             </CardContent>
           </Card>
         </TabsContent>

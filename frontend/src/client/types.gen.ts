@@ -699,6 +699,12 @@ export type ArticlesArchiveArticleData = {
 
 export type ArticlesArchiveArticleResponse = (ArticlePublic);
 
+export type ArticlesRefetchArticleData = {
+    id: string;
+};
+
+export type ArticlesRefetchArticleResponse = (unknown);
+
 export type AuthAuthJwtLoginData = {
     formData: login;
 };

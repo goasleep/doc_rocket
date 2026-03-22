@@ -46,7 +46,11 @@ async def _analyze_article_async(article_id: str, task_run_id: str) -> None:
         agent = AnalyzerAgent(agent_config=agent_config)
         analysis_data = await agent.run(article.content)
 
-        # Save analysis
+        # Replace existing analysis (delete old, insert fresh)
+        existing = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == article.id)
+        if existing:
+            await existing.delete()
+
         analysis = ArticleAnalysis(
             article_id=article.id,
             **analysis_data,

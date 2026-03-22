@@ -25,6 +25,7 @@ dependencies = [
     "celery-redbeat>=2.2.0",
     "feedparser>=6.0.0",
     "cryptography>=42.0.0",
+    "playwright>=1.40.0",
 ]
 
 [dependency-groups]
@@ -87,3 +88,7 @@ sort = "-Cover"
 
 [tool.coverage.html]
 show_contexts = true
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

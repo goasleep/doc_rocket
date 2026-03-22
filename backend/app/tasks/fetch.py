@@ -183,6 +183,76 @@ async def _fetch_url_and_analyze_async(url: str, user_id: str | None = None) -> 
         raise
 
 
+async def _refetch_article_async(article_id: str) -> str:
+    """Re-fetch content for an existing article, bypassing the duplicate-URL check.
+
+    Updates the article's content/title in-place, resets status to "raw",
+    then enqueues a fresh analysis.
+    """
+    from app.models import Article, TaskRun
+
+    fetch_task_run = TaskRun(
+        task_type="fetch",
+        triggered_by="manual",
+        status="running",
+        started_at=datetime.now(timezone.utc),
+    )
+    await fetch_task_run.insert()
+
+    try:
+        article = await Article.find_one(Article.id == uuid.UUID(article_id))
+        if not article:
+            raise ValueError(f"Article {article_id} not found")
+        if not article.url:
+            raise ValueError("Article has no URL to re-fetch")
+
+        fetch_task_run.entity_type = "article"
+        fetch_task_run.entity_id = article.id
+        fetch_task_run.entity_name = article.title
+        await fetch_task_run.save()
+
+        agent = FetcherAgent()
+        raw = await agent.fetch_url(article.url)
+
+        article.content = raw.get("content", "")
+        if raw.get("title") and raw["title"] != "Untitled":
+            article.title = raw["title"]
+        article.status = "raw"
+        await article.save()
+
+        fetch_task_run.status = "done"
+        fetch_task_run.ended_at = datetime.now(timezone.utc)
+        await fetch_task_run.save()
+
+        # Enqueue fresh analysis
+        analyze_task_run = TaskRun(
+            task_type="analyze",
+            triggered_by="manual",
+            entity_type="article",
+            entity_id=article.id,
+            entity_name=article.title,
+            status="pending",
+        )
+        await analyze_task_run.insert()
+
+        result = analyze_article_task.apply_async(
+            args=[str(article.id)],
+            kwargs={"task_run_id": str(analyze_task_run.id)},
+            task_id=f"analyze_{article.id}_{int(datetime.now(timezone.utc).timestamp())}",
+        )
+        analyze_task_run.celery_task_id = result.id
+        await analyze_task_run.save()
+
+        return str(article.id)
+
+    except Exception as exc:
+        fetch_task_run.status = "failed"
+        fetch_task_run.error_message = str(exc)[:500]
+        fetch_task_run.ended_at = datetime.now(timezone.utc)
+        await fetch_task_run.save()
+        raise
+
+
 @celery_app.task(name="fetch_source_task")
 def fetch_source_task(source_id: str) -> None:
     get_worker_loop().run_until_complete(_fetch_source_async(source_id))
@@ -191,3 +261,8 @@ def fetch_source_task(source_id: str) -> None:
 @celery_app.task(name="fetch_url_and_analyze_task")
 def fetch_url_and_analyze_task(url: str, user_id: str | None = None) -> str:
     return get_worker_loop().run_until_complete(_fetch_url_and_analyze_async(url, user_id))
+
+
+@celery_app.task(name="refetch_article_task")
+def refetch_article_task(article_id: str) -> str:
+    return get_worker_loop().run_until_complete(_refetch_article_async(article_id))
