@@ -12,6 +12,7 @@ from app.models import (
     Skill,
     Source,
     SystemConfig,
+    TaskRun,
     Tool,
     User,
     UserCreate,
@@ -36,6 +37,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             SystemConfig,
             Skill,
             Tool,
+            TaskRun,
         ],
     )
 

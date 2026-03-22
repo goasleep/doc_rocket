@@ -469,6 +469,34 @@ export type SystemConfigUpdate = {
     orchestrator?: (OrchestratorConfig | null);
 };
 
+export type TaskRunPublic = {
+    id: string;
+    task_type: 'analyze' | 'fetch' | 'workflow';
+    celery_task_id: (string | null);
+    triggered_by: 'manual' | 'scheduler' | 'agent';
+    triggered_by_label: (string | null);
+    entity_type: ('article' | 'source' | null);
+    entity_id: (string | null);
+    entity_name: (string | null);
+    status: 'pending' | 'running' | 'done' | 'failed';
+    error_message: (string | null);
+    workflow_run_id: (string | null);
+    created_at: string;
+    started_at: (string | null);
+    ended_at: (string | null);
+};
+
+export type task_type = 'analyze' | 'fetch' | 'workflow';
+
+export type triggered_by = 'manual' | 'scheduler' | 'agent';
+
+export type status = 'pending' | 'running' | 'done' | 'failed';
+
+export type TaskRunsPublic = {
+    data: Array<TaskRunPublic>;
+    count: number;
+};
+
 export type ToolPublic = {
     id: string;
     name: string;
@@ -500,7 +528,11 @@ export type ToolUpdate = {
 
 export type TriggerAnalysisRequest = {
     article_id: string;
+    triggered_by?: 'manual' | 'agent';
+    triggered_by_label?: (string | null);
 };
+
+export type triggered_by2 = 'manual' | 'agent';
 
 export type TriggerAnalysisResponse = {
     message: string;
@@ -900,6 +932,25 @@ export type SystemConfigUpdateSystemConfigData = {
 };
 
 export type SystemConfigUpdateSystemConfigResponse = (SystemConfigPublic);
+
+export type TaskRunsListTaskRunsData = {
+    dateFrom?: (string | null);
+    dateTo?: (string | null);
+    entityId?: (string | null);
+    limit?: number;
+    skip?: number;
+    status?: ('pending' | 'running' | 'done' | 'failed' | null);
+    taskType?: ('analyze' | 'fetch' | 'workflow' | null);
+    triggeredBy?: ('manual' | 'scheduler' | 'agent' | null);
+};
+
+export type TaskRunsListTaskRunsResponse = (TaskRunsPublic);
+
+export type TaskRunsGetTaskRunData = {
+    id: string;
+};
+
+export type TaskRunsGetTaskRunResponse = (TaskRunPublic);
 
 export type ToolsListToolsResponse = (ToolsPublic);
 

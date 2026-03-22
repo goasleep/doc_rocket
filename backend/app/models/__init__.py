@@ -102,6 +102,11 @@ from app.models.workflow import (
     WorkflowRunPublic,
     WorkflowRunsPublic,
 )
+from app.models.task_run import (
+    TaskRun,
+    TaskRunPublic,
+    TaskRunsPublic,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -144,6 +149,8 @@ __all__ = [
     "Skill", "SkillCreate", "SkillUpdate", "SkillPublic", "SkillsPublic", "SkillScript",
     # Tool
     "Tool", "ToolUpdate", "ToolPublic", "ToolsPublic",
+    # TaskRun
+    "TaskRun", "TaskRunPublic", "TaskRunsPublic",
     # Generic
     "Message",
 ]

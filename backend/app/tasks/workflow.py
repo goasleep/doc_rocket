@@ -225,7 +225,7 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
     Sets WorkflowRun.status to 'waiting_human' after completion.
     Idempotent: skips runs not in 'pending' status.
     """
-    from app.models import WorkflowRun
+    from app.models import TaskRun, WorkflowRun
 
     run = await WorkflowRun.find_one(WorkflowRun.id == uuid.UUID(workflow_run_id))
     if not run:
@@ -243,6 +243,14 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
         run.celery_task_id = current_task.request.id
     await run.save()
 
+    # Update TaskRun to running
+    task_run = await TaskRun.find_one(TaskRun.workflow_run_id == uuid.UUID(workflow_run_id))
+    if task_run:
+        task_run.status = "running"
+        task_run.started_at = datetime.now(timezone.utc)
+        task_run.celery_task_id = run.celery_task_id
+        await task_run.save()
+
     from app.core.redis_client import sync_redis
 
     def publish(event_type: str, data: dict) -> None:  # type: ignore[type-arg]
@@ -255,10 +263,23 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
         else:
             await _writing_workflow_linear(run, workflow_run_id, publish)
 
+        # Mark TaskRun as done
+        if task_run:
+            task_run.status = "done"
+            task_run.ended_at = datetime.now(timezone.utc)
+            await task_run.save()
+
     except Exception as exc:
         run.status = "failed"
         await run.save()
         publish("workflow_failed", {"error": str(exc)})
+
+        # Mark TaskRun as failed
+        if task_run:
+            task_run.status = "failed"
+            task_run.error_message = str(exc)[:500]
+            await task_run.save()
+
         raise
 
 

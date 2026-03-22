@@ -36,7 +36,7 @@ async def list_workflows(
 
 @router.post("/", response_model=WorkflowRunPublic, status_code=202)
 async def trigger_workflow(current_user: CurrentUser, body: WorkflowRunCreate) -> Any:
-    from app.models import SystemConfig
+    from app.models import Article, SystemConfig, TaskRun
     from app.models.workflow import WorkflowInput
 
     sys_config = await SystemConfig.find_one()
@@ -54,6 +54,28 @@ async def trigger_workflow(current_user: CurrentUser, body: WorkflowRunCreate) -
     task = writing_workflow_task.delay(str(run.id))
     run.celery_task_id = task.id
     await run.save()
+
+    # Create TaskRun linked to this WorkflowRun
+    if body.article_ids:
+        first_article = await Article.find_one(Article.id == body.article_ids[0])
+        task_run = TaskRun(
+            task_type="workflow",
+            entity_type="article",
+            entity_id=body.article_ids[0],
+            entity_name=first_article.title if first_article else None,
+            workflow_run_id=run.id,
+            status="pending",
+        )
+    else:
+        task_run = TaskRun(
+            task_type="workflow",
+            entity_type=None,
+            entity_id=None,
+            entity_name=(body.topic or "")[:100] if body.topic else None,
+            workflow_run_id=run.id,
+            status="pending",
+        )
+    await task_run.insert()
 
     return run
 

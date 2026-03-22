@@ -1,18 +1,21 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { Suspense } from "react"
-import { BarChart3, BookOpen, RefreshCw, Pen } from "lucide-react"
+import { BarChart3, BookOpen, Bot, CheckCircle2, Clock, History, RefreshCw, Pen, XCircle } from "lucide-react"
 
 import {
   ArticlesService,
   AnalysesService,
+  TaskRunsService,
   WorkflowsService,
   type ArticleAnalysisPublic,
+  type TaskRunPublic,
 } from "@/client"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/articles/$id")({
@@ -101,6 +104,128 @@ function AnalysisCards({ analysis }: { analysis: ArticleAnalysisPublic }) {
           <div><span className="text-xs text-muted-foreground">平均句长：</span>{analysis.style?.avg_sentence_length}</div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function TriggeredByBadge({ triggeredBy, label }: { triggeredBy: string; label?: string | null }) {
+  if (triggeredBy === "scheduler") {
+    return (
+      <Badge variant="outline" className="gap-1 text-xs">
+        <Clock className="h-3 w-3" />
+        定时
+      </Badge>
+    )
+  }
+  if (triggeredBy === "agent") {
+    return (
+      <Badge variant="outline" className="gap-1 text-xs border-blue-400 text-blue-600">
+        <Bot className="h-3 w-3" />
+        Agent{label ? ` · ${label}` : ""}
+      </Badge>
+    )
+  }
+  return <Badge variant="secondary" className="text-xs">手动</Badge>
+}
+
+function formatDuration(startedAt?: string | null, endedAt?: string | null) {
+  if (!startedAt || !endedAt) return null
+  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  return `${Math.floor(ms / 60000)}m${Math.floor((ms % 60000) / 1000)}s`
+}
+
+function TimelineNode({ run }: { run: TaskRunPublic }) {
+  const typeLabels: Record<string, string> = { analyze: "分析", fetch: "抓取", workflow: "仿写" }
+  const duration = formatDuration(run.started_at, run.ended_at)
+
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className="mt-1">
+          {run.status === "done" ? (
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          ) : run.status === "failed" ? (
+            <XCircle className="h-4 w-4 text-destructive" />
+          ) : (
+            <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
+          )}
+        </div>
+        <div className="w-px flex-1 bg-border mt-1" />
+      </div>
+      <div className="pb-4 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm">{typeLabels[run.task_type] ?? run.task_type}任务</span>
+          <TriggeredByBadge triggeredBy={run.triggered_by} label={run.triggered_by_label} />
+          {run.status === "done" && <Badge className="bg-green-500 hover:bg-green-600 text-xs">完成</Badge>}
+          {run.status === "failed" && <Badge variant="destructive" className="text-xs">失败</Badge>}
+          {run.status === "running" && <Badge className="bg-blue-500 hover:bg-blue-600 text-xs animate-pulse">运行中</Badge>}
+          {run.status === "pending" && <Badge variant="secondary" className="text-xs">待处理</Badge>}
+          {duration && <span className="text-xs text-muted-foreground">{duration}</span>}
+        </div>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          {new Date(run.created_at).toLocaleString("zh-CN")}
+        </div>
+        {run.status === "failed" && run.error_message && (
+          <div className="mt-1 text-xs text-destructive bg-destructive/10 rounded p-2 font-mono">
+            {run.error_message}
+          </div>
+        )}
+        {run.task_type === "workflow" && run.workflow_run_id && (
+          <Link
+            to="/workflow"
+            search={{ run_id: run.workflow_run_id }}
+            className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
+          >
+            查看仿写详情 ↗
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string; createdAt: string; inputType: string }) {
+  const { data } = useQuery({
+    queryKey: ["task-runs", "article", articleId],
+    queryFn: () => TaskRunsService.listTaskRuns({ entityId: articleId, limit: 100 }),
+  })
+
+  const taskRuns = [...(data?.data ?? [])].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+
+  return (
+    <div className="space-y-0 mt-2">
+      {/* Entry node */}
+      <div className="flex gap-3">
+        <div className="flex flex-col items-center">
+          <div className="mt-1">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </div>
+          {taskRuns.length > 0 && <div className="w-px flex-1 bg-border mt-1" />}
+        </div>
+        <div className="pb-4 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">入库</span>
+            <Badge variant="outline" className="text-xs">{inputType}</Badge>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {new Date(createdAt).toLocaleString("zh-CN")}
+          </div>
+        </div>
+      </div>
+
+      {taskRuns.map((run, idx) => (
+        <div key={run.id} className={idx === taskRuns.length - 1 ? "[&>div>div:first-child>div:last-child]:hidden" : ""}>
+          <TimelineNode run={run} />
+        </div>
+      ))}
+
+      {taskRuns.length === 0 && (
+        <div className="text-sm text-muted-foreground py-4">暂无任务记录</div>
+      )}
     </div>
   )
 }
@@ -203,26 +328,52 @@ function ArticleDetailContent() {
         </div>
       </div>
 
-      {/* Analysis cards */}
-      {analysis && <AnalysisCards analysis={analysis} />}
-      {!analysis && article.status === "analyzed" && (
-        <div className="text-center py-8 text-muted-foreground">分析数据加载中...</div>
-      )}
+      {/* Tabs */}
+      <Tabs defaultValue="analysis">
+        <TabsList>
+          <TabsTrigger value="analysis">
+            <BarChart3 className="h-4 w-4 mr-1" />
+            分析结果
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History className="h-4 w-4 mr-1" />
+            任务历史
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Article content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BookOpen className="h-4 w-4" />
-            原文内容
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[600px] overflow-y-auto">
-            {article.content}
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="analysis" className="mt-4">
+          {analysis && <AnalysisCards analysis={analysis} />}
+          {!analysis && article.status === "analyzed" && (
+            <div className="text-center py-8 text-muted-foreground">分析数据加载中...</div>
+          )}
+          {!analysis && article.status !== "analyzed" && (
+            <div className="text-center py-8 text-muted-foreground">尚未分析</div>
+          )}
+
+          {/* Article content */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="h-4 w-4" />
+                原文内容
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[600px] overflow-y-auto">
+                {article.content}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <TaskHistoryTab
+            articleId={id}
+            createdAt={article.created_at}
+            inputType={article.input_type}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

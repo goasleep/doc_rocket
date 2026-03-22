@@ -2223,6 +2223,162 @@ export const SystemConfigUpdateSchema = {
     title: 'SystemConfigUpdate'
 } as const;
 
+export const TaskRunPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        task_type: {
+            type: 'string',
+            enum: ['analyze', 'fetch', 'workflow'],
+            title: 'Task Type'
+        },
+        celery_task_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Celery Task Id'
+        },
+        triggered_by: {
+            type: 'string',
+            enum: ['manual', 'scheduler', 'agent'],
+            title: 'Triggered By'
+        },
+        triggered_by_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Triggered By Label'
+        },
+        entity_type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    enum: ['article', 'source']
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Entity Type'
+        },
+        entity_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Entity Id'
+        },
+        entity_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Entity Name'
+        },
+        status: {
+            type: 'string',
+            enum: ['pending', 'running', 'done', 'failed'],
+            title: 'Status'
+        },
+        error_message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error Message'
+        },
+        workflow_run_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Workflow Run Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        started_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Started At'
+        },
+        ended_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ended At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'task_type', 'celery_task_id', 'triggered_by', 'triggered_by_label', 'entity_type', 'entity_id', 'entity_name', 'status', 'error_message', 'workflow_run_id', 'created_at', 'started_at', 'ended_at'],
+    title: 'TaskRunPublic'
+} as const;
+
+export const TaskRunsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/TaskRunPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'TaskRunsPublic'
+} as const;
+
 export const ToolPublicSchema = {
     properties: {
         id: {
@@ -2351,6 +2507,23 @@ export const TriggerAnalysisRequestSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Article Id'
+        },
+        triggered_by: {
+            type: 'string',
+            enum: ['manual', 'agent'],
+            title: 'Triggered By',
+            default: 'manual'
+        },
+        triggered_by_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Triggered By Label'
         }
     },
     type: 'object',

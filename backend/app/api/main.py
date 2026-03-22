@@ -11,6 +11,7 @@ from app.api.routes import (
     sources,
     submit,
     system_config,
+    task_runs,
     tools,
     workflows,
 )
@@ -67,6 +68,7 @@ api_router.include_router(system_config.router)
 api_router.include_router(llm_model_configs.router)
 api_router.include_router(skills.router)
 api_router.include_router(tools.router)
+api_router.include_router(task_runs.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
