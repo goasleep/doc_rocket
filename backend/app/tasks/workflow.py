@@ -259,10 +259,15 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         })
 
     except Exception as exc:
+        error_msg = str(exc)
         publish("agent_error", {  # type: ignore[call-arg,operator]
             "agent": "Orchestrator",
-            "message": str(exc),
+            "message": error_msg,
         })
+        # Save error to WorkflowRun before re-raising
+        run.status = "failed"  # type: ignore[union-attr]
+        run.error_message = error_msg[:500]  # type: ignore[union-attr]
+        await run.save()  # type: ignore[union-attr]
         raise
 
 

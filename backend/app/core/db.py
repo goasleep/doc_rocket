@@ -73,6 +73,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
     agent_count = await AgentConfig.count()
     if agent_count == 0:
         from app.core.agents.editor import DEFAULT_SYSTEM as EDITOR_DEFAULT
+        from app.core.agents.orchestrator import DEFAULT_SYSTEM as ORCHESTRATOR_DEFAULT
         from app.core.agents.reviewer import DEFAULT_SYSTEM as REVIEWER_DEFAULT
         from app.core.agents.writer import DEFAULT_SYSTEM as WRITER_DEFAULT
 
@@ -97,6 +98,14 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
                 responsibilities="对终稿进行事实核查、法律风险和格式问题审查",
                 system_prompt=REVIEWER_DEFAULT,
                 workflow_order=3,
+            ),
+            AgentConfig(
+                name="Orchestrator",
+                role="orchestrator",
+                responsibilities="协调 Writer、Editor、Reviewer 完成内容创作，根据反馈决定是否需要修改",
+                system_prompt=ORCHESTRATOR_DEFAULT,
+                workflow_order=0,
+                max_iterations=10,
             ),
         ]
         for agent in defaults:

@@ -56,7 +56,7 @@ export const Route = createFileRoute("/_layout/agents")({
 
 const agentSchema = z.object({
   name: z.string().min(1, "名称不能为空"),
-  role: z.enum(["writer", "editor", "reviewer", "custom"]),
+  role: z.enum(["writer", "editor", "reviewer", "orchestrator", "custom"]),
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
   model_config_name: z.string(),
@@ -196,6 +196,9 @@ function AgentFormSheet({
                         <SelectItem value="editor">Editor（编辑者）</SelectItem>
                         <SelectItem value="reviewer">
                           Reviewer（审核者）
+                        </SelectItem>
+                        <SelectItem value="orchestrator">
+                          Orchestrator（协调者）
                         </SelectItem>
                         <SelectItem value="custom">Custom（自定义）</SelectItem>
                       </SelectContent>
@@ -399,6 +402,7 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
     writer: "Writer",
     editor: "Editor",
     reviewer: "Reviewer",
+    orchestrator: "Orchestrator",
     custom: "Custom",
   }
 

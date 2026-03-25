@@ -130,14 +130,21 @@ class OrchestratorAgent(BaseAgent):
             AgentConfig.role == "writer",
             AgentConfig.is_active == True,  # noqa: E712
         )
+        if not agent_cfg:
+            return "Error: No active writer agent config found"
         agent = WriterAgent(agent_config=agent_cfg)
 
         prompt = f"{task}\n\n素材：\n{context}"
         if revision_feedback:
             prompt += f"\n\n修改意见：\n{revision_feedback}"
 
-        draft = await agent.run(prompt)
-        return draft
+        try:
+            draft = await agent.run(prompt)
+            return draft
+        except Exception as e:
+            error_msg = f"Writer agent failed: {str(e)}"
+            self._log_routing("writer", "error", error_msg)
+            return f"Error: {error_msg}"
 
     async def _delegate_to_editor(self, draft: str) -> str:
         from app.models import AgentConfig
@@ -147,8 +154,28 @@ class OrchestratorAgent(BaseAgent):
             AgentConfig.role == "editor",
             AgentConfig.is_active == True,  # noqa: E712
         )
+        if not agent_cfg:
+            return json.dumps({
+                "content": draft,
+                "title_candidates": [],
+                "feedback": "Error: No active editor agent config found",
+                "changed_sections": [],
+                "approved": True  # Force approve to avoid infinite loop
+            }, ensure_ascii=False)
+
         agent = EditorAgent(agent_config=agent_cfg)
-        raw = await agent.run(draft)
+        try:
+            raw = await agent.run(draft)
+        except Exception as e:
+            error_msg = f"Editor agent failed: {str(e)}"
+            self._log_routing("editor", "error", error_msg)
+            return json.dumps({
+                "content": draft,
+                "title_candidates": [],
+                "feedback": error_msg,
+                "changed_sections": [],
+                "approved": True  # Force approve to avoid infinite loop
+            }, ensure_ascii=False)
 
         # Ensure result has approved field
         try:
@@ -170,8 +197,16 @@ class OrchestratorAgent(BaseAgent):
             AgentConfig.role == "reviewer",
             AgentConfig.is_active == True,  # noqa: E712
         )
+        if not agent_cfg:
+            return "Error: No active reviewer agent config found"
+
         agent = ReviewerAgent(agent_config=agent_cfg)
-        return await agent.run(draft)
+        try:
+            return await agent.run(draft)
+        except Exception as e:
+            error_msg = f"Reviewer agent failed: {str(e)}"
+            self._log_routing("reviewer", "error", error_msg)
+            return f"Error: {error_msg}"
 
     async def _finalize(
         self, content: str, title_candidates: list[str] | None = None
