@@ -95,7 +95,7 @@ function ResetPassword() {
       const message =
         detail === "RESET_PASSWORD_BAD_TOKEN"
           ? "Invalid token"
-          : detail ?? "Something went wrong."
+          : (detail ?? "Something went wrong.")
       showErrorToast(message)
     },
   })

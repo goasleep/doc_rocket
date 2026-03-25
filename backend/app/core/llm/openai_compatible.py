@@ -31,7 +31,21 @@ class OpenAICompatibleClient(LLMClient):
             params["tools"] = tools
         params.update(kwargs)
 
-        response = await self._client.chat.completions.create(**params)
+        try:
+            response = await self._client.chat.completions.create(**params)
+        except Exception as e:
+            error_msg = str(e).lower()
+            print(f"[DEBUG] OpenAI compatible error: {error_msg}")
+            print(f"[DEBUG] Params had temperature: {'temperature' in params}")
+            # Handle models that don't support temperature parameter
+            # Matches: "invalid temperature", "only 1 is allowed for this model", etc.
+            if "temperature" in error_msg and ("invalid" in error_msg or "only" in error_msg or "support" in error_msg):
+                # Remove temperature and retry
+                params.pop("temperature", None)
+                print(f"[DEBUG] Retrying without temperature")
+                response = await self._client.chat.completions.create(**params)
+            else:
+                raise
         message = response.choices[0].message
 
         # Parse tool calls if present

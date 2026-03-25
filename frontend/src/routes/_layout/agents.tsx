@@ -1,25 +1,26 @@
-import { useState } from "react"
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bot, Plus, Trash2, Edit2, Search } from "lucide-react"
-import { Suspense } from "react"
+import { Bot, Edit2, Plus, Search, Trash2 } from "lucide-react"
+import { Suspense, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 
-import { AgentsService, LlmModelConfigsService, SkillsService, type AgentConfigPublic } from "@/client"
-import { Checkbox } from "@/components/ui/checkbox"
+import {
+  type AgentConfigPublic,
+  AgentsService,
+  LlmModelConfigsService,
+  SkillsService,
+} from "@/client"
 import { Badge } from "@/components/ui/badge"
-import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Form,
   FormControl,
@@ -29,6 +30,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Select,
   SelectContent,
@@ -36,6 +38,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/agents")({
@@ -103,10 +112,12 @@ function AgentFormSheet({
     queryFn: () => LlmModelConfigsService.listLlmModelConfigs(),
   })
 
-  const filteredSkills = skillsData?.data.filter((s) =>
-    s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
-    (s.description ?? "").toLowerCase().includes(skillSearch.toLowerCase())
-  ) ?? []
+  const filteredSkills =
+    skillsData?.data.filter(
+      (s) =>
+        s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
+        (s.description ?? "").toLowerCase().includes(skillSearch.toLowerCase()),
+    ) ?? []
 
   const createMutation = useMutation({
     mutationFn: (data: AgentFormValues) =>
@@ -139,12 +150,18 @@ function AgentFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-2xl overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>{isEdit ? "编辑 Agent" : "新建 Agent"}</SheetTitle>
         </SheetHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 mt-6 pb-6">
+          <form
+            onSubmit={form.handleSubmit(onSubmit as any)}
+            className="space-y-4 mt-6 pb-6"
+          >
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control as any}
@@ -165,7 +182,10 @@ function AgentFormSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>角色</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -174,7 +194,9 @@ function AgentFormSheet({
                       <SelectContent>
                         <SelectItem value="writer">Writer（写作者）</SelectItem>
                         <SelectItem value="editor">Editor（编辑者）</SelectItem>
-                        <SelectItem value="reviewer">Reviewer（审核者）</SelectItem>
+                        <SelectItem value="reviewer">
+                          Reviewer（审核者）
+                        </SelectItem>
                         <SelectItem value="custom">Custom（自定义）</SelectItem>
                       </SelectContent>
                     </Select>
@@ -191,7 +213,10 @@ function AgentFormSheet({
                 <FormItem>
                   <FormLabel>职责描述</FormLabel>
                   <FormControl>
-                    <Input placeholder="负责根据素材进行仿写创作..." {...field} />
+                    <Input
+                      placeholder="负责根据素材进行仿写创作..."
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -240,7 +265,8 @@ function AgentFormSheet({
                               </span>
                             </SelectItem>
                           ))}
-                        {(!modelConfigsData || modelConfigsData.count === 0) && (
+                        {(!modelConfigsData ||
+                          modelConfigsData.count === 0) && (
                           <SelectItem value="" disabled>
                             请先在"模型配置"页面添加配置
                           </SelectItem>
@@ -258,7 +284,11 @@ function AgentFormSheet({
                   <FormItem>
                     <FormLabel>执行顺序</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -272,7 +302,9 @@ function AgentFormSheet({
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">关联技能</p>
                   {selectedSkills.length > 0 && (
-                    <span className="text-xs text-muted-foreground">已选 {selectedSkills.length} 个</span>
+                    <span className="text-xs text-muted-foreground">
+                      已选 {selectedSkills.length} 个
+                    </span>
                   )}
                 </div>
                 <div className="relative">
@@ -286,7 +318,9 @@ function AgentFormSheet({
                 </div>
                 <div className="rounded-md border max-h-48 overflow-y-auto">
                   {filteredSkills.length === 0 ? (
-                    <p className="text-xs text-muted-foreground p-3 text-center">无匹配技能</p>
+                    <p className="text-xs text-muted-foreground p-3 text-center">
+                      无匹配技能
+                    </p>
                   ) : (
                     filteredSkills.map((skill) => (
                       <label
@@ -301,14 +335,21 @@ function AgentFormSheet({
                             if (checked) {
                               form.setValue("skills", [...current, skill.name])
                             } else {
-                              form.setValue("skills", current.filter((s) => s !== skill.name))
+                              form.setValue(
+                                "skills",
+                                current.filter((s) => s !== skill.name),
+                              )
                             }
                           }}
                         />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium leading-tight">{skill.name}</p>
+                          <p className="text-sm font-medium leading-tight">
+                            {skill.name}
+                          </p>
                           {skill.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{skill.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {skill.description}
+                            </p>
                           )}
                         </div>
                       </label>
@@ -319,7 +360,11 @@ function AgentFormSheet({
             )}
 
             <SheetFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -370,20 +415,27 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
               <div className="text-xs text-muted-foreground mt-0.5">
                 #{agent.workflow_order} · {ROLE_LABEL[agent.role] ?? agent.role}
                 {agent.model_config_name && (
-                  <> · <span className="font-mono">{agent.model_config_name}</span></>
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span className="font-mono">{agent.model_config_name}</span>
+                  </>
                 )}
               </div>
             </div>
             <div className="flex gap-1">
-              <Button size="icon" variant="ghost" onClick={() => setEditOpen(true)}>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setEditOpen(true)}
+              >
                 <Edit2 className="h-4 w-4" />
               </Button>
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  if (confirm("确认删除此 Agent？"))
-                    deleteMutation.mutate()
+                  if (confirm("确认删除此 Agent？")) deleteMutation.mutate()
                 }}
                 disabled={deleteMutation.isPending}
               >
@@ -391,11 +443,15 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
               </Button>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">{agent.responsibilities}</p>
+          <p className="text-sm text-muted-foreground">
+            {agent.responsibilities}
+          </p>
           {agent.skills && agent.skills.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {agent.skills.map((s) => (
-                <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                <Badge key={s} variant="secondary" className="text-xs">
+                  {s}
+                </Badge>
               ))}
             </div>
           )}
@@ -405,7 +461,11 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
           </div>
         </CardContent>
       </Card>
-      <AgentFormSheet open={editOpen} onOpenChange={setEditOpen} initialData={agent} />
+      <AgentFormSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        initialData={agent}
+      />
     </>
   )
 }
@@ -445,7 +505,9 @@ function Agents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Agent 配置</h1>
-          <p className="text-muted-foreground">配置写作流水线中的 AI Agent 角色</p>
+          <p className="text-muted-foreground">
+            配置写作流水线中的 AI Agent 角色
+          </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-1" />
@@ -454,7 +516,9 @@ function Agents() {
       </div>
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <AgentsContent />

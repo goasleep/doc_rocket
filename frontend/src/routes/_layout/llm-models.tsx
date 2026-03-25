@@ -1,22 +1,21 @@
-import { useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { KeyRound, Plus, Trash2, Edit2 } from "lucide-react"
+import { Edit2, KeyRound, Plus, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 
-import { LlmModelConfigsService, type LLMModelConfigPublic } from "@/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { type LLMModelConfigPublic, LlmModelConfigsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -26,6 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -41,8 +41,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import useCustomToast from "@/hooks/useCustomToast"
 import useAuth from "@/hooks/useAuth"
+import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/llm-models")({
   component: LLMModels,
@@ -85,7 +85,8 @@ function ModelFormDialog({
     defaultValues: initialData
       ? {
           name: initialData.name,
-          provider_type: initialData.provider_type as ModelFormValues["provider_type"],
+          provider_type:
+            initialData.provider_type as ModelFormValues["provider_type"],
           base_url: initialData.base_url ?? "",
           api_key: "",
           model_id: initialData.model_id,
@@ -161,7 +162,10 @@ function ModelFormDialog({
           <DialogTitle>{isEdit ? "编辑模型配置" : "新建模型配置"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit as any)}
+            className="space-y-4"
+          >
             <FormField
               control={form.control as any}
               name="name"
@@ -182,7 +186,10 @@ function ModelFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>类型</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue />
@@ -190,7 +197,9 @@ function ModelFormDialog({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
-                      <SelectItem value="openai_compatible">OpenAI 兼容格式</SelectItem>
+                      <SelectItem value="openai_compatible">
+                        OpenAI 兼容格式
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -206,7 +215,10 @@ function ModelFormDialog({
                   <FormItem>
                     <FormLabel>Base URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://api.openai.com/v1" {...field} />
+                      <Input
+                        placeholder="https://api.openai.com/v1"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -222,7 +234,9 @@ function ModelFormDialog({
                   <FormLabel>模型 ID</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={providerType === "kimi" ? "moonshot-v1-32k" : "gpt-4o"}
+                      placeholder={
+                        providerType === "kimi" ? "moonshot-v1-32k" : "gpt-4o"
+                      }
                       {...field}
                     />
                   </FormControl>
@@ -249,7 +263,7 @@ function ModelFormDialog({
                       type="password"
                       placeholder={
                         isEdit
-                          ? initialData?.api_key_masked ?? "输入新 Key 以替换"
+                          ? (initialData?.api_key_masked ?? "输入新 Key 以替换")
                           : "sk-..."
                       }
                       {...field}
@@ -261,7 +275,11 @@ function ModelFormDialog({
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -277,7 +295,9 @@ function ModelFormDialog({
 
 function LLMModels() {
   const [createOpen, setCreateOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<LLMModelConfigPublic | null>(null)
+  const [editTarget, setEditTarget] = useState<LLMModelConfigPublic | null>(
+    null,
+  )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -290,7 +310,8 @@ function LLMModels() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => LlmModelConfigsService.deleteLlmModelConfig({ id }),
+    mutationFn: (id: string) =>
+      LlmModelConfigsService.deleteLlmModelConfig({ id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["llm-model-configs"] })
       showSuccessToast("模型配置已删除")
@@ -302,7 +323,9 @@ function LLMModels() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) =>
-      Promise.all(ids.map((id) => LlmModelConfigsService.deleteLlmModelConfig({ id }))),
+      Promise.all(
+        ids.map((id) => LlmModelConfigsService.deleteLlmModelConfig({ id })),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["llm-model-configs"] })
       showSuccessToast(`已删除 ${selected.size} 个配置`)
@@ -331,7 +354,9 @@ function LLMModels() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">模型配置</h1>
-          <p className="text-muted-foreground">管理 LLM API Key 和模型参数，Agent 通过配置名称引用</p>
+          <p className="text-muted-foreground">
+            管理 LLM API Key 和模型参数，Agent 通过配置名称引用
+          </p>
         </div>
         {isSuperuser && (
           <Button onClick={() => setCreateOpen(true)}>
@@ -350,7 +375,9 @@ function LLMModels() {
           </div>
           <h3 className="text-lg font-semibold">暂无模型配置</h3>
           <p className="text-muted-foreground">
-            {isSuperuser ? '点击右上角「新建配置」添加第一个模型' : "请联系管理员添加模型配置"}
+            {isSuperuser
+              ? "点击右上角「新建配置」添加第一个模型"
+              : "请联系管理员添加模型配置"}
           </p>
         </div>
       ) : (
@@ -370,7 +397,11 @@ function LLMModels() {
                 <Trash2 className="h-4 w-4 mr-1" />
                 批量删除
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelected(new Set())}
+              >
                 取消选择
               </Button>
             </div>
@@ -382,7 +413,10 @@ function LLMModels() {
                   {isSuperuser && (
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={data.data.length > 0 && selected.size === data.data.length}
+                        checked={
+                          data.data.length > 0 &&
+                          selected.size === data.data.length
+                        }
                         onCheckedChange={toggleAll}
                       />
                     </TableHead>
@@ -398,7 +432,10 @@ function LLMModels() {
               </TableHeader>
               <TableBody>
                 {data.data.map((cfg) => (
-                  <TableRow key={cfg.id} data-state={selected.has(cfg.id) ? "selected" : undefined}>
+                  <TableRow
+                    key={cfg.id}
+                    data-state={selected.has(cfg.id) ? "selected" : undefined}
+                  >
                     {isSuperuser && (
                       <TableCell>
                         <Checkbox
@@ -410,15 +447,18 @@ function LLMModels() {
                     <TableCell className="font-medium">{cfg.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {PROVIDER_LABELS[cfg.provider_type] ?? cfg.provider_type}
+                        {PROVIDER_LABELS[cfg.provider_type] ??
+                          cfg.provider_type}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {cfg.provider_type === "kimi"
                         ? "https://api.moonshot.cn/v1"
-                        : cfg.base_url ?? "—"}
+                        : (cfg.base_url ?? "—")}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{cfg.model_id}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {cfg.model_id}
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {cfg.api_key_masked ?? "未配置"}
                     </TableCell>

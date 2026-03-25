@@ -1,26 +1,30 @@
-import { useState, useEffect, Suspense, useCallback } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Zap, Plus, Trash2, Edit2, Upload, Link } from "lucide-react"
+import { Edit2, Link, Plus, Trash2, Upload, Zap } from "lucide-react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 
 import {
-  SkillsService,
-  type SkillPublic,
   type SkillCreate,
-  type SkillUpdate,
   type SkillImportBody,
+  type SkillPublic,
+  SkillsService,
+  type SkillUpdate,
 } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -31,8 +35,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Table,
   TableBody,
@@ -41,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 
 // ---------------------------------------------------------------------------
@@ -180,7 +184,11 @@ function CreateSkillDialog({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
@@ -298,7 +306,10 @@ function ImportSkillDialog({
 
         {mode === "content" ? (
           <Form {...contentForm}>
-            <form onSubmit={contentForm.handleSubmit(onSubmitContent)} className="space-y-4">
+            <form
+              onSubmit={contentForm.handleSubmit(onSubmitContent)}
+              className="space-y-4"
+            >
               <FormField
                 control={contentForm.control as any}
                 name="content"
@@ -317,7 +328,11 @@ function ImportSkillDialog({
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOpenChange(false)}
+                >
                   取消
                 </Button>
                 <Button type="submit" disabled={mutation.isPending}>
@@ -328,7 +343,10 @@ function ImportSkillDialog({
           </Form>
         ) : (
           <Form {...urlForm}>
-            <form onSubmit={urlForm.handleSubmit(onSubmitUrl)} className="space-y-4">
+            <form
+              onSubmit={urlForm.handleSubmit(onSubmitUrl)}
+              className="space-y-4"
+            >
               <FormField
                 control={urlForm.control as any}
                 name="url"
@@ -336,14 +354,22 @@ function ImportSkillDialog({
                   <FormItem>
                     <FormLabel>SKILL.md URL</FormLabel>
                     <FormControl>
-                      <Input id="skill-import-url-input" placeholder="https://..." {...field} />
+                      <Input
+                        id="skill-import-url-input"
+                        placeholder="https://..."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOpenChange(false)}
+                >
                   取消
                 </Button>
                 <Button type="submit" disabled={mutation.isPending}>
@@ -443,7 +469,11 @@ function EditSkillDialog({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
@@ -480,7 +510,10 @@ function SkillRow({
     <>
       <TableRow data-state={selected ? "selected" : undefined}>
         <TableCell>
-          <Checkbox checked={selected} onCheckedChange={() => onToggle(skill.id)} />
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggle(skill.id)}
+          />
         </TableCell>
         <TableCell className="font-medium">{skill.name}</TableCell>
         <TableCell className="text-muted-foreground text-sm max-w-48 truncate">
@@ -519,7 +552,11 @@ function SkillRow({
           </div>
         </TableCell>
       </TableRow>
-      <EditSkillDialog open={editOpen} onOpenChange={setEditOpen} skill={skill} />
+      <EditSkillDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        skill={skill}
+      />
     </>
   )
 }
@@ -572,9 +609,12 @@ function SkillsTableContent() {
     else setSelected(new Set(data.data.map((s) => s.id)))
   }
 
-  const handleDelete = useCallback((id: string, name: string) => {
-    if (confirm(`确认删除技能 "${name}"？`)) deleteMutation.mutate(id)
-  }, [deleteMutation])
+  const handleDelete = useCallback(
+    (id: string, name: string) => {
+      if (confirm(`确认删除技能 "${name}"？`)) deleteMutation.mutate(id)
+    },
+    [deleteMutation],
+  )
 
   if (data.count === 0) {
     return (
@@ -605,7 +645,11 @@ function SkillsTableContent() {
             <Trash2 className="h-4 w-4 mr-1" />
             批量删除
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelected(new Set())}
+          >
             取消选择
           </Button>
         </div>
@@ -615,7 +659,9 @@ function SkillsTableContent() {
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
-                checked={data.data.length > 0 && selected.size === data.data.length}
+                checked={
+                  data.data.length > 0 && selected.size === data.data.length
+                }
                 onCheckedChange={toggleAll}
               />
             </TableHead>
@@ -673,7 +719,9 @@ function Skills() {
 
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <SkillsTableContent />

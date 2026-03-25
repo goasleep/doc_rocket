@@ -36,6 +36,14 @@ async def _refine_article_async(article_id: str, task_run_id: str) -> None:
 
         article.content_md = refined_md
         article.refine_status = "refined"
+
+        # Auto-extract title from first markdown heading if title is missing/untitled
+        if not article.title or article.title.strip().lower() in ("untitled", ""):
+            for line in refined_md.splitlines():
+                if line.startswith("# "):
+                    article.title = line[2:].strip()
+                    break
+
         await article.save()
 
         if task_run:

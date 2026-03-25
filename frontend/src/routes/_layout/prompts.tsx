@@ -1,10 +1,13 @@
-import { useState } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FileCode } from "lucide-react"
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 
-import { AgentsService, type AgentConfigPublic } from "@/client"
+import { type AgentConfigPublic, AgentsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,7 +42,10 @@ function PromptCard({ agent }: { agent: AgentConfigPublic }) {
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      AgentsService.updateAgent({ id: agent.id, requestBody: { system_prompt: prompt } }),
+      AgentsService.updateAgent({
+        id: agent.id,
+        requestBody: { system_prompt: prompt },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast(`${agent.name} 的 Prompt 已保存`)
@@ -71,7 +77,9 @@ function PromptCard({ agent }: { agent: AgentConfigPublic }) {
           </Button>
         </div>
         {agent.responsibilities && (
-          <p className="text-xs text-muted-foreground mt-1">{agent.responsibilities}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {agent.responsibilities}
+          </p>
         )}
       </CardHeader>
       <CardContent>
@@ -105,7 +113,9 @@ function PromptsContent() {
     )
   }
 
-  const sorted = [...data.data].sort((a, b) => a.workflow_order - b.workflow_order)
+  const sorted = [...data.data].sort(
+    (a, b) => a.workflow_order - b.workflow_order,
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,7 +137,9 @@ function Prompts() {
       </div>
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <PromptsContent />

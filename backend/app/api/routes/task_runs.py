@@ -14,7 +14,7 @@ router = APIRouter(prefix="/task-runs", tags=["task-runs"])
 @router.get("/", response_model=TaskRunsPublic)
 async def list_task_runs(
     current_user: CurrentUser,
-    task_type: Literal["analyze", "fetch", "workflow"] | None = None,
+    task_type: Literal["analyze", "fetch", "refine", "workflow"] | None = None,
     status: Literal["pending", "running", "done", "failed"] | None = None,
     triggered_by: Literal["manual", "scheduler", "agent"] | None = None,
     entity_id: uuid.UUID | None = None,

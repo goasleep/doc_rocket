@@ -1,11 +1,15 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { FileText, Trash2 } from "lucide-react"
 import { Suspense } from "react"
 
-import { DraftsService, type DraftPublic } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import { type DraftPublic, DraftsService } from "@/client"
 import { Button } from "@/components/ui/button"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Table,
   TableBody,
@@ -48,7 +52,9 @@ function DraftsTableContent() {
           <FileText className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-semibold">暂无仿写稿件</h3>
-        <p className="text-muted-foreground">完成工作流并批准后，稿件将出现在这里</p>
+        <p className="text-muted-foreground">
+          完成工作流并批准后，稿件将出现在这里
+        </p>
       </div>
     )
   }
@@ -114,7 +120,9 @@ function Drafts() {
       </div>
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <DraftsTableContent />

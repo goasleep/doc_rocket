@@ -1,26 +1,28 @@
-import { useState } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Rss, Plus, Trash2, RefreshCw, Edit2 } from "lucide-react"
-import { Suspense } from "react"
+import { Edit2, Plus, RefreshCw, Rss, Trash2 } from "lucide-react"
+import { Suspense, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 
 import {
-  SourcesService,
-  type SourcePublic,
   type SourceCreate,
+  type SourcePublic,
+  SourcesService,
   type SourceUpdate,
 } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -31,6 +33,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Select,
   SelectContent,
@@ -162,7 +165,10 @@ function SourceFormDialog({
           <DialogTitle>{isEdit ? "编辑订阅源" : "新建订阅源"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit as any)}
+            className="space-y-4"
+          >
             <FormField
               control={form.control as any}
               name="name"
@@ -182,7 +188,10 @@ function SourceFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>类型</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue />
@@ -226,13 +235,31 @@ function SourceFormDialog({
                   )}
                 />
                 <div className="rounded-md border p-3 space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground">字段映射</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    字段映射
+                  </p>
                   {(
                     [
-                      { name: "items_path", label: "数据路径", placeholder: "data" },
-                      { name: "title_field", label: "标题字段", placeholder: "title" },
-                      { name: "content_field", label: "正文字段", placeholder: "content" },
-                      { name: "url_field", label: "URL字段", placeholder: "url" },
+                      {
+                        name: "items_path",
+                        label: "数据路径",
+                        placeholder: "data",
+                      },
+                      {
+                        name: "title_field",
+                        label: "标题字段",
+                        placeholder: "title",
+                      },
+                      {
+                        name: "content_field",
+                        label: "正文字段",
+                        placeholder: "content",
+                      },
+                      {
+                        name: "url_field",
+                        label: "URL字段",
+                        placeholder: "url",
+                      },
                     ] as const
                   ).map((f) => (
                     <FormField
@@ -264,7 +291,11 @@ function SourceFormDialog({
                   <FormItem>
                     <FormLabel>抓取间隔（分钟）</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -277,7 +308,11 @@ function SourceFormDialog({
                   <FormItem>
                     <FormLabel>每次最多抓取</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -285,7 +320,11 @@ function SourceFormDialog({
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -435,7 +474,9 @@ function Sources() {
       </div>
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <SourcesTableContent />

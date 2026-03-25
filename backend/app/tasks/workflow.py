@@ -115,6 +115,54 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
         run.steps.append(step)  # type: ignore[union-attr]
         await run.save()  # type: ignore[union-attr]
 
+    # Humanizer step: 去AI味 — use BaseAgent to avoid EditorAgent's JSON output format
+    from app.core.agents.base import BaseAgent
+
+    humanizer_config = await AgentConfig.find_one(
+        AgentConfig.role == "editor",
+        AgentConfig.is_active == True,  # noqa: E712
+    )
+    humanizer_step = AgentStep(
+        agent_name="去AI味处理",
+        role="humanizer",
+        status="running",
+        started_at=datetime.now(timezone.utc),
+    )
+    publish("agent_start", {  # type: ignore[call-arg,operator]
+        "agent": "去AI味处理",
+        "role": "humanizer",
+        "message": "正在进行去AI味处理...",
+    })
+    try:
+        humanizer = BaseAgent(agent_config=humanizer_config)
+        humanize_prompt = (
+            f"请对以下文章进行去AI味处理，使其更自然、更有人情味，"
+            f"避免AI腔调，保持原意但改变表达方式，让读者感觉是人写的。\n\n"
+            f"文章内容：\n{current_content}\n\n"
+            f"只返回处理后的文章，不要解释。"
+        )
+        current_content = await humanizer.run(humanize_prompt)
+        humanizer_step.output = current_content
+        humanizer_step.status = "done"
+        humanizer_step.ended_at = datetime.now(timezone.utc)
+        publish("agent_output", {  # type: ignore[call-arg,operator]
+            "agent": "去AI味处理",
+            "role": "humanizer",
+            "content": current_content[:500],
+            "title_candidates": [],
+        })
+    except Exception as exc:
+        humanizer_step.status = "failed"
+        humanizer_step.ended_at = datetime.now(timezone.utc)
+        humanizer_step.output = str(exc)
+        publish("agent_error", {  # type: ignore[call-arg,operator]
+            "agent": "去AI味处理",
+            "message": str(exc),
+        })
+        # Non-fatal: keep current_content unchanged if humanizer fails
+    run.steps.append(humanizer_step)  # type: ignore[union-attr]
+    await run.save()  # type: ignore[union-attr]
+
     run.final_output = current_content  # type: ignore[union-attr]
     run.status = "waiting_human"  # type: ignore[union-attr]
     await run.save()  # type: ignore[union-attr]

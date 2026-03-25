@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse } from './types.gen';
+import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, AnalysesGetAnalysisTraceData, AnalysesGetAnalysisTraceResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, ArticlesUpdateArticleTitleData, ArticlesUpdateArticleTitleResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, ExternalReferencesListExternalReferencesData, ExternalReferencesListExternalReferencesResponse, ExternalReferencesCreateExternalReferenceData, ExternalReferencesCreateExternalReferenceResponse, ExternalReferencesGetExternalReferenceData, ExternalReferencesGetExternalReferenceResponse, ExternalReferencesUpdateExternalReferenceData, ExternalReferencesUpdateExternalReferenceResponse, ExternalReferencesDeleteExternalReferenceData, ExternalReferencesDeleteExternalReferenceResponse, ExternalReferencesRefetchExternalReferenceData, ExternalReferencesRefetchExternalReferenceResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, RubricsListRubricsData, RubricsListRubricsResponse, RubricsCreateRubricData, RubricsCreateRubricResponse, RubricsGetActiveRubricResponse, RubricsGetRubricData, RubricsGetRubricResponse, RubricsUpdateRubricData, RubricsUpdateRubricResponse, RubricsDeleteRubricData, RubricsDeleteRubricResponse, RubricsActivateRubricData, RubricsActivateRubricResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse } from './types.gen';
 
 export class AgentsService {
     /**
@@ -159,17 +159,39 @@ export class AnalysesService {
     
     /**
      * Get Analysis
+     * Get analysis by article ID.
      * @param data The data for the request.
-     * @param data.id
+     * @param data.articleId
      * @returns ArticleAnalysisPublic Successful Response
      * @throws ApiError
      */
     public static getAnalysis(data: AnalysesGetAnalysisData): CancelablePromise<AnalysesGetAnalysisResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/analyses/{id}',
+            url: '/api/v1/analyses/{article_id}',
             path: {
-                id: data.id
+                article_id: data.articleId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Analysis Trace
+     * Get detailed analysis trace for an article.
+     * @param data The data for the request.
+     * @param data.articleId
+     * @returns AnalysisTraceResponse Successful Response
+     * @throws ApiError
+     */
+    public static getAnalysisTrace(data: AnalysesGetAnalysisTraceData): CancelablePromise<AnalysesGetAnalysisTraceResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/analyses/{article_id}/trace',
+            path: {
+                article_id: data.articleId
             },
             errors: {
                 422: 'Validation Error'
@@ -264,6 +286,30 @@ export class ArticlesService {
             path: {
                 id: data.id
             },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Article Title
+     * Update the title of an article.
+     * @param data The data for the request.
+     * @param data.id
+     * @param data.requestBody
+     * @returns ArticlePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateArticleTitle(data: ArticlesUpdateArticleTitleData): CancelablePromise<ArticlesUpdateArticleTitleResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/articles/{id}/title',
+            path: {
+                id: data.id
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -563,6 +609,142 @@ export class DraftsService {
     }
 }
 
+export class ExternalReferencesService {
+    /**
+     * List External References
+     * List external references with optional filtering.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @param data.search
+     * @param data.source
+     * @returns ExternalReferencesPublic Successful Response
+     * @throws ApiError
+     */
+    public static listExternalReferences(data: ExternalReferencesListExternalReferencesData = {}): CancelablePromise<ExternalReferencesListExternalReferencesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/external-references/',
+            query: {
+                skip: data.skip,
+                limit: data.limit,
+                search: data.search,
+                source: data.source
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create External Reference
+     * Manually add an external reference.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ExternalReferencePublic Successful Response
+     * @throws ApiError
+     */
+    public static createExternalReference(data: ExternalReferencesCreateExternalReferenceData): CancelablePromise<ExternalReferencesCreateExternalReferenceResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/external-references/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get External Reference
+     * Get a specific external reference with full content.
+     * @param data The data for the request.
+     * @param data.refId
+     * @returns ExternalReferenceDetail Successful Response
+     * @throws ApiError
+     */
+    public static getExternalReference(data: ExternalReferencesGetExternalReferenceData): CancelablePromise<ExternalReferencesGetExternalReferenceResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/external-references/{ref_id}',
+            path: {
+                ref_id: data.refId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update External Reference
+     * Update an external reference (admin only).
+     * @param data The data for the request.
+     * @param data.refId
+     * @param data.requestBody
+     * @returns ExternalReferencePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateExternalReference(data: ExternalReferencesUpdateExternalReferenceData): CancelablePromise<ExternalReferencesUpdateExternalReferenceResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/external-references/{ref_id}',
+            path: {
+                ref_id: data.refId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete External Reference
+     * Delete an external reference (admin only, cannot delete if referenced).
+     * @param data The data for the request.
+     * @param data.refId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteExternalReference(data: ExternalReferencesDeleteExternalReferenceData): CancelablePromise<ExternalReferencesDeleteExternalReferenceResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/external-references/{ref_id}',
+            path: {
+                ref_id: data.refId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Refetch External Reference
+     * Re-fetch content for an external reference.
+     * @param data The data for the request.
+     * @param data.refId
+     * @returns ExternalReferencePublic Successful Response
+     * @throws ApiError
+     */
+    public static refetchExternalReference(data: ExternalReferencesRefetchExternalReferenceData): CancelablePromise<ExternalReferencesRefetchExternalReferenceResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/external-references/{ref_id}/refetch',
+            path: {
+                ref_id: data.refId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class ItemsService {
     /**
      * Read Items
@@ -765,6 +947,151 @@ export class PrivateService {
             url: '/api/v1/private/users/',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class RubricsService {
+    /**
+     * List Rubrics
+     * List all quality rubrics.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns QualityRubricsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listRubrics(data: RubricsListRubricsData = {}): CancelablePromise<RubricsListRubricsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/rubrics/',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Rubric
+     * Create a new quality rubric (admin only).
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns QualityRubricPublic Successful Response
+     * @throws ApiError
+     */
+    public static createRubric(data: RubricsCreateRubricData): CancelablePromise<RubricsCreateRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/rubrics/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Active Rubric
+     * Get the currently active quality rubric.
+     * @returns QualityRubricPublic Successful Response
+     * @throws ApiError
+     */
+    public static getActiveRubric(): CancelablePromise<RubricsGetActiveRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/rubrics/active'
+        });
+    }
+    
+    /**
+     * Get Rubric
+     * Get a specific quality rubric.
+     * @param data The data for the request.
+     * @param data.rubricId
+     * @returns QualityRubricPublic Successful Response
+     * @throws ApiError
+     */
+    public static getRubric(data: RubricsGetRubricData): CancelablePromise<RubricsGetRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/rubrics/{rubric_id}',
+            path: {
+                rubric_id: data.rubricId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Rubric
+     * Update a quality rubric (admin only).
+     * @param data The data for the request.
+     * @param data.rubricId
+     * @param data.requestBody
+     * @returns QualityRubricPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateRubric(data: RubricsUpdateRubricData): CancelablePromise<RubricsUpdateRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/rubrics/{rubric_id}',
+            path: {
+                rubric_id: data.rubricId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Rubric
+     * Delete a quality rubric (admin only, cannot delete active rubric).
+     * @param data The data for the request.
+     * @param data.rubricId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteRubric(data: RubricsDeleteRubricData): CancelablePromise<RubricsDeleteRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/rubrics/{rubric_id}',
+            path: {
+                rubric_id: data.rubricId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Activate Rubric
+     * Activate a specific rubric (deactivates all others).
+     * @param data The data for the request.
+     * @param data.rubricId
+     * @returns QualityRubricPublic Successful Response
+     * @throws ApiError
+     */
+    public static activateRubric(data: RubricsActivateRubricData): CancelablePromise<RubricsActivateRubricResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/rubrics/{rubric_id}/activate',
+            path: {
+                rubric_id: data.rubricId
+            },
             errors: {
                 422: 'Validation Error'
             }

@@ -1,8 +1,8 @@
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 
 import { SubmitService } from "@/client"
 import { Button } from "@/components/ui/button"
@@ -153,7 +153,9 @@ function Submit() {
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">手动投稿</h1>
-        <p className="text-muted-foreground">直接粘贴文章内容或提交 URL 进行 AI 分析</p>
+        <p className="text-muted-foreground">
+          直接粘贴文章内容或提交 URL 进行 AI 分析
+        </p>
       </div>
       <Tabs defaultValue="text">
         <TabsList>

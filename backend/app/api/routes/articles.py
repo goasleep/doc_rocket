@@ -3,9 +3,14 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
 from app.models import Article, ArticleAnalysis, ArticleDetail, ArticlePublic, ArticlesPublic
+
+
+class ArticleTitleUpdate(BaseModel):
+    title: str
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -50,6 +55,7 @@ async def list_articles(
             published_at=art.published_at,
             status=art.status,
             input_type=art.input_type,
+            refine_status=art.refine_status,
             created_at=art.created_at,
             quality_score=analysis.quality_score if analysis else None,
         ))
@@ -76,6 +82,8 @@ async def get_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
         published_at=article.published_at,
         status=article.status,
         input_type=article.input_type,
+        refine_status=article.refine_status,
+        content_md=article.content_md,
         created_at=article.created_at,
         quality_score=analysis.quality_score if analysis else None,
         analysis=analysis_dict,
@@ -97,6 +105,29 @@ async def refetch_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
     return {"message": "重新抓取已触发", "article_id": str(id)}
 
 
+@router.patch("/{id}/title", response_model=ArticlePublic)
+async def update_article_title(current_user: CurrentUser, id: uuid.UUID, body: ArticleTitleUpdate) -> Any:
+    """Update the title of an article."""
+    article = await Article.find_one(Article.id == id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    article.title = body.title.strip()
+    await article.save()
+    return ArticlePublic(
+        id=article.id,
+        source_id=article.source_id,
+        title=article.title,
+        url=article.url,
+        author=article.author,
+        published_at=article.published_at,
+        status=article.status,
+        input_type=article.input_type,
+        refine_status=article.refine_status,
+        created_at=article.created_at,
+        quality_score=None,
+    )
+
+
 @router.delete("/{id}", response_model=ArticlePublic)
 async def archive_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
     article = await Article.find_one(Article.id == id)
@@ -113,6 +144,7 @@ async def archive_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
         published_at=article.published_at,
         status=article.status,
         input_type=article.input_type,
+        refine_status=article.refine_status,
         created_at=article.created_at,
         quality_score=None,
     )

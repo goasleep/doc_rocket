@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form"
 
 import { SystemConfigService, type SystemConfigUpdate } from "@/client"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 
 function ProviderKeyField({
@@ -23,7 +23,9 @@ function ProviderKeyField({
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium">{label}</label>
         {maskedKey && (
-          <span className="text-xs text-muted-foreground font-mono">{maskedKey}</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            {maskedKey}
+          </span>
         )}
       </div>
       <Input
@@ -109,7 +111,9 @@ export function SystemSettings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">默认抓取间隔（分钟）</label>
+              <label className="text-sm font-medium">
+                默认抓取间隔（分钟）
+              </label>
               <div className="text-sm text-muted-foreground">
                 {config.scheduler.default_interval_minutes} 分钟
               </div>
@@ -130,11 +134,13 @@ export function SystemSettings() {
           <CardContent className="space-y-4 text-sm">
             <div>
               <span className="text-muted-foreground">分析模型：</span>
-              {config.analysis.default_model_provider} / {config.analysis.default_model_id}
+              {config.analysis.default_model_provider} /{" "}
+              {config.analysis.default_model_id}
             </div>
             <div>
               <span className="text-muted-foreground">写作模型：</span>
-              {config.writing.default_model_provider} / {config.writing.default_model_id}
+              {config.writing.default_model_provider} /{" "}
+              {config.writing.default_model_id}
             </div>
           </CardContent>
         </Card>

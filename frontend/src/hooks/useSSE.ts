@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from "react"
 import { fetchEventSource } from "@microsoft/fetch-event-source"
+import { useCallback, useEffect, useRef } from "react"
 
 import { OpenAPI } from "@/client"
 

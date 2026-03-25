@@ -4,10 +4,9 @@ Note: This is NOT a Celery task. The rewrite-section endpoint calls
 _rewrite_section_async() directly (await) because users wait for the
 result synchronously before deciding to accept or discard.
 """
-import json
 import uuid
 
-from app.core.agents.base import create_agent_for_config
+from app.core.agents.base import BaseAgent
 
 
 async def _rewrite_section_async(
@@ -15,22 +14,21 @@ async def _rewrite_section_async(
     selected_text: str,
     context: str = "",
 ) -> str:
-    """Rewrite a selected text section using the EditorAgent.
+    """Rewrite a selected text section using BaseAgent (去AI味).
 
     Returns the rewritten text.
     """
-    from app.models import AgentConfig, Draft
+    from app.models import Draft
 
     draft = await Draft.find_one(Draft.id == uuid.UUID(draft_id))
     if not draft:
         raise ValueError(f"Draft {draft_id} not found")
 
-    editor_config = await AgentConfig.find_one(
-        AgentConfig.role == "editor",
-        AgentConfig.is_active == True,  # noqa: E712
-    )
-
-    agent = create_agent_for_config(editor_config)
+    # Use BaseAgent with no agent_config — editor_config has a system prompt that
+    # demands JSON output, which conflicts with plain-text rewrite instructions.
+    # agent_config=None falls back to the first active LLM config with a generic
+    # Chinese writing assistant system prompt (no JSON requirement).
+    agent = BaseAgent(agent_config=None)
 
     prompt = (
         f"请对以下选中的文字进行去AI味处理，使其更自然、口语化，"
@@ -41,11 +39,4 @@ async def _rewrite_section_async(
     )
 
     rewritten = await agent.run(prompt)
-    # EditorAgent returns JSON; extract just the content field for rewrite
-    try:
-        data = json.loads(rewritten)
-        if isinstance(data, dict) and "content" in data:
-            return data["content"].strip()
-    except (json.JSONDecodeError, AttributeError):
-        pass
     return rewritten.strip()

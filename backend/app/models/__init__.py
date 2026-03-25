@@ -30,6 +30,8 @@ from app.models.agent_config import (
     AgentConfigPublic,
     AgentConfigsPublic,
     AgentConfigUpdate,
+    AnalysisConfig,
+    ReactConfig,
 )
 from app.models.analysis import (
     AnalysesPublic,
@@ -38,7 +40,11 @@ from app.models.analysis import (
     ArticleAnalysisPublic,
     ArticleStructure,
     ArticleStyle,
+    ComparisonReferenceEmbedded,
     QualityBreakdown,
+    QualityScoreDetail,
+    ScoreEvidence,
+    ToolCallDetail,
 )
 from app.models.article import (
     Article,
@@ -108,6 +114,24 @@ from app.models.task_run import (
     TaskRunPublic,
     TaskRunsPublic,
 )
+from app.models.quality_rubric import (
+    QualityRubric,
+    QualityRubricCreate,
+    QualityRubricPublic,
+    QualityRubricsPublic,
+    QualityRubricUpdate,
+    RubricCriterion,
+    RubricDimension,
+    DEFAULT_RUBRIC_V1,
+)
+from app.models.external_reference import (
+    ExternalReference,
+    ExternalReferenceCreate,
+    ExternalReferencePublic,
+    ExternalReferencesPublic,
+    ExternalReferenceUpdate,
+    ExternalReferenceDetail,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -129,14 +153,16 @@ __all__ = [
     "Article", "ArticleCreate", "ArticlePublic", "ArticleDetail", "ArticlesPublic",
     # Analysis
     "ArticleAnalysis", "ArticleAnalysisPublic", "AnalysesPublic",
-    "AnalysisTraceStep",
+    "AnalysisTraceStep", "ToolCallDetail",
     "QualityBreakdown", "ArticleStructure", "ArticleStyle",
+    "QualityScoreDetail", "ScoreEvidence", "ComparisonReferenceEmbedded",
     # LLMModelConfig
     "LLMModelConfig", "LLMModelConfigCreate", "LLMModelConfigUpdate",
     "LLMModelConfigPublic", "LLMModelConfigsPublic",
     # AgentConfig
     "AgentConfig", "AgentConfigCreate", "AgentConfigUpdate",
     "AgentConfigPublic", "AgentConfigsPublic",
+    "AnalysisConfig", "ReactConfig",
     # Workflow
     "WorkflowRun", "WorkflowRunCreate", "WorkflowRunPublic", "WorkflowRunsPublic",
     "AgentStep", "RoutingEvent", "WorkflowInput", "WorkflowApprove", "WorkflowReject",
@@ -153,6 +179,13 @@ __all__ = [
     "Tool", "ToolUpdate", "ToolPublic", "ToolsPublic",
     # TaskRun
     "TaskRun", "TaskRunPublic", "TaskRunsPublic",
+    # QualityRubric
+    "QualityRubric", "QualityRubricCreate", "QualityRubricUpdate",
+    "QualityRubricPublic", "QualityRubricsPublic",
+    "RubricCriterion", "RubricDimension", "DEFAULT_RUBRIC_V1",
+    # ExternalReference
+    "ExternalReference", "ExternalReferenceCreate", "ExternalReferenceUpdate",
+    "ExternalReferencePublic", "ExternalReferencesPublic", "ExternalReferenceDetail",
     # Generic
     "Message",
 ]

@@ -4,8 +4,8 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   type login as AccessToken,
   AuthService,
-  type UserRead,
   type UserCreate,
+  type UserRead,
   UsersService,
 } from "@/client"
 import useCustomToast from "./useCustomToast"
@@ -36,7 +36,7 @@ const useAuth = () => {
       const message =
         detail === "REGISTER_USER_ALREADY_EXISTS"
           ? "The user with this email already exists in the system"
-          : detail ?? "Something went wrong."
+          : (detail ?? "Something went wrong.")
       showErrorToast(message)
     },
     onSettled: () => {
@@ -63,7 +63,7 @@ const useAuth = () => {
           ? "Incorrect email or password"
           : detail === "LOGIN_USER_NOT_VERIFIED"
             ? "Please verify your email before logging in"
-            : detail ?? "Something went wrong."
+            : (detail ?? "Something went wrong.")
       showErrorToast(message)
     },
   })

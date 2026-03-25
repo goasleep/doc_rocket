@@ -11,6 +11,8 @@ export type AgentConfigCreate = {
     skills?: Array<(string)>;
     tools?: Array<(string)>;
     max_iterations?: number;
+    analysis_config?: AnalysisConfig;
+    react_config?: ReactConfig;
 };
 
 export type AgentConfigPublic = {
@@ -25,7 +27,10 @@ export type AgentConfigPublic = {
     skills: Array<(string)>;
     tools: Array<(string)>;
     max_iterations: number;
+    analysis_config: AnalysisConfig;
+    react_config: ReactConfig;
     created_at: string;
+    updated_at: string;
 };
 
 export type AgentConfigsPublic = {
@@ -44,6 +49,8 @@ export type AgentConfigUpdate = {
     skills?: (Array<(string)> | null);
     tools?: (Array<(string)> | null);
     max_iterations?: (number | null);
+    analysis_config?: (AnalysisConfig | null);
+    react_config?: (ReactConfig | null);
 };
 
 export type AgentStep = {
@@ -71,13 +78,73 @@ export type AnalysesPublic = {
     count: number;
 };
 
+/**
+ * 分析配置
+ */
+export type AnalysisConfig = {
+    /**
+     * 是否启用知识库对比
+     */
+    enable_kb_comparison?: boolean;
+    /**
+     * 是否启用外部搜索
+     */
+    enable_web_search?: boolean;
+    /**
+     * 对比文章数量
+     */
+    comparison_count?: number;
+    /**
+     * 分析深度
+     */
+    analysis_depth?: string;
+};
+
+export type AnalysisTraceResponse = {
+    article_id: string;
+    trace: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
+/**
+ * 分析追溯步骤
+ */
 export type AnalysisTraceStep = {
     step_index: number;
-    messages_sent: Array<unknown>;
-    raw_response: string;
-    parsed_ok: boolean;
-    duration_ms: number;
-    timestamp: string;
+    /**
+     * 步骤名称
+     */
+    step_name?: string;
+    /**
+     * 步骤类型 (thought/tool_call/observation/conclusion/reflection)
+     */
+    step_type?: string;
+    /**
+     * 输入摘要
+     */
+    input_summary?: string;
+    /**
+     * 输出摘要
+     */
+    output_summary?: string;
+    messages_sent?: Array<unknown>;
+    raw_response?: string;
+    parsed_ok?: boolean;
+    duration_ms?: number;
+    timestamp?: string;
+    /**
+     * 工具调用详情
+     */
+    tool_calls?: Array<ToolCallDetail>;
+    /**
+     * 并行组标识
+     */
+    parallel_group?: (string | null);
+    /**
+     * 并行组内索引
+     */
+    parallel_index?: (number | null);
 };
 
 export type ApiConfig = {
@@ -94,6 +161,12 @@ export type ArticleAnalysisPublic = {
     article_id: string;
     quality_score: number;
     quality_breakdown: QualityBreakdown;
+    quality_score_details: Array<QualityScoreDetail>;
+    comparison_references: Array<ComparisonReferenceEmbedded>;
+    analysis_summary: string;
+    improvement_suggestions: Array<(string)>;
+    rubric_version: string;
+    analysis_duration_ms: number;
     hook_type: string;
     framework: string;
     emotional_triggers: Array<(string)>;
@@ -102,7 +175,7 @@ export type ArticleAnalysisPublic = {
     structure: ArticleStructure;
     style: ArticleStyle;
     target_audience: string;
-    trace?: Array<AnalysisTraceStep>;
+    trace: Array<AnalysisTraceStep>;
     created_at: string;
 };
 
@@ -156,6 +229,10 @@ export type ArticleStyle = {
     avg_sentence_length?: number;
 };
 
+export type ArticleTitleUpdate = {
+    title: string;
+};
+
 export type BearerResponse = {
     access_token: string;
     token_type: string;
@@ -176,6 +253,56 @@ export type Body_auth_verify_request_token = {
 
 export type Body_auth_verify_verify = {
     token: string;
+};
+
+/**
+ * 嵌入的对比参考
+ */
+export type ComparisonReferenceEmbedded = {
+    /**
+     * 来源 (knowledge_base | external)
+     */
+    source: string;
+    /**
+     * 知识库文章ID
+     */
+    kb_article_id?: (string | null);
+    /**
+     * 知识库文章标题
+     */
+    kb_article_title?: (string | null);
+    /**
+     * 外部参考ID
+     */
+    external_ref_id?: (string | null);
+    /**
+     * 外部文章URL
+     */
+    external_url?: (string | null);
+    /**
+     * 外部文章标题
+     */
+    external_title?: (string | null);
+    /**
+     * 质量分数
+     */
+    quality_score?: (number | null);
+    /**
+     * 相似度分数
+     */
+    similarity_score?: number;
+    /**
+     * 关键差异
+     */
+    key_differences?: Array<(string)>;
+    /**
+     * 可借鉴之处
+     */
+    learnings?: Array<(string)>;
+    /**
+     * 对方优势
+     */
+    advantages?: Array<(string)>;
 };
 
 export type DraftPublic = {
@@ -211,6 +338,65 @@ export type ErrorModel = {
     detail: (string | {
     [key: string]: (string);
 });
+};
+
+export type ExternalReferenceCreate = {
+    url: string;
+    title: string;
+    source?: string;
+    content?: string;
+    content_snippet?: string;
+    search_query?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+};
+
+export type ExternalReferenceDetail = {
+    id: string;
+    url: string;
+    title: string;
+    source: string;
+    content_snippet: string;
+    fetched_at: string;
+    search_query: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    referencer_article_ids: Array<(string)>;
+    created_at: string;
+    updated_at: string;
+    content: string;
+};
+
+export type ExternalReferencePublic = {
+    id: string;
+    url: string;
+    title: string;
+    source: string;
+    content_snippet: string;
+    fetched_at: string;
+    search_query: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    referencer_article_ids: Array<(string)>;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ExternalReferencesPublic = {
+    data: Array<ExternalReferencePublic>;
+    count: number;
+};
+
+export type ExternalReferenceUpdate = {
+    title?: (string | null);
+    content?: (string | null);
+    content_snippet?: (string | null);
+    metadata?: ({
+    [key: string]: unknown;
+} | null);
 };
 
 export type FetchConfig = {
@@ -328,6 +514,94 @@ export type QualityBreakdown = {
     virality_potential?: number;
 };
 
+export type QualityRubricCreate = {
+    version: string;
+    name: string;
+    description?: string;
+    dimensions: Array<RubricDimension>;
+    is_active?: boolean;
+};
+
+export type QualityRubricPublic = {
+    id: string;
+    version: string;
+    name: string;
+    description: string;
+    dimensions: Array<RubricDimension>;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type QualityRubricsPublic = {
+    data: Array<QualityRubricPublic>;
+    count: number;
+};
+
+export type QualityRubricUpdate = {
+    version?: (string | null);
+    name?: (string | null);
+    description?: (string | null);
+    dimensions?: (Array<RubricDimension> | null);
+    is_active?: (boolean | null);
+};
+
+/**
+ * 维度评分详情
+ */
+export type QualityScoreDetail = {
+    /**
+     * 维度名称
+     */
+    dimension: string;
+    /**
+     * 分数 0-100
+     */
+    score: number;
+    /**
+     * 权重
+     */
+    weight: number;
+    /**
+     * 加权分数
+     */
+    weighted_score: number;
+    /**
+     * 评分依据说明
+     */
+    reasoning?: string;
+    /**
+     * 符合的评分档位描述
+     */
+    standard_matched?: string;
+    /**
+     * 支撑证据列表
+     */
+    evidences?: Array<ScoreEvidence>;
+    /**
+     * 改进建议列表
+     */
+    improvement_suggestions?: Array<(string)>;
+};
+
+/**
+ * React Agent 配置
+ */
+export type ReactConfig = {
+    /**
+     * 最大步骤数
+     */
+    max_steps?: number;
+    /**
+     * 是否启用反思步骤
+     */
+    reflection_enabled?: boolean;
+    /**
+     * 是否并行执行维度分析
+     */
+    parallel_analysis?: boolean;
+};
+
 export type RewriteSectionRequest = {
     selected_text: string;
     context?: string;
@@ -344,9 +618,57 @@ export type RoutingEvent = {
     reason?: string;
 };
 
+/**
+ * 评分档位标准
+ */
+export type RubricCriterion = {
+    min_score: number;
+    max_score: number;
+    /**
+     * 档位描述
+     */
+    description: string;
+};
+
+/**
+ * 评分维度定义
+ */
+export type RubricDimension = {
+    /**
+     * 维度名称 (content_depth, readability, originality, virality_potential)
+     */
+    name: string;
+    /**
+     * 维度描述
+     */
+    description: string;
+    /**
+     * 权重
+     */
+    weight: number;
+    /**
+     * 评分档位
+     */
+    criteria?: Array<RubricCriterion>;
+};
+
 export type SchedulerConfig = {
     default_interval_minutes?: number;
     max_concurrent_fetches?: number;
+};
+
+/**
+ * 评分证据
+ */
+export type ScoreEvidence = {
+    /**
+     * 原文引用
+     */
+    quote: string;
+    /**
+     * 上下文说明
+     */
+    context?: string;
 };
 
 export type SearchConfig = {
@@ -510,6 +832,19 @@ export type TaskRunsPublic = {
     count: number;
 };
 
+/**
+ * 工具调用详情
+ */
+export type ToolCallDetail = {
+    tool_name: string;
+    input_params?: {
+        [key: string]: unknown;
+    };
+    output_summary?: string;
+    success?: boolean;
+    error_message?: string;
+};
+
 export type ToolPublic = {
     id: string;
     name: string;
@@ -618,6 +953,7 @@ export type WorkflowRunCreate = {
     type?: string;
     article_ids?: Array<(string)>;
     topic?: (string | null);
+    use_orchestrator?: boolean;
 };
 
 export type WorkflowRunPublic = {
@@ -684,10 +1020,16 @@ export type AnalysesTriggerAnalysisData = {
 export type AnalysesTriggerAnalysisResponse = (TriggerAnalysisResponse);
 
 export type AnalysesGetAnalysisData = {
-    id: string;
+    articleId: string;
 };
 
 export type AnalysesGetAnalysisResponse = (ArticleAnalysisPublic);
+
+export type AnalysesGetAnalysisTraceData = {
+    articleId: string;
+};
+
+export type AnalysesGetAnalysisTraceResponse = (AnalysisTraceResponse);
 
 export type ArticlesListArticlesData = {
     inputType?: (string | null);
@@ -717,6 +1059,13 @@ export type ArticlesRefetchArticleData = {
 };
 
 export type ArticlesRefetchArticleResponse = (unknown);
+
+export type ArticlesUpdateArticleTitleData = {
+    id: string;
+    requestBody: ArticleTitleUpdate;
+};
+
+export type ArticlesUpdateArticleTitleResponse = (ArticlePublic);
 
 export type AuthAuthJwtLoginData = {
     formData: login;
@@ -803,6 +1152,46 @@ export type DraftsRewriteSectionData = {
 
 export type DraftsRewriteSectionResponse = (RewriteSectionResponse);
 
+export type ExternalReferencesListExternalReferencesData = {
+    limit?: number;
+    search?: string;
+    skip?: number;
+    source?: string;
+};
+
+export type ExternalReferencesListExternalReferencesResponse = (ExternalReferencesPublic);
+
+export type ExternalReferencesCreateExternalReferenceData = {
+    requestBody: ExternalReferenceCreate;
+};
+
+export type ExternalReferencesCreateExternalReferenceResponse = (ExternalReferencePublic);
+
+export type ExternalReferencesGetExternalReferenceData = {
+    refId: string;
+};
+
+export type ExternalReferencesGetExternalReferenceResponse = (ExternalReferenceDetail);
+
+export type ExternalReferencesUpdateExternalReferenceData = {
+    refId: string;
+    requestBody: ExternalReferenceUpdate;
+};
+
+export type ExternalReferencesUpdateExternalReferenceResponse = (ExternalReferencePublic);
+
+export type ExternalReferencesDeleteExternalReferenceData = {
+    refId: string;
+};
+
+export type ExternalReferencesDeleteExternalReferenceResponse = (Message);
+
+export type ExternalReferencesRefetchExternalReferenceData = {
+    refId: string;
+};
+
+export type ExternalReferencesRefetchExternalReferenceResponse = (ExternalReferencePublic);
+
 export type ItemsReadItemsData = {
     limit?: number;
     skip?: number;
@@ -861,6 +1250,46 @@ export type PrivateCreateUserData = {
 };
 
 export type PrivateCreateUserResponse = (UserRead);
+
+export type RubricsListRubricsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type RubricsListRubricsResponse = (QualityRubricsPublic);
+
+export type RubricsCreateRubricData = {
+    requestBody: QualityRubricCreate;
+};
+
+export type RubricsCreateRubricResponse = (QualityRubricPublic);
+
+export type RubricsGetActiveRubricResponse = (QualityRubricPublic);
+
+export type RubricsGetRubricData = {
+    rubricId: string;
+};
+
+export type RubricsGetRubricResponse = (QualityRubricPublic);
+
+export type RubricsUpdateRubricData = {
+    requestBody: QualityRubricUpdate;
+    rubricId: string;
+};
+
+export type RubricsUpdateRubricResponse = (QualityRubricPublic);
+
+export type RubricsDeleteRubricData = {
+    rubricId: string;
+};
+
+export type RubricsDeleteRubricResponse = (Message);
+
+export type RubricsActivateRubricData = {
+    rubricId: string;
+};
+
+export type RubricsActivateRubricResponse = (QualityRubricPublic);
 
 export type SkillsListSkillsData = {
     limit?: number;
@@ -959,7 +1388,7 @@ export type TaskRunsListTaskRunsData = {
     limit?: number;
     skip?: number;
     status?: ('pending' | 'running' | 'done' | 'failed' | null);
-    taskType?: ('analyze' | 'fetch' | 'workflow' | null);
+    taskType?: ('analyze' | 'fetch' | 'refine' | 'workflow' | null);
     triggeredBy?: ('manual' | 'scheduler' | 'agent' | null);
 };
 

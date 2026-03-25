@@ -29,6 +29,10 @@ def _register_builtins() -> None:
         run_skill_script,
         query_articles,
         save_draft,
+        search_similar_articles,
+        get_article_analysis,
+        save_external_reference,
+        compare_with_reference,
     )
     TOOL_REGISTRY["web_search"] = web_search
     TOOL_REGISTRY["fetch_url"] = fetch_url
@@ -36,6 +40,11 @@ def _register_builtins() -> None:
     TOOL_REGISTRY["run_skill_script"] = run_skill_script
     TOOL_REGISTRY["query_articles"] = query_articles
     TOOL_REGISTRY["save_draft"] = save_draft
+    # Analysis tools for ReactAnalyzerAgent
+    TOOL_REGISTRY["search_similar_articles"] = search_similar_articles
+    TOOL_REGISTRY["get_article_analysis"] = get_article_analysis
+    TOOL_REGISTRY["save_external_reference"] = save_external_reference
+    TOOL_REGISTRY["compare_with_reference"] = compare_with_reference
 
 
 _register_builtins()

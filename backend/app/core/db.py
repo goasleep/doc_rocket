@@ -6,9 +6,12 @@ from app.models import (
     AgentConfig,
     Article,
     ArticleAnalysis,
+    DEFAULT_RUBRIC_V1,
     Draft,
+    ExternalReference,
     Item,
     LLMModelConfig,
+    QualityRubric,
     Skill,
     Source,
     SystemConfig,
@@ -38,6 +41,8 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             Skill,
             Tool,
             TaskRun,
+            QualityRubric,
+            ExternalReference,
         ],
     )
 
@@ -61,18 +66,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
     # Initialize SystemConfig singleton
     config = await SystemConfig.find_one()
     if not config:
-        from app.core.encryption import encrypt_value
-
         config = SystemConfig()
-
-        # Import API keys from environment on first start
-        if settings.KIMI_API_KEY:
-            config.llm_providers.kimi.api_key_encrypted = encrypt_value(settings.KIMI_API_KEY)
-        if settings.ANTHROPIC_API_KEY:
-            config.llm_providers.claude.api_key_encrypted = encrypt_value(settings.ANTHROPIC_API_KEY)
-        if settings.OPENAI_API_KEY:
-            config.llm_providers.openai.api_key_encrypted = encrypt_value(settings.OPENAI_API_KEY)
-
         await config.insert()
 
     # Seed default AgentConfigs if none exist
@@ -107,5 +101,31 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
         ]
         for agent in defaults:
             await agent.insert()
+
+    # Seed default QualityRubric v1 if none exist
+    rubric_count = await QualityRubric.count()
+    if rubric_count == 0:
+        from app.models.quality_rubric import RubricCriterion, RubricDimension
+
+        dimensions = []
+        for dim_data in DEFAULT_RUBRIC_V1["dimensions"]:
+            criteria = [
+                RubricCriterion(**c) for c in dim_data["criteria"]
+            ]
+            dimensions.append(RubricDimension(
+                name=dim_data["name"],
+                description=dim_data["description"],
+                weight=dim_data["weight"],
+                criteria=criteria,
+            ))
+
+        default_rubric = QualityRubric(
+            version=DEFAULT_RUBRIC_V1["version"],
+            name=DEFAULT_RUBRIC_V1["name"],
+            description=DEFAULT_RUBRIC_V1["description"],
+            dimensions=dimensions,
+            is_active=True,
+        )
+        await default_rubric.insert()
 
     return client

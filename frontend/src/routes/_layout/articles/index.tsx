@@ -1,14 +1,24 @@
-import { useState } from "react"
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { BookOpen, FlaskConical, Trash2 } from "lucide-react"
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 
-import { ArticlesService, AnalysesService, SourcesService, WorkflowsService, type ArticlePublic } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import {
+  AnalysesService,
+  type ArticlePublic,
+  ArticlesService,
+  SourcesService,
+  WorkflowsService,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Select,
   SelectContent,
@@ -52,13 +62,13 @@ function ArticlesTableContent() {
     queryFn: () => SourcesService.listSources({ skip: 0, limit: 200 }),
   })
 
-  const sourceMap = new Map(
-    sourcesData?.data.map((s) => [s.id, s.name]) ?? []
-  )
+  const sourceMap = new Map(sourcesData?.data.map((s) => [s.id, s.name]) ?? [])
 
   const analyzeMutation = useMutation({
     mutationFn: (articleId: string) =>
-      AnalysesService.triggerAnalysis({ requestBody: { article_id: articleId } }),
+      AnalysesService.triggerAnalysis({
+        requestBody: { article_id: articleId },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["articles"] })
       showSuccessToast("分析任务已触发")
@@ -98,7 +108,11 @@ function ArticlesTableContent() {
 
   // Filter articles
   const filtered = data.data.filter((a) => {
-    if (search.trim() && !a.title.toLowerCase().includes(search.trim().toLowerCase())) return false
+    if (
+      search.trim() &&
+      !a.title.toLowerCase().includes(search.trim().toLowerCase())
+    )
+      return false
     if (filterStatus !== "all" && a.status !== filterStatus) return false
     if (filterSource !== "all") {
       if (filterSource === "manual") {
@@ -125,7 +139,9 @@ function ArticlesTableContent() {
           <BookOpen className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-semibold">暂无文章</h3>
-        <p className="text-muted-foreground">通过订阅源抓取或手动投稿添加文章</p>
+        <p className="text-muted-foreground">
+          通过订阅源抓取或手动投稿添加文章
+        </p>
       </div>
     )
   }
@@ -185,7 +201,11 @@ function ArticlesTableContent() {
           >
             触发仿写
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelected(new Set())}
+          >
             取消选择
           </Button>
         </div>
@@ -196,7 +216,9 @@ function ArticlesTableContent() {
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
-                checked={filtered.length > 0 && selected.size === filtered.length}
+                checked={
+                  filtered.length > 0 && selected.size === filtered.length
+                }
                 onCheckedChange={toggleAll}
               />
             </TableHead>
@@ -211,7 +233,10 @@ function ArticlesTableContent() {
         <TableBody>
           {filtered.length === 0 ? (
             <TableRow>
-              <td colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
+              <td
+                colSpan={7}
+                className="text-center py-8 text-sm text-muted-foreground"
+              >
                 无匹配文章
               </td>
             </TableRow>
@@ -250,8 +275,8 @@ function ArticlesTableContent() {
                   {article.source_id && sourceMap.has(article.source_id)
                     ? sourceMap.get(article.source_id)
                     : article.input_type === "manual"
-                    ? "手动投稿"
-                    : article.input_type}
+                      ? "手动投稿"
+                      : article.input_type}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                   {new Date(article.created_at).toLocaleString("zh-CN", {
@@ -306,7 +331,9 @@ function Articles() {
       </div>
       <Suspense
         fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
         }
       >
         <ArticlesTableContent />

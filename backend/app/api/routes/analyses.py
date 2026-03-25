@@ -23,6 +23,11 @@ class TriggerAnalysisResponse(BaseModel):
     article_id: str
 
 
+class AnalysisTraceResponse(BaseModel):
+    article_id: uuid.UUID
+    trace: list[dict[str, Any]]
+
+
 @router.get("/", response_model=AnalysesPublic)
 async def list_analyses(
     current_user: CurrentUser,
@@ -37,12 +42,41 @@ async def list_analyses(
     return AnalysesPublic(data=analyses, count=count)
 
 
-@router.get("/{id}", response_model=ArticleAnalysisPublic)
-async def get_analysis(current_user: CurrentUser, id: uuid.UUID) -> Any:
-    analysis = await ArticleAnalysis.find_one(ArticleAnalysis.id == id)
+@router.get("/{article_id}", response_model=ArticleAnalysisPublic)
+async def get_analysis(current_user: CurrentUser, article_id: uuid.UUID) -> Any:
+    """Get analysis by article ID."""
+    analysis = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == article_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     return analysis
+
+
+@router.get("/{article_id}/trace", response_model=AnalysisTraceResponse)
+async def get_analysis_trace(current_user: CurrentUser, article_id: uuid.UUID) -> Any:
+    """Get detailed analysis trace for an article."""
+    analysis = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == article_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    trace_data = []
+    for step in analysis.trace:
+        trace_data.append({
+            "step_index": step.step_index,
+            "step_name": step.step_name,
+            "step_type": step.step_type,
+            "input_summary": step.input_summary,
+            "output_summary": step.output_summary,
+            "duration_ms": step.duration_ms,
+            "timestamp": step.timestamp.isoformat() if step.timestamp else None,
+            "tool_calls": [tc.model_dump() for tc in step.tool_calls] if step.tool_calls else [],
+            "parallel_group": step.parallel_group,
+            "parallel_index": step.parallel_index,
+        })
+
+    return AnalysisTraceResponse(
+        article_id=article_id,
+        trace=trace_data,
+    )
 
 
 @router.post("/", response_model=TriggerAnalysisResponse, status_code=202)

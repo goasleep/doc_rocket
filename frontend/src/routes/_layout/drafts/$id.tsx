@@ -1,15 +1,27 @@
-import { useState, useCallback, useEffect, useRef } from "react"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Suspense } from "react"
 import MDEditor from "@uiw/react-md-editor"
-import { Download, CheckCircle, Clock, RotateCcw, X, Check } from "lucide-react"
+import {
+  Check,
+  CheckCircle,
+  ChevronDown,
+  Clock,
+  Download,
+  RotateCcw,
+  X,
+} from "lucide-react"
+import { marked } from "marked"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import { DraftsService, type EditHistoryEntry } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/drafts/$id")({
@@ -43,20 +55,26 @@ function RewriteDiffDialog({
         </div>
         <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">原文</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              原文
+            </p>
             <div className="text-sm whitespace-pre-wrap bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded p-3">
               {original}
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">改写后</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              改写后
+            </p>
             <div className="text-sm whitespace-pre-wrap bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded p-3">
               {rewritten}
             </div>
           </div>
         </div>
         <div className="flex gap-2 justify-end p-4 border-t">
-          <Button variant="outline" onClick={onCancel}>取消</Button>
+          <Button variant="outline" onClick={onCancel}>
+            取消
+          </Button>
           <Button onClick={() => onAccept(rewritten)}>
             <Check className="h-4 w-4 mr-1" />
             接受改写
@@ -84,7 +102,15 @@ function DraftEditorContent() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [selectedText, setSelectedText] = useState("")
   const [rewriteResult, setRewriteResult] = useState<string | null>(null)
+  const [contextMenuPos, setContextMenuPos] = useState<{
+    x: number
+    y: number
+  } | null>(null)
+  const [pendingSelection, setPendingSelection] = useState("")
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement | null>(null)
+  const exportMenuRef = useRef<HTMLDivElement | null>(null)
 
   const saveMutation = useMutation({
     mutationFn: (data: { title?: string; content?: string }) =>
@@ -122,7 +148,7 @@ function DraftEditorContent() {
       }, 1000)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id]
+    [saveMutation.mutate],
   )
 
   useEffect(() => {
@@ -130,6 +156,36 @@ function DraftEditorContent() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [])
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenuPos) return
+    const handler = (e: MouseEvent) => {
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(e.target as Node)
+      ) {
+        setContextMenuPos(null)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [contextMenuPos])
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(e.target as Node)
+      ) {
+        setExportMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [exportMenuOpen])
 
   const handleTitleChange = (t: string) => {
     setTitle(t)
@@ -139,24 +195,56 @@ function DraftEditorContent() {
     }, 1000)
   }
 
-  const handleExport = () => {
-    const blob = new Blob([`# ${title}\n\n${content}`], { type: "text/markdown" })
+  const handleExportMd = () => {
+    const blob = new Blob([`# ${title}\n\n${content}`], {
+      type: "text/markdown",
+    })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `draft_${id.slice(0, 8)}.md`
+    a.download = `${title || "draft"}.md`
     a.click()
     URL.revokeObjectURL(url)
+    setExportMenuOpen(false)
   }
 
-  const handleRewrite = () => {
+  const handleExportPdf = async () => {
+    setExportMenuOpen(false)
+    const htmlBody = await marked.parse(content)
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${title}</title>
+<style>
+body{font-family:sans-serif;max-width:800px;margin:40px auto;line-height:1.6;color:#222}
+h1,h2,h3,h4{margin-top:1.5em}
+pre{background:#f5f5f5;padding:1em;overflow:auto;border-radius:4px}
+code{background:#f5f5f5;padding:.2em .4em;border-radius:2px}
+blockquote{border-left:4px solid #ddd;padding-left:1em;color:#666;margin-left:0}
+img{max-width:100%}
+</style></head><body>${htmlBody}</body></html>`
+    const iframe = document.createElement("iframe")
+    iframe.style.cssText =
+      "position:fixed;top:-9999px;left:-9999px;width:800px;height:600px"
+    document.body.appendChild(iframe)
+    iframe.contentDocument!.write(fullHtml)
+    iframe.contentDocument!.close()
+    iframe.contentWindow!.focus()
+    iframe.contentWindow!.print()
+    setTimeout(() => document.body.removeChild(iframe), 2000)
+  }
+
+  const handleContextMenu = (e: React.MouseEvent) => {
     const sel = window.getSelection()?.toString().trim()
-    if (!sel) {
-      showErrorToast("请先选中要改写的文字")
-      return
-    }
-    setSelectedText(sel)
-    rewriteMutation.mutate(sel)
+    if (!sel) return
+    e.preventDefault()
+    setPendingSelection(sel)
+    setContextMenuPos({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleContextRewrite = () => {
+    if (!pendingSelection) return
+    setSelectedText(pendingSelection)
+    rewriteMutation.mutate(pendingSelection)
+    setContextMenuPos(null)
   }
 
   const handleAcceptRewrite = (text: string) => {
@@ -188,21 +276,51 @@ function DraftEditorContent() {
           />
         </div>
         <StatusBadge status={draft.status} />
-        <Button size="sm" variant="outline" onClick={handleRewrite} disabled={rewriteMutation.isPending}>
-          {rewriteMutation.isPending ? "改写中..." : "✨ 去AI味"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleExport}>
-          <Download className="h-4 w-4 mr-1" />
-          导出
-        </Button>
+        <div className="relative" ref={exportMenuRef}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setExportMenuOpen((v) => !v)}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            导出
+            <ChevronDown className="h-3 w-3 ml-1" />
+          </Button>
+          {exportMenuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 bg-background border rounded shadow-md min-w-[140px]">
+              <button
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                onClick={handleExportMd}
+              >
+                导出 Markdown
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                onClick={handleExportPdf}
+              >
+                导出 PDF
+              </button>
+            </div>
+          )}
+        </div>
         {draft.status !== "approved" && (
-          <Button size="sm" onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
+          <Button
+            size="sm"
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+          >
             <CheckCircle className="h-4 w-4 mr-1" />
             标记为已发布
           </Button>
         )}
         {draft.edit_history.length > 0 && (
-          <Button size="sm" variant="outline" onClick={() => setHistoryOpen((v) => !v)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setHistoryOpen((v) => !v)}
+          >
             <Clock className="h-4 w-4 mr-1" />
             历史 ({draft.edit_history.length})
           </Button>
@@ -228,7 +346,12 @@ function DraftEditorContent() {
 
       <div className="flex flex-1 gap-4 min-h-0">
         {/* Editor */}
-        <div className="flex-1 min-w-0" data-color-mode="auto">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: context menu on editor wrapper */}
+        <div
+          className="flex-1 min-w-0"
+          data-color-mode="auto"
+          onContextMenu={handleContextMenu}
+        >
           <MDEditor
             value={content}
             onChange={handleContentChange}
@@ -253,7 +376,9 @@ function DraftEditorContent() {
                         : `版本 ${draft.edit_history.length - i}`}
                     </div>
                     {entry.note && (
-                      <div className="text-xs italic text-muted-foreground">{entry.note}</div>
+                      <div className="text-xs italic text-muted-foreground">
+                        {entry.note}
+                      </div>
                     )}
                     <div className="text-xs text-muted-foreground truncate">
                       {entry.content.slice(0, 80)}...
@@ -287,6 +412,31 @@ function DraftEditorContent() {
           }}
         />
       )}
+
+      {/* Right-click context menu */}
+      {contextMenuPos && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-background border rounded shadow-lg py-1 min-w-[140px]"
+          style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+        >
+          <button
+            type="button"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+            onClick={handleContextRewrite}
+            disabled={rewriteMutation.isPending}
+          >
+            {rewriteMutation.isPending ? "改写中..." : "✨ 去AI味改写"}
+          </button>
+          <button
+            type="button"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-muted-foreground"
+            onClick={() => setContextMenuPos(null)}
+          >
+            取消
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -295,7 +445,9 @@ function DraftEditorPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+        <div className="flex justify-center py-12 text-muted-foreground">
+          加载中...
+        </div>
       }
     >
       <DraftEditorContent />

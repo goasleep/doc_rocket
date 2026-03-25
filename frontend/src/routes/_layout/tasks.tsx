@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Bot, Clock, ExternalLink } from "lucide-react"
+import { Bot, Clock, ExternalLink, Search } from "lucide-react"
 import { useState } from "react"
 
-import { TaskRunsService, type TaskRunPublic } from "@/client"
+import { type TaskRunPublic, TaskRunsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -34,7 +34,13 @@ export const Route = createFileRoute("/_layout/tasks")({
   }),
 })
 
-function TriggeredByBadge({ triggeredBy, label }: { triggeredBy: string; label?: string | null }) {
+function TriggeredByBadge({
+  triggeredBy,
+  label,
+}: {
+  triggeredBy: string
+  label?: string | null
+}) {
   if (triggeredBy === "scheduler") {
     return (
       <Badge variant="outline" className="gap-1">
@@ -54,13 +60,23 @@ function TriggeredByBadge({ triggeredBy, label }: { triggeredBy: string; label?:
   return <Badge variant="secondary">手动</Badge>
 }
 
-function StatusBadgeTask({ status, errorMessage }: { status: string; errorMessage?: string | null }) {
+function StatusBadgeTask({
+  status,
+  errorMessage,
+}: {
+  status: string
+  errorMessage?: string | null
+}) {
   const badge = (() => {
     switch (status) {
       case "done":
         return <Badge className="bg-green-500 hover:bg-green-600">完成</Badge>
       case "running":
-        return <Badge className="bg-blue-500 hover:bg-blue-600 animate-pulse">运行中</Badge>
+        return (
+          <Badge className="bg-blue-500 hover:bg-blue-600 animate-pulse">
+            运行中
+          </Badge>
+        )
       case "failed":
         return <Badge variant="destructive">失败</Badge>
       default:
@@ -87,6 +103,7 @@ function TaskTypeBadge({ taskType }: { taskType: string }) {
   const labels: Record<string, string> = {
     analyze: "分析",
     fetch: "抓取",
+    refine: "精修",
     workflow: "仿写",
   }
   return <Badge variant="outline">{labels[taskType] ?? taskType}</Badge>
@@ -116,42 +133,93 @@ function EntityCell({ run }: { run: TaskRunPublic }) {
     return <span className="text-sm">{run.entity_name ?? run.entity_id}</span>
   }
   if (run.entity_name) {
-    return <span className="text-sm text-muted-foreground">{run.entity_name}</span>
+    return (
+      <span className="text-sm text-muted-foreground">{run.entity_name}</span>
+    )
   }
   return <span className="text-sm text-muted-foreground">—</span>
 }
+
+const PAGE_SIZE = 20
 
 function TasksPage() {
   const [taskType, setTaskType] = useState<string>("all")
   const [status, setStatus] = useState<string>("all")
   const [triggeredBy, setTriggeredBy] = useState<string>("all")
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(0)
+
+  const resetPage = () => setPage(0)
 
   const { data, isLoading } = useQuery({
     queryKey: ["task-runs", taskType, status, triggeredBy],
     queryFn: () =>
       TaskRunsService.listTaskRuns({
-        taskType: taskType !== "all" ? (taskType as "analyze" | "fetch" | "workflow") : undefined,
-        status: status !== "all" ? (status as "pending" | "running" | "done" | "failed") : undefined,
-        triggeredBy: triggeredBy !== "all" ? (triggeredBy as "manual" | "scheduler" | "agent") : undefined,
-        limit: 100,
+        taskType:
+          taskType !== "all"
+            ? (taskType as "analyze" | "fetch" | "refine" | "workflow")
+            : undefined,
+        status:
+          status !== "all"
+            ? (status as "pending" | "running" | "done" | "failed")
+            : undefined,
+        triggeredBy:
+          triggeredBy !== "all"
+            ? (triggeredBy as "manual" | "scheduler" | "agent")
+            : undefined,
+        limit: 500,
       }),
     refetchInterval: (query) => {
       const items = query.state.data?.data ?? []
-      const hasActive = items.some((r) => r.status === "running" || r.status === "pending")
+      const hasActive = items.some(
+        (r) => r.status === "running" || r.status === "pending",
+      )
       return hasActive ? 5000 : false
     },
   })
+
+  const filtered = (data?.data ?? []).filter((run) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (run.entity_name ?? "").toLowerCase().includes(q)
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold">任务中心</h1>
-        <p className="text-sm text-muted-foreground">所有分析、抓取、仿写任务的执行记录</p>
+        <p className="text-sm text-muted-foreground">
+          所有分析、抓取、仿写任务的执行记录
+        </p>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex gap-3 flex-wrap">
-        <Select value={taskType} onValueChange={setTaskType}>
+      <div className="flex gap-3 flex-wrap items-center">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="搜索实体名称..."
+            className="pl-8 pr-3 py-1.5 text-sm rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-48"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              resetPage()
+            }}
+          />
+        </div>
+
+        <Select
+          value={taskType}
+          onValueChange={(v) => {
+            setTaskType(v)
+            resetPage()
+          }}
+        >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="任务类型" />
           </SelectTrigger>
@@ -159,11 +227,18 @@ function TasksPage() {
             <SelectItem value="all">全部类型</SelectItem>
             <SelectItem value="analyze">分析</SelectItem>
             <SelectItem value="fetch">抓取</SelectItem>
+            <SelectItem value="refine">精修</SelectItem>
             <SelectItem value="workflow">仿写</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select value={status} onValueChange={setStatus}>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            resetPage()
+          }}
+        >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="状态" />
           </SelectTrigger>
@@ -176,7 +251,13 @@ function TasksPage() {
           </SelectContent>
         </Select>
 
-        <Select value={triggeredBy} onValueChange={setTriggeredBy}>
+        <Select
+          value={triggeredBy}
+          onValueChange={(v) => {
+            setTriggeredBy(v)
+            resetPage()
+          }}
+        >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="触发来源" />
           </SelectTrigger>
@@ -188,74 +269,108 @@ function TasksPage() {
           </SelectContent>
         </Select>
 
-        {data && (
-          <span className="text-sm text-muted-foreground self-center">
-            共 {data.count} 条记录
-          </span>
-        )}
+        <span className="text-sm text-muted-foreground">
+          共 {filtered.length} 条记录
+        </span>
       </div>
 
       {/* Tasks Table */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">加载中...</div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-24">类型</TableHead>
-                <TableHead>关联实体</TableHead>
-                <TableHead className="w-32">来源</TableHead>
-                <TableHead className="w-24">状态</TableHead>
-                <TableHead className="w-24">耗时</TableHead>
-                <TableHead className="w-40">创建时间</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data?.data.length === 0 && (
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    暂无任务记录
-                  </TableCell>
+                  <TableHead className="w-24">类型</TableHead>
+                  <TableHead>关联实体</TableHead>
+                  <TableHead className="w-32">来源</TableHead>
+                  <TableHead className="w-24">状态</TableHead>
+                  <TableHead className="w-24">耗时</TableHead>
+                  <TableHead className="w-40">创建时间</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
-              )}
-              {data?.data.map((run) => (
-                <TableRow key={run.id}>
-                  <TableCell>
-                    <TaskTypeBadge taskType={run.task_type} />
-                  </TableCell>
-                  <TableCell>
-                    <EntityCell run={run} />
-                  </TableCell>
-                  <TableCell>
-                    <TriggeredByBadge triggeredBy={run.triggered_by} label={run.triggered_by_label} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadgeTask status={run.status} errorMessage={run.error_message} />
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDuration(run.started_at, run.ended_at)}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {new Date(run.created_at).toLocaleString("zh-CN")}
-                  </TableCell>
-                  <TableCell>
-                    {run.task_type === "workflow" && run.workflow_run_id && (
-                      <Link
-                        to="/workflow"
-                        search={{ run_id: run.workflow_run_id }}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {paged.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      暂无任务记录
+                    </TableCell>
+                  </TableRow>
+                )}
+                {paged.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>
+                      <TaskTypeBadge taskType={run.task_type} />
+                    </TableCell>
+                    <TableCell>
+                      <EntityCell run={run} />
+                    </TableCell>
+                    <TableCell>
+                      <TriggeredByBadge
+                        triggeredBy={run.triggered_by}
+                        label={run.triggered_by_label}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadgeTask
+                        status={run.status}
+                        errorMessage={run.error_message}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDuration(run.started_at, run.ended_at)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(run.created_at).toLocaleString("zh-CN")}
+                    </TableCell>
+                    <TableCell>
+                      {run.task_type === "workflow" && run.workflow_run_id && (
+                        <Link
+                          to="/workflow"
+                          search={{ run_id: run.workflow_run_id }}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <button
+                type="button"
+                className="px-3 py-1 rounded border border-input hover:bg-muted disabled:opacity-40"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 0}
+              >
+                ← 上一页
+              </button>
+              <span className="text-muted-foreground">
+                第 {page + 1} 页 / 共 {totalPages} 页
+              </span>
+              <button
+                type="button"
+                className="px-3 py-1 rounded border border-input hover:bg-muted disabled:opacity-40"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages - 1}
+              >
+                下一页 →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

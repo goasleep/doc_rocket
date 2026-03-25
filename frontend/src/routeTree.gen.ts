@@ -21,13 +21,16 @@ import { Route as LayoutSubmitRouteImport } from './routes/_layout/submit'
 import { Route as LayoutSourcesRouteImport } from './routes/_layout/sources'
 import { Route as LayoutSkillsRouteImport } from './routes/_layout/skills'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutRubricsRouteImport } from './routes/_layout/rubrics'
 import { Route as LayoutPromptsRouteImport } from './routes/_layout/prompts'
 import { Route as LayoutLlmModelsRouteImport } from './routes/_layout/llm-models'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutAgentsRouteImport } from './routes/_layout/agents'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutExternalReferencesIndexRouteImport } from './routes/_layout/external-references/index'
 import { Route as LayoutDraftsIndexRouteImport } from './routes/_layout/drafts/index'
 import { Route as LayoutArticlesIndexRouteImport } from './routes/_layout/articles/index'
+import { Route as LayoutExternalReferencesIdRouteImport } from './routes/_layout/external-references/$id'
 import { Route as LayoutDraftsIdRouteImport } from './routes/_layout/drafts/$id'
 import { Route as LayoutArticlesIdRouteImport } from './routes/_layout/articles/$id'
 
@@ -90,6 +93,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutRubricsRoute = LayoutRubricsRouteImport.update({
+  id: '/rubrics',
+  path: '/rubrics',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutPromptsRoute = LayoutPromptsRouteImport.update({
   id: '/prompts',
   path: '/prompts',
@@ -115,6 +123,12 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutExternalReferencesIndexRoute =
+  LayoutExternalReferencesIndexRouteImport.update({
+    id: '/external-references/',
+    path: '/external-references/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutDraftsIndexRoute = LayoutDraftsIndexRouteImport.update({
   id: '/drafts/',
   path: '/drafts/',
@@ -125,6 +139,12 @@ const LayoutArticlesIndexRoute = LayoutArticlesIndexRouteImport.update({
   path: '/articles/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutExternalReferencesIdRoute =
+  LayoutExternalReferencesIdRouteImport.update({
+    id: '/external-references/$id',
+    path: '/external-references/$id',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutDraftsIdRoute = LayoutDraftsIdRouteImport.update({
   id: '/drafts/$id',
   path: '/drafts/$id',
@@ -147,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/items': typeof LayoutItemsRoute
   '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
+  '/rubrics': typeof LayoutRubricsRoute
   '/settings': typeof LayoutSettingsRoute
   '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
@@ -155,8 +176,10 @@ export interface FileRoutesByFullPath {
   '/workflow': typeof LayoutWorkflowRoute
   '/articles/$id': typeof LayoutArticlesIdRoute
   '/drafts/$id': typeof LayoutDraftsIdRoute
+  '/external-references/$id': typeof LayoutExternalReferencesIdRoute
   '/articles/': typeof LayoutArticlesIndexRoute
   '/drafts/': typeof LayoutDraftsIndexRoute
+  '/external-references/': typeof LayoutExternalReferencesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -168,6 +191,7 @@ export interface FileRoutesByTo {
   '/items': typeof LayoutItemsRoute
   '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
+  '/rubrics': typeof LayoutRubricsRoute
   '/settings': typeof LayoutSettingsRoute
   '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
@@ -177,8 +201,10 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/articles/$id': typeof LayoutArticlesIdRoute
   '/drafts/$id': typeof LayoutDraftsIdRoute
+  '/external-references/$id': typeof LayoutExternalReferencesIdRoute
   '/articles': typeof LayoutArticlesIndexRoute
   '/drafts': typeof LayoutDraftsIndexRoute
+  '/external-references': typeof LayoutExternalReferencesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -192,6 +218,7 @@ export interface FileRoutesById {
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/llm-models': typeof LayoutLlmModelsRoute
   '/_layout/prompts': typeof LayoutPromptsRoute
+  '/_layout/rubrics': typeof LayoutRubricsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/skills': typeof LayoutSkillsRoute
   '/_layout/sources': typeof LayoutSourcesRoute
@@ -201,8 +228,10 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/articles/$id': typeof LayoutArticlesIdRoute
   '/_layout/drafts/$id': typeof LayoutDraftsIdRoute
+  '/_layout/external-references/$id': typeof LayoutExternalReferencesIdRoute
   '/_layout/articles/': typeof LayoutArticlesIndexRoute
   '/_layout/drafts/': typeof LayoutDraftsIndexRoute
+  '/_layout/external-references/': typeof LayoutExternalReferencesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -217,6 +246,7 @@ export interface FileRouteTypes {
     | '/items'
     | '/llm-models'
     | '/prompts'
+    | '/rubrics'
     | '/settings'
     | '/skills'
     | '/sources'
@@ -225,8 +255,10 @@ export interface FileRouteTypes {
     | '/workflow'
     | '/articles/$id'
     | '/drafts/$id'
+    | '/external-references/$id'
     | '/articles/'
     | '/drafts/'
+    | '/external-references/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -238,6 +270,7 @@ export interface FileRouteTypes {
     | '/items'
     | '/llm-models'
     | '/prompts'
+    | '/rubrics'
     | '/settings'
     | '/skills'
     | '/sources'
@@ -247,8 +280,10 @@ export interface FileRouteTypes {
     | '/'
     | '/articles/$id'
     | '/drafts/$id'
+    | '/external-references/$id'
     | '/articles'
     | '/drafts'
+    | '/external-references'
   id:
     | '__root__'
     | '/_layout'
@@ -261,6 +296,7 @@ export interface FileRouteTypes {
     | '/_layout/items'
     | '/_layout/llm-models'
     | '/_layout/prompts'
+    | '/_layout/rubrics'
     | '/_layout/settings'
     | '/_layout/skills'
     | '/_layout/sources'
@@ -270,8 +306,10 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/articles/$id'
     | '/_layout/drafts/$id'
+    | '/_layout/external-references/$id'
     | '/_layout/articles/'
     | '/_layout/drafts/'
+    | '/_layout/external-references/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -368,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/rubrics': {
+      id: '/_layout/rubrics'
+      path: '/rubrics'
+      fullPath: '/rubrics'
+      preLoaderRoute: typeof LayoutRubricsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/prompts': {
       id: '/_layout/prompts'
       path: '/prompts'
@@ -403,6 +448,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/external-references/': {
+      id: '/_layout/external-references/'
+      path: '/external-references'
+      fullPath: '/external-references/'
+      preLoaderRoute: typeof LayoutExternalReferencesIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/drafts/': {
       id: '/_layout/drafts/'
       path: '/drafts'
@@ -415,6 +467,13 @@ declare module '@tanstack/react-router' {
       path: '/articles'
       fullPath: '/articles/'
       preLoaderRoute: typeof LayoutArticlesIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/external-references/$id': {
+      id: '/_layout/external-references/$id'
+      path: '/external-references/$id'
+      fullPath: '/external-references/$id'
+      preLoaderRoute: typeof LayoutExternalReferencesIdRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/drafts/$id': {
@@ -440,6 +499,7 @@ interface LayoutRouteChildren {
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutLlmModelsRoute: typeof LayoutLlmModelsRoute
   LayoutPromptsRoute: typeof LayoutPromptsRoute
+  LayoutRubricsRoute: typeof LayoutRubricsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutSkillsRoute: typeof LayoutSkillsRoute
   LayoutSourcesRoute: typeof LayoutSourcesRoute
@@ -449,8 +509,10 @@ interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutArticlesIdRoute: typeof LayoutArticlesIdRoute
   LayoutDraftsIdRoute: typeof LayoutDraftsIdRoute
+  LayoutExternalReferencesIdRoute: typeof LayoutExternalReferencesIdRoute
   LayoutArticlesIndexRoute: typeof LayoutArticlesIndexRoute
   LayoutDraftsIndexRoute: typeof LayoutDraftsIndexRoute
+  LayoutExternalReferencesIndexRoute: typeof LayoutExternalReferencesIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -459,6 +521,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutLlmModelsRoute: LayoutLlmModelsRoute,
   LayoutPromptsRoute: LayoutPromptsRoute,
+  LayoutRubricsRoute: LayoutRubricsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutSkillsRoute: LayoutSkillsRoute,
   LayoutSourcesRoute: LayoutSourcesRoute,
@@ -468,8 +531,10 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutArticlesIdRoute: LayoutArticlesIdRoute,
   LayoutDraftsIdRoute: LayoutDraftsIdRoute,
+  LayoutExternalReferencesIdRoute: LayoutExternalReferencesIdRoute,
   LayoutArticlesIndexRoute: LayoutArticlesIndexRoute,
   LayoutDraftsIndexRoute: LayoutDraftsIndexRoute,
+  LayoutExternalReferencesIndexRoute: LayoutExternalReferencesIndexRoute,
 }
 
 const LayoutRouteWithChildren =
