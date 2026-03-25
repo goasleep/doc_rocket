@@ -68,6 +68,7 @@ class WorkflowRunCreate(BaseModel):
     type: str = "writing"
     article_ids: list[uuid.UUID] = Field(default_factory=list)
     topic: str | None = None
+    use_orchestrator: bool = False
 
 
 class WorkflowRunPublic(BaseModel):

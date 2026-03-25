@@ -1,27 +1,42 @@
-import { useState, useRef, useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  Clock,
+  Loader2,
+  Search,
+  X,
+  XCircle,
+} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
-import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock, Loader2, ChevronsUpDown, X, Search } from "lucide-react"
 
 import {
-  WorkflowsService,
+  type AgentStep,
   ArticlesService,
   type WorkflowRunPublic,
-  type AgentStep,
+  WorkflowsService,
 } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+import { StatusBadge } from "@/components/ui/StatusBadge"
+import useCustomToast from "@/hooks/useCustomToast"
 import { useSSE } from "@/hooks/useSSE"
 import { useWorkflowPolling } from "@/hooks/useWorkflowPolling"
-import useCustomToast from "@/hooks/useCustomToast"
 
 // ─── Searchable Multi-Select ───────────────────────────────────────────────────
 
-type ArticleOption = { id: string; title: string; quality_score?: number | null }
+type ArticleOption = {
+  id: string
+  title: string
+  quality_score?: number | null
+}
 
 function ArticleMultiSelect({
   options,
@@ -38,7 +53,10 @@ function ArticleMultiSelect({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -47,7 +65,9 @@ function ArticleMultiSelect({
   }, [])
 
   const filtered = search.trim()
-    ? options.filter((o) => o.title.toLowerCase().includes(search.trim().toLowerCase()))
+    ? options.filter((o) =>
+        o.title.toLowerCase().includes(search.trim().toLowerCase()),
+      )
     : options
 
   const toggle = (id: string) => {
@@ -77,15 +97,13 @@ function ArticleMultiSelect({
         </span>
         <div className="flex items-center gap-1 shrink-0">
           {selectedIds.size > 0 && (
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={clearAll}
-              onKeyDown={(e) => e.key === "Enter" && clearAll(e as any)}
               className="rounded-sm hover:bg-muted p-0.5"
             >
               <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </span>
+            </button>
           )}
           <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
         </div>
@@ -103,7 +121,11 @@ function ArticleMultiSelect({
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 max-w-[200px]"
               >
                 <span className="truncate">{opt.title}</span>
-                <button type="button" onClick={() => toggle(id)} className="shrink-0 hover:opacity-70">
+                <button
+                  type="button"
+                  onClick={() => toggle(id)}
+                  className="shrink-0 hover:opacity-70"
+                >
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -118,7 +140,6 @@ function ArticleMultiSelect({
           <div className="flex items-center gap-2 px-3 py-2 border-b">
             <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <input
-              autoFocus
               type="text"
               placeholder="搜索文章..."
               value={search}
@@ -128,12 +149,19 @@ function ArticleMultiSelect({
           </div>
           <div className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">无匹配文章</p>
+              <p className="text-sm text-muted-foreground text-center py-4">
+                无匹配文章
+              </p>
             ) : (
               filtered.map((opt) => (
-                <label
+                <div
                   key={opt.id}
+                  role="option"
+                  aria-selected={selectedIds.has(opt.id)}
                   className="flex items-center gap-2.5 px-3 py-1.5 text-sm cursor-pointer hover:bg-muted"
+                  onClick={() => toggle(opt.id)}
+                  onKeyDown={(e) => e.key === "Enter" && toggle(opt.id)}
+                  tabIndex={0}
                 >
                   <Checkbox
                     checked={selectedIds.has(opt.id)}
@@ -145,7 +173,7 @@ function ArticleMultiSelect({
                       {opt.quality_score.toFixed(0)}分
                     </span>
                   )}
-                </label>
+                </div>
               ))
             )}
           </div>
@@ -209,18 +237,22 @@ function StepBubble({ step }: { step: AgentStep }) {
           )}
         </div>
         {step.thinking && (
-          <p className="text-xs text-muted-foreground italic">{step.thinking}</p>
+          <p className="text-xs text-muted-foreground italic">
+            {step.thinking}
+          </p>
         )}
         {expanded && step.output && (
           <div className="text-sm whitespace-pre-wrap max-h-96 overflow-y-auto border rounded p-2 bg-muted/50 mt-2">
             {step.output}
           </div>
         )}
-        {step.title_candidates && step.title_candidates.length > 0 && !expanded && (
-          <p className="text-xs text-muted-foreground">
-            候选标题：{step.title_candidates.length} 个
-          </p>
-        )}
+        {step.title_candidates &&
+          step.title_candidates.length > 0 &&
+          !expanded && (
+            <p className="text-xs text-muted-foreground">
+              候选标题：{step.title_candidates.length} 个
+            </p>
+          )}
       </div>
     </div>
   )
@@ -244,7 +276,10 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
     mutationFn: () =>
       WorkflowsService.approveWorkflow({
         id: run.id,
-        requestBody: { selected_title: customTitle || selectedTitle || titleCandidates[0] || "未命名" },
+        requestBody: {
+          selected_title:
+            customTitle || selectedTitle || titleCandidates[0] || "未命名",
+        },
       }),
     onSuccess: () => {
       showSuccessToast("已批准，草稿已创建")
@@ -298,7 +333,9 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
         {/* Final draft preview */}
         {run.final_output && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">最终草稿预览</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              最终草稿预览
+            </p>
             <div className="max-h-48 overflow-y-auto text-sm whitespace-pre-wrap bg-background border rounded p-2">
               {run.final_output.slice(0, 800)}
               {run.final_output.length > 800 && "\n...（截断）"}
@@ -309,7 +346,9 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
         {/* Title candidates */}
         {titleCandidates.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">选择标题</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              选择标题
+            </p>
             <div className="space-y-1">
               {titleCandidates.map((t) => (
                 <button
@@ -345,18 +384,26 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
         {/* Reviewer checklist */}
         {reviewerData && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">审核清单</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              审核清单
+            </p>
             {["fact_check_flags", "legal_notes", "format_issues"].map((key) => {
               const items = reviewerData[key] ?? []
               if (!items.length) return null
               return (
                 <div key={key} className="mb-2">
-                  <p className="text-xs uppercase font-mono text-muted-foreground">{key}</p>
+                  <p className="text-xs uppercase font-mono text-muted-foreground">
+                    {key}
+                  </p>
                   <ul className="text-xs space-y-0.5 mt-1">
                     {items.map((item: any, i: number) => (
                       <li key={i} className="flex items-start gap-1">
                         <Badge
-                          variant={item.severity === "error" ? "destructive" : "secondary"}
+                          variant={
+                            item.severity === "error"
+                              ? "destructive"
+                              : "secondary"
+                          }
                           className="text-[10px] shrink-0 mt-0.5"
                         >
                           {item.severity}
@@ -383,7 +430,10 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
             <Button
               size="sm"
               onClick={() => approveMutation.mutate()}
-              disabled={approveMutation.isPending || (!selectedTitle && !customTitle && !titleCandidates.length)}
+              disabled={
+                approveMutation.isPending ||
+                (!selectedTitle && !customTitle && !titleCandidates.length)
+              }
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
               批准
@@ -426,7 +476,9 @@ function WorkflowRunView({ runId }: { runId: string }) {
   })
 
   const isTerminal =
-    run?.status === "done" || run?.status === "failed" || run?.status === "waiting_human"
+    run?.status === "done" ||
+    run?.status === "failed" ||
+    run?.status === "waiting_human"
 
   useSSE(
     sseActive && !isTerminal ? `/api/v1/workflows/${runId}/stream` : null,
@@ -441,18 +493,24 @@ function WorkflowRunView({ runId }: { runId: string }) {
         }
       },
       onError: () => setSseActive(false),
-    }
+    },
   )
 
   // Polling fallback
   useWorkflowPolling(sseActive ? null : runId)
 
   if (isLoading) {
-    return <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+    return (
+      <div className="flex justify-center py-12 text-muted-foreground">
+        加载中...
+      </div>
+    )
   }
 
   if (!run) {
-    return <div className="text-center py-12 text-destructive">工作流不存在</div>
+    return (
+      <div className="text-center py-12 text-destructive">工作流不存在</div>
+    )
   }
 
   const displaySteps = run.steps
@@ -465,7 +523,9 @@ function WorkflowRunView({ runId }: { runId: string }) {
           工作流 {run.type} · {new Date(run.created_at).toLocaleString("zh-CN")}
         </span>
         {run.parent_run_id && (
-          <Badge variant="outline" className="text-xs">修订版</Badge>
+          <Badge variant="outline" className="text-xs">
+            修订版
+          </Badge>
         )}
       </div>
 
@@ -473,12 +533,13 @@ function WorkflowRunView({ runId }: { runId: string }) {
         {displaySteps.map((step, i) => (
           <StepBubble key={step.id ?? i} step={step} />
         ))}
-        {(run.status === "pending" || run.status === "running") && displaySteps.length === 0 && (
-          <div className="flex items-center gap-2 text-muted-foreground py-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            工作流排队中...
-          </div>
-        )}
+        {(run.status === "pending" || run.status === "running") &&
+          displaySteps.length === 0 && (
+            <div className="flex items-center gap-2 text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              工作流排队中...
+            </div>
+          )}
       </div>
 
       {run.status === "waiting_human" && <HumanReviewPanel run={run} />}
@@ -492,6 +553,7 @@ function NewWorkflowPanel() {
   const navigate = useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [topic, setTopic] = useState("")
+  const [useOrchestrator, setUseOrchestrator] = useState(false)
 
   const { data: articles } = useQuery({
     queryKey: ["articles"],
@@ -507,6 +569,7 @@ function NewWorkflowPanel() {
           type: "writing",
           article_ids: Array.from(selectedIds),
           topic: topic || undefined,
+          use_orchestrator: useOrchestrator,
         },
       }),
     onSuccess: (run) => {
@@ -541,13 +604,27 @@ function NewWorkflowPanel() {
           )}
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">或输入主题</p>
+          <p className="text-xs font-medium text-muted-foreground mb-1">
+            或输入主题
+          </p>
           <input
             type="text"
             placeholder="例如：AI 未来趋势分析..."
             className="w-full text-sm rounded border border-input bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">使用 Orchestrator 模式</p>
+            <p className="text-xs text-muted-foreground">
+              启用后由 Orchestrator 智能协调多 Agent 协作，而非线性流水线
+            </p>
+          </div>
+          <Switch
+            checked={useOrchestrator}
+            onCheckedChange={setUseOrchestrator}
           />
         </div>
         <Button
@@ -564,34 +641,111 @@ function NewWorkflowPanel() {
   )
 }
 
-// ─── History Sidebar ───────────────────────────────────────────────────────────
+// ─── Workflow List ─────────────────────────────────────────────────────────────
 
-function WorkflowHistory({ currentRunId }: { currentRunId?: string }) {
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  const hh = String(d.getHours()).padStart(2, "0")
+  const min = String(d.getMinutes()).padStart(2, "0")
+  return `${mm}-${dd} ${hh}:${min}`
+}
+
+function workflowLabel(run: WorkflowRunPublic): string {
+  if (run.input.topic) return run.input.topic
+  const count = run.input.article_ids?.length ?? 0
+  if (count > 0) return `${count} 篇参考文章`
+  return "无素材"
+}
+
+function WorkflowList({ currentRunId }: { currentRunId?: string }) {
   const navigate = useNavigate()
+  const [searchTopic, setSearchTopic] = useState("")
+  const [filterStatus, setFilterStatus] = useState("all")
+
   const { data } = useQuery({
     queryKey: ["workflows"],
-    queryFn: () => WorkflowsService.listWorkflows({ skip: 0, limit: 30 }),
+    queryFn: () => WorkflowsService.listWorkflows({ skip: 0, limit: 100 }),
   })
 
-  if (!data?.data.length) return null
+  const filtered = (data?.data ?? []).filter((run: WorkflowRunPublic) => {
+    if (filterStatus !== "all" && run.status !== filterStatus) return false
+    if (searchTopic.trim()) {
+      const q = searchTopic.toLowerCase()
+      if (!workflowLabel(run).toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   return (
-    <div className="space-y-1">
-      <p className="text-xs font-medium text-muted-foreground mb-2">历史工作流</p>
-      {data.data.map((run: WorkflowRunPublic) => (
-        <button
-          key={run.id}
-          type="button"
-          className={`w-full text-left text-xs px-2 py-1.5 rounded flex items-center gap-2 transition-colors ${
-            run.id === currentRunId ? "bg-muted font-semibold" : "hover:bg-muted/50"
-          } ${run.parent_run_id ? "ml-4" : ""}`}
-          onClick={() => navigate({ to: "/workflow", search: { run_id: run.id } })}
+    <div className="space-y-3">
+      {/* Filter bar */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="搜索主题..."
+            className="pl-8 pr-3 py-1.5 text-sm rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-44"
+            value={searchTopic}
+            onChange={(e) => setSearchTopic(e.target.value)}
+          />
+        </div>
+        <select
+          className="text-sm rounded border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
         >
-          <StatusBadge status={run.status} className="text-[10px] px-1 py-0" />
-          <span className="truncate">{run.id.slice(0, 8)}</span>
-          {run.parent_run_id && <span className="text-muted-foreground">(修订)</span>}
-        </button>
-      ))}
+          <option value="all">全部状态</option>
+          <option value="pending">待处理</option>
+          <option value="running">运行中</option>
+          <option value="waiting_human">等待审核</option>
+          <option value="done">完成</option>
+          <option value="failed">失败</option>
+        </select>
+        <span className="text-xs text-muted-foreground self-center">
+          {filtered.length} 条
+        </span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          暂无工作流记录
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((run: WorkflowRunPublic) => (
+            <button
+              key={run.id}
+              type="button"
+              className={`w-full text-left rounded-lg border px-4 py-3 flex items-center gap-3 transition-colors ${
+                run.id === currentRunId
+                  ? "border-primary bg-muted"
+                  : "border-border hover:bg-muted/50"
+              } ${run.parent_run_id ? "ml-4 border-dashed" : ""}`}
+              onClick={() =>
+                navigate({ to: "/workflow", search: { run_id: run.id } })
+              }
+            >
+              <StatusBadge status={run.status} className="shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">
+                  {workflowLabel(run)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDate(run.created_at)}
+                </div>
+              </div>
+              {run.parent_run_id && (
+                <span className="text-xs text-muted-foreground shrink-0">
+                  修订版
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -600,26 +754,49 @@ function WorkflowHistory({ currentRunId }: { currentRunId?: string }) {
 
 function WorkflowPage() {
   const { run_id } = useSearch({ from: "/_layout/workflow" })
+  const navigate = useNavigate()
 
   return (
-    <div className="flex gap-6">
-      {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">工作流</h1>
-          <p className="text-muted-foreground">AI 多 Agent 协作仿写，实时追踪进度</p>
+          <p className="text-muted-foreground">
+            AI 多 Agent 协作仿写，实时追踪进度
+          </p>
         </div>
-        {run_id ? (
-          <WorkflowRunView runId={run_id} />
-        ) : (
-          <NewWorkflowPanel />
+        {run_id && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/workflow" })}
+          >
+            + 新建工作流
+          </Button>
         )}
       </div>
 
-      {/* Sidebar */}
-      <div className="w-56 shrink-0">
-        <WorkflowHistory currentRunId={run_id} />
-      </div>
+      {run_id ? (
+        <div className="space-y-6">
+          <WorkflowRunView runId={run_id} />
+          <div>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3">
+              历史工作流
+            </h2>
+            <WorkflowList currentRunId={run_id} />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <NewWorkflowPanel />
+          <div>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3">
+              历史工作流
+            </h2>
+            <WorkflowList />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
