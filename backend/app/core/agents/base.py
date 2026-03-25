@@ -196,5 +196,8 @@ def create_agent_for_config(agent_config: Any) -> "BaseAgent":
     elif role == "orchestrator":
         from app.core.agents.orchestrator import OrchestratorAgent
         return OrchestratorAgent(agent_config=agent_config)
+    elif role == "analyzer":
+        from app.core.agents.react_analyzer import ReactAnalyzerAgent
+        return ReactAnalyzerAgent(agent_config=agent_config)
     else:
         return BaseAgent(agent_config=agent_config)

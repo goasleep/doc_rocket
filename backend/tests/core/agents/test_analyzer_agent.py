@@ -1,49 +1,198 @@
-"""Tests that AnalyzerAgent still returns dict (not affected by agentic loop)."""
+"""Tests for ReactAnalyzerAgent."""
 import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.core.agents.analyzer import AnalyzerAgent
+from app.core.agents.react_analyzer import ReactAnalyzerAgent
 from app.core.llm.base import ChatResponse
 
 
 @pytest.mark.anyio
-async def test_analyzer_returns_dict() -> None:
-    """AnalyzerAgent.run() returns a typed dict, not a raw string."""
-    agent = AnalyzerAgent()
-
-    analysis_data = {
-        "quality_score": 85,
-        "quality_breakdown": {"content_depth": 80, "readability": 90, "originality": 85, "virality_potential": 85},
-        "hook_type": "好奇型",
-        "framework": "AIDA",
-        "emotional_triggers": ["惊喜", "期待"],
-        "key_phrases": ["革命性突破"],
-        "keywords": ["AI", "未来"],
-        "structure": {"intro": "开门见山", "body_sections": ["背景", "影响"], "cta": "订阅"},
-        "style": {"tone": "严肃", "formality": "正式", "avg_sentence_length": 20},
-        "target_audience": "科技从业者",
-    }
+async def test_react_analyzer_returns_dict() -> None:
+    """ReactAnalyzerAgent.run() returns a typed dict with analysis results."""
+    agent = ReactAnalyzerAgent()
 
     mock_llm = AsyncMock()
     mock_llm.chat = AsyncMock(return_value=ChatResponse(
-        content=json.dumps(analysis_data),
+        content=json.dumps({
+            "topic": "AI Technology",
+            "core_ideas": ["AI is transforming industries"],
+            "target_audience": "Tech professionals",
+            "article_type": "opinion",
+            "key_entities": ["AI", "Machine Learning"],
+        }),
         tool_calls=[],
     ))
 
     with patch.object(agent, "_get_llm", return_value=mock_llm), \
-         patch.object(agent, "_system_prompt", return_value="你是分析专家", create=True):
-        result = await agent.run("Test article content")
+         patch.object(agent, "_get_active_rubric", return_value=None), \
+         patch.object(agent, "_step_web_search", return_value=[]), \
+         patch("app.core.agents.react_analyzer.dispatch_tool") as mock_dispatch:
+        # Mock dispatch_tool for KB comparison
+        mock_dispatch.return_value = "[]"
+
+        result = await agent.run("Test article content", article_id="test-article-id")
 
     assert isinstance(result, dict)
-    assert result["quality_score"] == 85.0
-    assert result["hook_type"] == "好奇型"
-    assert result["framework"] == "AIDA"
+    assert "quality_score" in result
+    assert "quality_breakdown" in result
+    assert "quality_score_details" in result
 
-    # AnalyzerAgent uses json_object response_format, not tool calls.
-    # Confirm tools kwarg was not passed to llm.chat (or was None).
-    call_kwargs = mock_llm.chat.call_args
-    assert call_kwargs is not None
-    passed_tools = call_kwargs.kwargs.get("tools")
-    assert passed_tools is None
+
+@pytest.mark.anyio
+async def test_react_analyzer_step_understand() -> None:
+    """Test the _step_understand method."""
+    agent = ReactAnalyzerAgent()
+
+    mock_llm = AsyncMock()
+    mock_llm.chat = AsyncMock(return_value=ChatResponse(
+        content=json.dumps({
+            "content_type": "技术文章",
+            "topic": "AI技术",
+            "key_points": ["点1", "点2"],
+            "complexity": "中等",
+            "target_audience": "开发者",
+        }),
+        tool_calls=[],
+    ))
+
+    with patch.object(agent, "_get_llm", return_value=mock_llm):
+        result = await agent._step_understand("Test content")
+
+    assert isinstance(result, dict)
+    assert result["topic"] == "AI技术"
+
+
+@pytest.mark.anyio
+async def test_react_analyzer_step_kb_comparison() -> None:
+    """Test the _step_kb_comparison method."""
+    agent = ReactAnalyzerAgent()
+
+    # Mock dispatch_tool result
+    mock_tool_result = json.dumps([
+        {"article_id": "article-1", "title": "Similar Article", "relevance_score": 0.85}
+    ])
+
+    with patch("app.core.agents.react_analyzer.dispatch_tool", return_value=mock_tool_result):
+        result = await agent._step_kb_comparison("Test content")
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0]["title"] == "Similar Article"
+
+
+@pytest.mark.anyio
+async def test_react_analyzer_step_scoring() -> None:
+    """Test the _step_scoring_with_reasoning method."""
+    agent = ReactAnalyzerAgent()
+
+    dimension_results = [
+        {
+            "dimension": "content_depth",
+            "score": 85,
+            "reasoning": "内容深入",
+            "evidences": [],
+            "improvement_suggestions": [],
+        }
+    ]
+
+    score_details, scores = await agent._step_scoring_with_reasoning(dimension_results, None)
+
+    assert isinstance(score_details, list)
+    assert len(score_details) == 1
+    assert score_details[0].dimension == "content_depth"
+    assert score_details[0].score == 85
+    assert scores["content_depth"] == 85
+
+
+@pytest.mark.anyio
+async def test_react_analyzer_step_reflection() -> None:
+    """Test the _step_reflection method."""
+    agent = ReactAnalyzerAgent()
+
+    from app.models import QualityScoreDetail
+    score_details = [
+        QualityScoreDetail(
+            dimension="content_depth",
+            score=85,
+            weight=0.3,
+            weighted_score=25.5,
+            reasoning="内容深入",
+            improvement_suggestions=["Add more examples"],
+        )
+    ]
+
+    understanding = {"topic": "AI Technology"}
+
+    summary, suggestions = await agent._step_reflection(score_details, understanding)
+
+    assert isinstance(summary, str)
+    assert isinstance(suggestions, list)
+
+
+@pytest.mark.anyio
+async def test_react_analyzer_run_integration() -> None:
+    """Integration test for the full analysis workflow."""
+    agent = ReactAnalyzerAgent()
+
+    # Mock LLM responses for different steps
+    llm_responses = [
+        # Step 1: Understand
+        ChatResponse(content=json.dumps({
+            "topic": "AI Technology",
+            "core_ideas": ["AI is transforming industries"],
+            "target_audience": "Tech professionals",
+            "article_type": "opinion",
+            "key_entities": ["AI", "Machine Learning"],
+        }), tool_calls=[]),
+        # Step 4: Dimension analysis (called 4 times in parallel)
+        ChatResponse(content=json.dumps({
+            "score": 80,
+            "reasoning": "Good content",
+            "evidences": [{"quote": "AI is", "context": "Introduction"}],
+            "improvement_suggestions": ["Add more data"],
+        }), tool_calls=[]),
+        ChatResponse(content=json.dumps({
+            "score": 75,
+            "reasoning": "Readable",
+            "evidences": [],
+            "improvement_suggestions": [],
+        }), tool_calls=[]),
+        ChatResponse(content=json.dumps({
+            "score": 85,
+            "reasoning": "Original",
+            "evidences": [],
+            "improvement_suggestions": [],
+        }), tool_calls=[]),
+        ChatResponse(content=json.dumps({
+            "score": 70,
+            "reasoning": "Good potential",
+            "evidences": [],
+            "improvement_suggestions": [],
+        }), tool_calls=[]),
+        # Step 6: Reflection
+        ChatResponse(content=json.dumps({
+            "analysis_summary": "Overall good article",
+            "improvement_suggestions": ["Add examples", "Improve structure"],
+        }), tool_calls=[]),
+    ]
+
+    mock_llm = AsyncMock()
+    mock_llm.chat = AsyncMock(side_effect=llm_responses)
+
+    with patch.object(agent, "_get_llm", return_value=mock_llm), \
+         patch.object(agent, "_get_active_rubric", return_value=None), \
+         patch.object(agent, "_step_web_search", return_value=[]), \
+         patch("app.core.agents.react_analyzer.dispatch_tool") as mock_dispatch:
+        # Mock tool responses
+        mock_dispatch.return_value = "[]"
+
+        result = await agent.run("Test article about AI", article_id="test-id")
+
+    assert isinstance(result, dict)
+    assert "quality_score" in result
+    assert "quality_breakdown" in result
+    assert "quality_score_details" in result
+    assert "trace" in result
+    assert len(result["trace"]) > 0

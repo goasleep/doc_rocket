@@ -1,22 +1,47 @@
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { Suspense, useState } from "react"
-import { BarChart3, BookOpen, Bot, CheckCircle2, Clock, FileText, History, RefreshCw, Pen, XCircle } from "lucide-react"
 import MDEditor from "@uiw/react-md-editor"
+import {
+  BarChart3,
+  BookOpen,
+  Bot,
+  Check,
+  CheckCircle2,
+  Clock,
+  FileText,
+  History,
+  Pen,
+  Pencil,
+  RefreshCw,
+  X,
+  XCircle,
+} from "lucide-react"
+import { Suspense, useState } from "react"
 
 import {
-  ArticlesService,
   AnalysesService,
-  TaskRunsService,
-  WorkflowsService,
   type AnalysisTraceStep,
   type ArticleAnalysisPublic,
+  ArticlesService,
   type TaskRunPublic,
+  TaskRunsService,
+  WorkflowsService,
 } from "@/client"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import {
+  AnalysisSummarySection,
+  AnalysisTraceTimeline,
+  ComparisonReferenceCard,
+  QualityScoreDetailCard,
+} from "@/components/Analysis"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
 
@@ -27,90 +52,219 @@ export const Route = createFileRoute("/_layout/articles/$id")({
   }),
 })
 
+function QualityScoreCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          质量评分
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-4xl font-bold">
+          {analysis.quality_score.toFixed(0)}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          深度 {analysis.quality_breakdown?.content_depth?.toFixed(0) ?? "—"}{" "}
+          · 可读 {analysis.quality_breakdown?.readability?.toFixed(0) ?? "—"}{" "}
+          · 原创 {analysis.quality_breakdown?.originality?.toFixed(0) ?? "—"}{" "}
+          · 传播{" "}
+          {analysis.quality_breakdown?.virality_potential?.toFixed(0) ?? "—"}
+        </div>
+        {analysis.rubric_version && (
+          <div className="text-xs text-muted-foreground mt-1">
+            评分标准: {analysis.rubric_version}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function HookFrameworkCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          钩子 & 框架
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        <div>
+          <span className="text-xs text-muted-foreground">钩子类型：</span>
+          {analysis.hook_type}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">写作框架：</span>
+          {analysis.framework}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">目标受众：</span>
+          {analysis.target_audience}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function EmotionalTriggersCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          情绪触发词
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-1">
+          {analysis.emotional_triggers.map((t) => (
+            <Badge key={t} variant="secondary">
+              {t}
+            </Badge>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function KeywordsCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          关键词 & 金句
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex flex-wrap gap-1">
+          {analysis.keywords.map((k) => (
+            <Badge key={k} variant="outline" className="text-xs">
+              {k}
+            </Badge>
+          ))}
+        </div>
+        <ul className="space-y-1 mt-1">
+          {analysis.key_phrases.map((phrase, i) => (
+            <li key={i} className="text-xs text-muted-foreground italic">
+              "{phrase}"
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StructureCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          文章结构
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-1">
+        <div>
+          <span className="text-xs text-muted-foreground">开头：</span>
+          {analysis.structure?.intro}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">段落数：</span>
+          {analysis.structure?.body_sections?.length ?? 0}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">结尾：</span>
+          {analysis.structure?.cta}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StyleCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          写作风格
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-1">
+        <div>
+          <span className="text-xs text-muted-foreground">语气：</span>
+          {analysis.style?.tone}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">正式程度：</span>
+          {analysis.style?.formality}
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">平均句长：</span>
+          {analysis.style?.avg_sentence_length}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function AnalysisCards({ analysis }: { analysis: ArticleAnalysisPublic }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">质量评分</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-bold">{analysis.quality_score.toFixed(0)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            深度 {analysis.quality_breakdown?.content_depth?.toFixed(0) ?? "—"} ·
-            可读 {analysis.quality_breakdown?.readability?.toFixed(0) ?? "—"} ·
-            原创 {analysis.quality_breakdown?.originality?.toFixed(0) ?? "—"} ·
-            传播 {analysis.quality_breakdown?.virality_potential?.toFixed(0) ?? "—"}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Basic Analysis Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <QualityScoreCard analysis={analysis} />
+        <HookFrameworkCard analysis={analysis} />
+        <EmotionalTriggersCard analysis={analysis} />
+        <KeywordsCard analysis={analysis} />
+        <StructureCard analysis={analysis} />
+        <StyleCard analysis={analysis} />
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">钩子 & 框架</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <div><span className="text-xs text-muted-foreground">钩子类型：</span>{analysis.hook_type}</div>
-          <div><span className="text-xs text-muted-foreground">写作框架：</span>{analysis.framework}</div>
-          <div><span className="text-xs text-muted-foreground">目标受众：</span>{analysis.target_audience}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">情绪触发词</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-1">
-            {analysis.emotional_triggers.map((t) => (
-              <Badge key={t} variant="secondary">{t}</Badge>
+      {/* Quality Score Details */}
+      {analysis.quality_score_details && analysis.quality_score_details.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">维度评分详情</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analysis.quality_score_details.map((detail, idx) => (
+              <QualityScoreDetailCard key={idx} detail={detail} />
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">关键词 & 金句</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {analysis.keywords.map((k) => (
-              <Badge key={k} variant="outline" className="text-xs">{k}</Badge>
+      {/* Comparison References */}
+      {analysis.comparison_references && analysis.comparison_references.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">对比参考</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analysis.comparison_references.map((ref, idx) => (
+              <ComparisonReferenceCard key={idx} reference={ref} />
             ))}
           </div>
-          <div className="text-xs text-muted-foreground italic">
-            {analysis.key_phrases.slice(0, 2).join(" · ")}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">文章结构</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm space-y-1">
-          <div><span className="text-xs text-muted-foreground">开头：</span>{analysis.structure?.intro}</div>
-          <div><span className="text-xs text-muted-foreground">段落数：</span>{analysis.structure?.body_sections?.length ?? 0}</div>
-          <div><span className="text-xs text-muted-foreground">结尾：</span>{analysis.structure?.cta}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">写作风格</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm space-y-1">
-          <div><span className="text-xs text-muted-foreground">语气：</span>{analysis.style?.tone}</div>
-          <div><span className="text-xs text-muted-foreground">正式程度：</span>{analysis.style?.formality}</div>
-          <div><span className="text-xs text-muted-foreground">平均句长：</span>{analysis.style?.avg_sentence_length}</div>
-        </CardContent>
-      </Card>
+      {/* Analysis Summary */}
+      {analysis.analysis_summary && (
+        <AnalysisSummarySection
+          summary={analysis.analysis_summary}
+          improvementSuggestions={analysis.improvement_suggestions || []}
+          rubricVersion={analysis.rubric_version}
+          analysisDurationMs={analysis.analysis_duration_ms}
+        />
+      )}
     </div>
   )
 }
 
-function TriggeredByBadge({ triggeredBy, label }: { triggeredBy: string; label?: string | null }) {
+function TriggeredByBadge({
+  triggeredBy,
+  label,
+}: {
+  triggeredBy: string
+  label?: string | null
+}) {
   if (triggeredBy === "scheduler") {
     return (
       <Badge variant="outline" className="gap-1 text-xs">
@@ -121,13 +275,20 @@ function TriggeredByBadge({ triggeredBy, label }: { triggeredBy: string; label?:
   }
   if (triggeredBy === "agent") {
     return (
-      <Badge variant="outline" className="gap-1 text-xs border-blue-400 text-blue-600">
+      <Badge
+        variant="outline"
+        className="gap-1 text-xs border-blue-400 text-blue-600"
+      >
         <Bot className="h-3 w-3" />
         Agent{label ? ` · ${label}` : ""}
       </Badge>
     )
   }
-  return <Badge variant="secondary" className="text-xs">手动</Badge>
+  return (
+    <Badge variant="secondary" className="text-xs">
+      手动
+    </Badge>
+  )
 }
 
 function formatDuration(startedAt?: string | null, endedAt?: string | null) {
@@ -139,7 +300,12 @@ function formatDuration(startedAt?: string | null, endedAt?: string | null) {
 }
 
 function TimelineNode({ run }: { run: TaskRunPublic }) {
-  const typeLabels: Record<string, string> = { analyze: "分析", fetch: "抓取", refine: "精修", workflow: "仿写" }
+  const typeLabels: Record<string, string> = {
+    analyze: "分析",
+    fetch: "抓取",
+    refine: "精修",
+    workflow: "仿写",
+  }
   const duration = formatDuration(run.started_at, run.ended_at)
 
   return (
@@ -158,13 +324,36 @@ function TimelineNode({ run }: { run: TaskRunPublic }) {
       </div>
       <div className="pb-4 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{typeLabels[run.task_type] ?? run.task_type}任务</span>
-          <TriggeredByBadge triggeredBy={run.triggered_by} label={run.triggered_by_label} />
-          {run.status === "done" && <Badge className="bg-green-500 hover:bg-green-600 text-xs">完成</Badge>}
-          {run.status === "failed" && <Badge variant="destructive" className="text-xs">失败</Badge>}
-          {run.status === "running" && <Badge className="bg-blue-500 hover:bg-blue-600 text-xs animate-pulse">运行中</Badge>}
-          {run.status === "pending" && <Badge variant="secondary" className="text-xs">待处理</Badge>}
-          {duration && <span className="text-xs text-muted-foreground">{duration}</span>}
+          <span className="font-medium text-sm">
+            {typeLabels[run.task_type] ?? run.task_type}任务
+          </span>
+          <TriggeredByBadge
+            triggeredBy={run.triggered_by}
+            label={run.triggered_by_label}
+          />
+          {run.status === "done" && (
+            <Badge className="bg-green-500 hover:bg-green-600 text-xs">
+              完成
+            </Badge>
+          )}
+          {run.status === "failed" && (
+            <Badge variant="destructive" className="text-xs">
+              失败
+            </Badge>
+          )}
+          {run.status === "running" && (
+            <Badge className="bg-blue-500 hover:bg-blue-600 text-xs animate-pulse">
+              运行中
+            </Badge>
+          )}
+          {run.status === "pending" && (
+            <Badge variant="secondary" className="text-xs">
+              待处理
+            </Badge>
+          )}
+          {duration && (
+            <span className="text-xs text-muted-foreground">{duration}</span>
+          )}
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           {new Date(run.created_at).toLocaleString("zh-CN")}
@@ -188,14 +377,24 @@ function TimelineNode({ run }: { run: TaskRunPublic }) {
   )
 }
 
-function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string; createdAt: string; inputType: string }) {
+function TaskHistoryTab({
+  articleId,
+  createdAt,
+  inputType,
+}: {
+  articleId: string
+  createdAt: string
+  inputType: string
+}) {
   const { data } = useQuery({
     queryKey: ["task-runs", "article", articleId],
-    queryFn: () => TaskRunsService.listTaskRuns({ entityId: articleId, limit: 100 }),
+    queryFn: () =>
+      TaskRunsService.listTaskRuns({ entityId: articleId, limit: 100 }),
   })
 
   const taskRuns = [...(data?.data ?? [])].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   )
 
   return (
@@ -206,12 +405,16 @@ function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string
           <div className="mt-1">
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </div>
-          {taskRuns.length > 0 && <div className="w-px flex-1 bg-border mt-1" />}
+          {taskRuns.length > 0 && (
+            <div className="w-px flex-1 bg-border mt-1" />
+          )}
         </div>
         <div className="pb-4 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">入库</span>
-            <Badge variant="outline" className="text-xs">{inputType}</Badge>
+            <Badge variant="outline" className="text-xs">
+              {inputType}
+            </Badge>
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
             {new Date(createdAt).toLocaleString("zh-CN")}
@@ -220,7 +423,14 @@ function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string
       </div>
 
       {taskRuns.map((run, idx) => (
-        <div key={run.id} className={idx === taskRuns.length - 1 ? "[&>div>div:first-child>div:last-child]:hidden" : ""}>
+        <div
+          key={run.id}
+          className={
+            idx === taskRuns.length - 1
+              ? "[&>div>div:first-child>div:last-child]:hidden"
+              : ""
+          }
+        >
           <TimelineNode run={run} />
         </div>
       ))}
@@ -233,65 +443,11 @@ function TaskHistoryTab({ articleId, createdAt, inputType }: { articleId: string
 }
 
 function AnalysisTraceSection({ trace }: { trace: AnalysisTraceStep[] }) {
-  const [expanded, setExpanded] = useState(false)
-
   if (!trace || trace.length === 0) return null
 
   return (
-    <div className="mt-4">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span>{expanded ? "▼" : "▶"}</span>
-        分析过程追溯
-        <Badge variant="outline" className="text-xs">{trace.length} 步</Badge>
-      </button>
-      {expanded && (
-        <div className="mt-3 space-y-4">
-          {trace.map((step, idx) => (
-            <Card key={idx}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span>步骤 {step.step_index ?? idx + 1}</span>
-                  <Badge variant={step.parsed_ok ? "default" : "destructive"} className="text-xs">
-                    {step.parsed_ok ? "解析成功" : "解析失败"}
-                  </Badge>
-                  {step.duration_ms != null && (
-                    <span className="text-xs text-muted-foreground font-normal">{step.duration_ms}ms</span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {step.messages_sent && step.messages_sent.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">发送的消息</div>
-                    <div className="space-y-2">
-                      {step.messages_sent.map((msg: any, mIdx: number) => (
-                        <div key={mIdx} className="text-xs">
-                          <span className="font-mono font-medium uppercase text-muted-foreground">{msg.role}</span>
-                          <pre className="mt-1 p-2 bg-muted rounded text-xs whitespace-pre-wrap break-words overflow-auto max-h-32 font-mono">
-                            {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {step.raw_response != null && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">原始响应</div>
-                    <pre className="p-2 bg-muted rounded text-xs whitespace-pre-wrap break-words overflow-auto max-h-48 font-mono">
-                      {step.raw_response}
-                    </pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+    <div className="mt-6">
+      <AnalysisTraceTimeline trace={trace} />
     </div>
   )
 }
@@ -308,7 +464,8 @@ function ArticleDetailContent() {
   })
 
   const reAnalyzeMutation = useMutation({
-    mutationFn: () => AnalysesService.triggerAnalysis({ requestBody: { article_id: id } }),
+    mutationFn: () =>
+      AnalysesService.triggerAnalysis({ requestBody: { article_id: id } }),
     onSuccess: () => {
       showSuccessToast("重新分析已触发")
       queryClient.invalidateQueries({ queryKey: ["article", id] })
@@ -338,6 +495,20 @@ function ArticleDetailContent() {
     onError: () => showErrorToast("触发失败"),
   })
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleInput, setTitleInput] = useState("")
+
+  const updateTitleMutation = useMutation({
+    mutationFn: (title: string) =>
+      ArticlesService.updateArticleTitle({ id, requestBody: { title } }),
+    onSuccess: () => {
+      showSuccessToast("标题已更新")
+      queryClient.invalidateQueries({ queryKey: ["article", id] })
+      setIsEditingTitle(false)
+    },
+    onError: () => showErrorToast("更新失败"),
+  })
+
   const analysis = article.analysis as ArticleAnalysisPublic | null | undefined
 
   return (
@@ -351,7 +522,48 @@ function ArticleDetailContent() {
               {article.input_type}
             </span>
           </div>
-          <h1 className="text-2xl font-bold">{article.title}</h1>
+          {isEditingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                className="text-2xl font-bold bg-transparent border-b-2 border-primary outline-none flex-1"
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") updateTitleMutation.mutate(titleInput)
+                  if (e.key === "Escape") setIsEditingTitle(false)
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => updateTitleMutation.mutate(titleInput)}
+                disabled={updateTitleMutation.isPending}
+                className="text-green-600 hover:text-green-700"
+              >
+                <Check className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingTitle(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group">
+              <h1 className="text-2xl font-bold">{article.title}</h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setTitleInput(article.title)
+                  setIsEditingTitle(true)
+                }}
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {article.url && (
             <a
               href={article.url}
@@ -422,58 +634,68 @@ function ArticleDetailContent() {
             <BarChart3 className="h-4 w-4 mr-1" />
             分析结果
           </TabsTrigger>
-          <TabsTrigger value="refined">
-            <FileText className="h-4 w-4 mr-1" />
-            精修版
-          </TabsTrigger>
           <TabsTrigger value="history">
             <History className="h-4 w-4 mr-1" />
             任务历史
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="analysis" className="mt-4">
+        <TabsContent value="analysis" className="mt-4 space-y-6">
+          {/* 分析卡片 — 直接展示 */}
           {analysis && <AnalysisCards analysis={analysis} />}
           {!analysis && article.status === "analyzed" && (
-            <div className="text-center py-8 text-muted-foreground">分析数据加载中...</div>
+            <div className="text-center py-8 text-muted-foreground">
+              分析数据加载中...
+            </div>
           )}
           {!analysis && article.status !== "analyzed" && (
-            <div className="text-center py-8 text-muted-foreground">尚未分析</div>
+            <div className="text-center py-8 text-muted-foreground">
+              尚未分析
+            </div>
           )}
           <AnalysisTraceSection trace={analysis?.trace ?? []} />
 
-          {/* Article content */}
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BookOpen className="h-4 w-4" />
+          {/* 精修版 / 原文内容 sub-tabs */}
+          <Tabs defaultValue="refined">
+            <TabsList className="mb-4">
+              <TabsTrigger value="refined">
+                <FileText className="h-4 w-4 mr-1" />
+                精修版
+              </TabsTrigger>
+              <TabsTrigger value="raw-content">
+                <BookOpen className="h-4 w-4 mr-1" />
                 原文内容
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className="text-sm leading-relaxed max-h-[600px] overflow-y-auto prose prose-sm max-w-none dark:prose-invert"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: article content is scraped HTML from trusted sources
-                dangerouslySetInnerHTML={{ __html: article.content ?? "" }}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="refined" className="mt-4">
-          {article.content_md ? (
-            <div data-color-mode="light">
-              <MDEditor.Markdown source={article.content_md} />
-            </div>
-          ) : article.refine_status === "failed" ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>精修失败，分析已降级使用原文内容</p>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground animate-pulse">
-              <p>{article.refine_status === "refining" ? "正在精修中..." : "等待精修..."}</p>
-            </div>
-          )}
+            <TabsContent value="refined">
+              {article.content_md ? (
+                <div data-color-mode="auto">
+                  <MDEditor.Markdown source={article.content_md} />
+                </div>
+              ) : article.refine_status === "failed" ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  精修失败，分析已降级使用原文内容
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground animate-pulse">
+                  {article.refine_status === "refining" ? "正在精修中..." : "等待精修..."}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="raw-content">
+              <Card>
+                <CardContent className="pt-4">
+                  <div
+                    className="text-sm leading-relaxed max-h-[600px] overflow-y-auto prose prose-sm max-w-none dark:prose-invert"
+                    // biome-ignore lint/security/noDangerouslySetInnerHtml: article content is scraped HTML from trusted sources
+                    dangerouslySetInnerHTML={{ __html: article.content ?? "" }}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
@@ -492,7 +714,9 @@ function ArticleDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex justify-center py-12 text-muted-foreground">加载中...</div>
+        <div className="flex justify-center py-12 text-muted-foreground">
+          加载中...
+        </div>
       }
     >
       <ArticleDetailContent />

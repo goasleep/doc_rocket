@@ -34,22 +34,39 @@ async def _analyze_article_async(article_id: str, task_run_id: str = "") -> None
         await task_run.save()
 
     try:
-        from app.core.agents.analyzer import AnalyzerAgent
+        from app.core.agents.react_analyzer import ReactAnalyzerAgent
         from app.models import AgentConfig
 
         # Use the first active analyzer config or fallback defaults
         agent_config = await AgentConfig.find_one(
-            AgentConfig.role == "writer",  # analyzer uses writing model defaults
+            AgentConfig.role == "analyzer",
             AgentConfig.is_active == True,  # noqa: E712
         )
 
-        agent = AnalyzerAgent(agent_config=agent_config)
-        analysis_data = await agent.run(article.content_md or article.content)
+        # If no analyzer config, try to find any active config
+        if not agent_config:
+            agent_config = await AgentConfig.find_one(
+                AgentConfig.is_active == True,  # noqa: E712
+            )
+
+        agent = ReactAnalyzerAgent(agent_config=agent_config)
+        analysis_data = await agent.run(
+            article_content=article.content_md or article.content,
+            article_id=article.id,
+        )
 
         # Extract trace steps (raw dicts) and construct model objects
-        from app.models.analysis import AnalysisTraceStep
+        from app.models.analysis import AnalysisTraceStep, QualityScoreDetail, ComparisonReferenceEmbedded
         trace_raw = analysis_data.pop("trace", [])
         trace_steps = [AnalysisTraceStep(**s) for s in trace_raw]
+
+        # Extract quality score details
+        quality_score_details_raw = analysis_data.pop("quality_score_details", [])
+        quality_score_details = [QualityScoreDetail(**d) for d in quality_score_details_raw]
+
+        # Extract comparison references
+        comparison_refs_raw = analysis_data.pop("comparison_references", [])
+        comparison_references = [ComparisonReferenceEmbedded(**r) for r in comparison_refs_raw]
 
         # Replace existing analysis (delete old, insert fresh)
         existing = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == article.id)
@@ -59,6 +76,8 @@ async def _analyze_article_async(article_id: str, task_run_id: str = "") -> None
         analysis = ArticleAnalysis(
             article_id=article.id,
             trace=trace_steps,
+            quality_score_details=quality_score_details,
+            comparison_references=comparison_references,
             **analysis_data,
         )
         await analysis.insert()
