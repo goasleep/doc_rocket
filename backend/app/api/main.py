@@ -6,7 +6,9 @@ from app.api.routes import (
     analyses,
     articles,
     drafts,
+    external_references,
     llm_model_configs,
+    rubrics,
     skills,
     sources,
     submit,
@@ -69,6 +71,8 @@ api_router.include_router(llm_model_configs.router)
 api_router.include_router(skills.router)
 api_router.include_router(tools.router)
 api_router.include_router(task_runs.router)
+api_router.include_router(rubrics.router)
+api_router.include_router(external_references.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
