@@ -5,6 +5,9 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
+# 配置 pnpm 国内镜像源 (阿里云)
+RUN pnpm config set registry https://registry.npmmirror.com
+
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/pnpm-lock.yaml /app/frontend/
