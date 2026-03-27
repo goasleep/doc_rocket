@@ -31,6 +31,242 @@ async def _build_analyses_context(run: object) -> str:  # type: ignore[return]
     return "\n".join(ctx_parts)
 
 
+async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publish: object) -> None:  # type: ignore[return]
+    """Task graph execution mode with dependency management.
+
+    Uses TaskGraphManager to coordinate parallel execution of tasks
+    with automatic unblocking when dependencies complete.
+    """
+    from app.models import AgentConfig, WorkflowRun
+    from app.models.workflow import AgentStep
+    from app.core.agents.task_graph import TaskGraphManager
+    from app.core.agents.base import create_agent_for_config
+
+    run = run  # type: WorkflowRun
+    manager = TaskGraphManager()
+
+    analyses_context = await _build_analyses_context(run)
+    feedback_context = ""
+    if run.user_feedback:  # type: ignore[union-attr]
+        feedback_context = f"\n\n用户修改意见：{run.user_feedback}"
+
+    topic = run.input.topic or "请根据参考素材创作一篇高质量文章"  # type: ignore[union-attr]
+    workflow_id = uuid.UUID(workflow_run_id)
+
+    # Get agent configs
+    writer_cfg = await AgentConfig.find_one(
+        AgentConfig.role == "writer",
+        AgentConfig.is_active == True,  # noqa: E712
+    )
+    editor_cfg = await AgentConfig.find_one(
+        AgentConfig.role == "editor",
+        AgentConfig.is_active == True,  # noqa: E712
+    )
+    reviewer_cfg = await AgentConfig.find_one(
+        AgentConfig.role == "reviewer",
+        AgentConfig.is_active == True,  # noqa: E712
+    )
+
+    if not writer_cfg:
+        raise ValueError("No active writer agent config found")
+
+    # Create task graph
+    publish("agent_start", {  # type: ignore[call-arg,operator]
+        "agent": "TaskGraph",
+        "role": "coordinator",
+        "message": "Creating task graph with dependencies...",
+    })
+
+    # Writer task (no dependencies)
+    writer_task = await manager.create_task(
+        workflow_run_id=workflow_id,
+        subject="Generate article draft",
+        description=f"Write article on topic: {topic}\n\n{analyses_context}{feedback_context}",
+        priority=10,
+    )
+
+    # Editor task (depends on writer)
+    editor_task = None
+    if editor_cfg:
+        editor_task = await manager.create_task(
+            workflow_run_id=workflow_id,
+            subject="Edit and refine article",
+            description="Review and improve the draft article",
+            blocked_by=[writer_task.id],
+            priority=8,
+        )
+
+    # Reviewer task (depends on editor, or writer if no editor)
+    reviewer_task = None
+    if reviewer_cfg:
+        reviewer_deps = [editor_task.id] if editor_task else [writer_task.id]
+        reviewer_task = await manager.create_task(
+            workflow_run_id=workflow_id,
+            subject="Review final article",
+            description="Provide final review and approval",
+            blocked_by=reviewer_deps,
+            priority=6,
+        )
+
+    # Humanizer task (depends on reviewer, or editor/writer)
+    humanizer_deps = []
+    if reviewer_task:
+        humanizer_deps = [reviewer_task.id]
+    elif editor_task:
+        humanizer_deps = [editor_task.id]
+    else:
+        humanizer_deps = [writer_task.id]
+
+    humanizer_task = await manager.create_task(
+        workflow_run_id=workflow_id,
+        subject="Humanize article",
+        description="Remove AI tone and make it more natural",
+        blocked_by=humanizer_deps,
+        priority=5,
+    )
+
+    # Execute tasks
+    current_content = ""
+    final_title_candidates: list[str] = []
+
+    while True:
+        # Get ready tasks (no pending dependencies)
+        ready_tasks = await manager.get_ready_tasks(workflow_id)
+
+        if not ready_tasks:
+            # Check if all tasks are complete
+            status = await manager.get_task_graph_status(workflow_id)
+            if status["is_complete"]:
+                break
+            if status["ready_tasks"] == 0 and status["active"] == 0:
+                # Deadlock or stuck
+                raise RuntimeError("Task graph execution stuck - no ready tasks and not complete")
+            # Wait a bit and retry
+            await asyncio.sleep(0.5)
+            continue
+
+        # Execute ready tasks in parallel
+        async def execute_task(task: object) -> None:  # type: ignore[return]
+            nonlocal current_content, final_title_candidates
+
+            # Claim the task
+            claimed = await manager.claim_task(task.id, f"agent-{task.subject[:20]}")
+            if not claimed:
+                return  # Task was claimed by another worker
+
+            publish("agent_start", {  # type: ignore[call-arg,operator]
+                "agent": task.subject,
+                "role": "task",
+                "message": f"Starting: {task.subject}",
+            })
+
+            step = AgentStep(
+                agent_name=task.subject,
+                role="task",
+                status="running",
+                started_at=datetime.now(timezone.utc),
+                input=task.description[:500],
+            )
+
+            try:
+                result = ""
+
+                if "writer" in task.subject.lower() or "draft" in task.subject.lower():
+                    agent = create_agent_for_config(writer_cfg)
+                    step.input = analyses_context + feedback_context
+                    result = await agent.run(step.input)
+                    current_content = result
+                    step.output = result
+
+                elif "edit" in task.subject.lower():
+                    agent = create_agent_for_config(editor_cfg)
+                    step.input = current_content
+                    result = await agent.run(current_content)
+                    try:
+                        parsed = json.loads(result)
+                        current_content = parsed.get("content", result)
+                        step.output = current_content
+                        final_title_candidates = parsed.get("title_candidates", [])
+                        step.title_candidates = final_title_candidates
+                    except json.JSONDecodeError:
+                        current_content = result
+                        step.output = result
+
+                elif "review" in task.subject.lower():
+                    agent = create_agent_for_config(reviewer_cfg)
+                    step.input = current_content
+                    result = await agent.run(current_content)
+                    step.output = result
+
+                elif "humanize" in task.subject.lower():
+                    # Use editor config for humanizer
+                    if editor_cfg:
+                        from app.core.agents.base import BaseAgent
+                        humanizer = BaseAgent(agent_config=editor_cfg)
+                        humanize_prompt = (
+                            f"请对以下文章进行去AI味处理，使其更自然、更有人情味，"
+                            f"避免AI腔调，保持原意但改变表达方式，让读者感觉是人写的。\n\n"
+                            f"文章内容：\n{current_content}\n\n"
+                            f"只返回处理后的文章，不要解释。"
+                        )
+                        current_content = await humanizer.run(humanize_prompt)
+                        result = current_content
+                        step.output = result
+                    else:
+                        result = current_content
+                        step.output = result
+
+                # Complete the task
+                completed, unblocked = await manager.complete_task(
+                    task.id, result=f"Completed: {task.subject}"
+                )
+
+                step.status = "done"
+                step.ended_at = datetime.now(timezone.utc)
+
+                publish("agent_output", {  # type: ignore[call-arg,operator]
+                    "agent": task.subject,
+                    "role": "task",
+                    "content": step.output[:500],
+                    "title_candidates": step.title_candidates,
+                })
+
+                if unblocked:
+                    publish("agent_start", {  # type: ignore[call-arg,operator]
+                        "agent": "TaskGraph",
+                        "role": "coordinator",
+                        "message": f"Unblocked {len(unblocked)} task(s): {', '.join(u.subject for u in unblocked)}",
+                    })
+
+            except Exception as exc:
+                await manager.fail_task(task.id, str(exc))
+                step.status = "failed"
+                step.ended_at = datetime.now(timezone.utc)
+                step.output = str(exc)
+                publish("agent_error", {  # type: ignore[call-arg,operator]
+                    "agent": task.subject,
+                    "message": str(exc),
+                })
+                raise
+
+            run.steps.append(step)  # type: ignore[union-attr]
+            await run.save()  # type: ignore[union-attr]
+
+        # Execute all ready tasks concurrently
+        await asyncio.gather(*[execute_task(t) for t in ready_tasks])
+
+    # Finalize
+    run.final_output = current_content  # type: ignore[union-attr]
+    run.status = "waiting_human"  # type: ignore[union-attr]
+    await run.save()  # type: ignore[union-attr]
+
+    publish("workflow_paused", {  # type: ignore[call-arg,operator]
+        "reason": "waiting_human_review",
+        "run_id": workflow_run_id,
+        "final_output_preview": current_content[:200],
+    })
+
+
 async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: object) -> None:  # type: ignore[return]
     """Original linear Writer→Editor→Reviewer pipeline."""
     from app.models import AgentConfig, WorkflowRun
@@ -313,6 +549,8 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
     try:
         if run.use_orchestrator:
             await _writing_workflow_orchestrator(run, workflow_run_id, publish)
+        elif getattr(run, "use_task_graph", False):
+            await _writing_workflow_task_graph(run, workflow_run_id, publish)
         else:
             await _writing_workflow_linear(run, workflow_run_id, publish)
 

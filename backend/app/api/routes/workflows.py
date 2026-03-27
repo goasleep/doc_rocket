@@ -181,3 +181,31 @@ async def abort_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
     await run.save()
 
     return Message(message="Workflow aborted")
+
+
+@router.post("/{id}/retry", response_model=WorkflowRunPublic)
+async def retry_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
+    """Retry a failed workflow by creating a new run with the same input."""
+    run = await WorkflowRun.find_one(WorkflowRun.id == id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+    if run.status not in ("failed",):
+        raise HTTPException(status_code=400, detail="Only failed workflows can be retried")
+
+    # Create new WorkflowRun with same input
+    new_run = WorkflowRun(
+        type=run.type,
+        input=run.input,
+        status="pending",
+        parent_run_id=run.parent_run_id or run.id,  # Link to original if not already
+        user_feedback=run.user_feedback,
+        created_by=current_user.id,
+        use_orchestrator=run.use_orchestrator,
+    )
+    await new_run.insert()
+
+    task = writing_workflow_task.delay(str(new_run.id))
+    new_run.celery_task_id = task.id
+    await new_run.save()
+
+    return new_run

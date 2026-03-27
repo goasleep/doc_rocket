@@ -15,8 +15,10 @@ from app.models import (
     Skill,
     Source,
     SystemConfig,
+    TaskNode,
     TaskRun,
     Tool,
+    Transcript,
     User,
     UserCreate,
     WorkflowRun,
@@ -43,6 +45,8 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             TaskRun,
             QualityRubric,
             ExternalReference,
+            Transcript,
+            TaskNode,
         ],
     )
 

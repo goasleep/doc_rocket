@@ -7,17 +7,18 @@ from app.core.config import settings
 from app.core.db import init_db
 from app.main import app
 from app.models import (
-    Item,
-    User,
-    Source,
+    AgentConfig,
     Article,
     ArticleAnalysis,
-    AgentConfig,
-    TaskRun,
-    WorkflowRun,
     Draft,
-    SystemConfig,
+    Item,
     LLMModelConfig,
+    Source,
+    SystemConfig,
+    TaskNode,
+    TaskRun,
+    User,
+    WorkflowRun,
 )
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
@@ -45,6 +46,7 @@ async def db() -> AsyncGenerator[None, None]:
     await SystemConfig.delete_all()
     await LLMModelConfig.delete_all()
     await TaskRun.delete_all()
+    await TaskNode.delete_all()
     client.close()
 
 

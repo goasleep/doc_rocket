@@ -104,7 +104,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "beanie", specifier = ">=1.26" },
+    { name = "beanie", specifier = ">=1.26,<2.0" },
     { name = "celery", extras = ["redis"], specifier = ">=5.3.0" },
     { name = "celery-redbeat", specifier = ">=2.2.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -267,18 +267,19 @@ wheels = [
 
 [[package]]
 name = "beanie"
-version = "2.0.1"
+version = "1.30.0"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "click" },
     { name = "lazy-model" },
+    { name = "motor" },
     { name = "pydantic" },
-    { name = "pymongo" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/af/c0/85857d44d1c59d8bb546bd01e7d128ae08fc9e84e3f3c5c84b365b55ea48/beanie-2.0.1.tar.gz", hash = "sha256:aad0365cba578f5686446ed0960ead140a2231cbbfa8d492220f712c5e0c06b4", size = 171502, upload_time = "2025-11-20T18:45:51.518Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/46/1c/feee03924a8f255d76236a8f71fde310da52ab4e03abd1254cd9309d73e1/beanie-1.30.0.tar.gz", hash = "sha256:33ead17ff2742144c510b4b24e188f6b316dd1b614d86b57a3cfe20bc7b768c9", size = 176743, upload_time = "2025-06-10T19:48:01.119Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/29/54/8c9a4ab2d82242074671cc35b1dd2a906c3c36b3a5c80e914c76fa9f45b7/beanie-2.0.1-py3-none-any.whl", hash = "sha256:3aad6cc0e40fb8d256a0a3fdeca92a7b3d3c1f9f47ff377c9ecd2221285e1009", size = 87693, upload_time = "2025-11-20T18:45:50.321Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/cb/f2/adfea21c19d73ad2e90f5346c166523dadc33493a0b398d543eeb9b67e7a/beanie-1.30.0-py3-none-any.whl", hash = "sha256:385f1b850b36a19dd221aeb83e838c83ec6b47bbf6aeac4e5bf8b8d40bfcfe51", size = 87140, upload_time = "2025-06-10T19:47:59.066Z" },
 ]
 
 [[package]]
@@ -933,15 +934,15 @@ beanie = [
 
 [[package]]
 name = "fastapi-users-db-beanie"
-version = "5.0.0"
+version = "4.0.0"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "beanie" },
     { name = "fastapi-users" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/9f/64/98da41f81bb91a7b4e926c7377849814361dacd41cad50b294f91c37119b/fastapi_users_db_beanie-5.0.0.tar.gz", hash = "sha256:0d51e096174638c662d924126c68f4f38b6e526c594c56f4e05a245be2d322ef", size = 10000, upload_time = "2025-11-23T13:23:42.7Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/8b/fb/31024d9490ef13fe25021984dfdc0d174a0325562a5ec9db2d0a0e8c471e/fastapi_users_db_beanie-4.0.0.tar.gz", hash = "sha256:c2331279359c5988ed427002fffbe5f6928d77df34ae96348db5fac68ba81fcf", size = 9979, upload_time = "2025-01-04T13:04:43.401Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/3b/85/50bc9b6f789b6b6bc6fbd838b1b1f877ed7b87fd5a80e2c9f53ab929895a/fastapi_users_db_beanie-5.0.0-py3-none-any.whl", hash = "sha256:321ab86fabcce1b893f16d6fd37cf8dd9f8b9d994639a87a27853f22fbfb51f0", size = 5568, upload_time = "2025-11-23T13:23:44.099Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/20/9a/a99e408dd929e133a9ef0768858e886b91328713e4b4464d1806d9042f51/fastapi_users_db_beanie-4.0.0-py3-none-any.whl", hash = "sha256:01db9a8dc1237f7bf604ac038c4fc0dfa7c920169ced03cb1fe75ca921aea39a", size = 5485, upload_time = "2025-01-04T13:04:45.265Z" },
 ]
 
 [[package]]
@@ -1366,14 +1367,14 @@ redis = [
 
 [[package]]
 name = "lazy-model"
-version = "0.4.0"
+version = "0.2.0"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/72/85/e25dc36dee49cf0726c03a1558b5c311a17095bc9361bcbf47226cb3075a/lazy-model-0.4.0.tar.gz", hash = "sha256:a851d85d0b518b0b9c8e626bbee0feb0494c0e0cb5636550637f032dbbf9c55f", size = 8256, upload_time = "2025-08-07T20:05:34.737Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/47/9e/c60681be72f03845c209a86d5ce0404540c8d1818fc29bc64fc95220de5c/lazy-model-0.2.0.tar.gz", hash = "sha256:57c0e91e171530c4fca7aebc3ac05a163a85cddd941bf7527cc46c0ddafca47c", size = 8152, upload_time = "2023-09-10T02:29:57.974Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/5c/54/653ea0d7c578741e9867ccf0cbf47b7eac09ff22e4238f311ac20671a911/lazy_model-0.4.0-py3-none-any.whl", hash = "sha256:95ea59551c1ac557a2c299f75803c56cc973923ef78c67ea4839a238142f7927", size = 13749, upload_time = "2025-08-07T20:05:36.303Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/0a/13/e37962a20f7051b2d6d286c3feb85754f9ea8c4cac302927971e910cc9f6/lazy_model-0.2.0-py3-none-any.whl", hash = "sha256:5a3241775c253e36d9069d236be8378288a93d4fc53805211fd152e04cc9c342", size = 13719, upload_time = "2023-09-10T02:29:59.067Z" },
 ]
 
 [[package]]

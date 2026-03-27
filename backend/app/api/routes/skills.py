@@ -68,18 +68,32 @@ async def update_skill(
     current_user: SuperuserDep, skill_id: str, body: SkillUpdate
 ) -> Any:
     from datetime import datetime, timezone
+    from app.core.agents.skill_cache import get_skill_cache
+
     skill = await _get_or_404(skill_id)
     update_data = body.model_dump(exclude_none=True)
     for field, value in update_data.items():
         setattr(skill, field, value)
     skill.updated_at = datetime.now(timezone.utc)
     await skill.save()
+
+    # Invalidate cache for this skill
+    cache = get_skill_cache()
+    cache.invalidate(skill.name)
+
     return _to_public(skill)
 
 
 @router.delete("/{skill_id}", status_code=204)
 async def delete_skill(current_user: SuperuserDep, skill_id: str) -> None:
+    from app.core.agents.skill_cache import get_skill_cache
+
     skill = await _get_or_404(skill_id)
+
+    # Invalidate cache for this skill
+    cache = get_skill_cache()
+    cache.invalidate(skill.name)
+
     await skill.delete()
 
 

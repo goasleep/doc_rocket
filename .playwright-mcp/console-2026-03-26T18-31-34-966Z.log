@@ -1,0 +1,2 @@
+[   22037ms] [ERROR] Access to XMLHttpRequest at 'http://localhost:8000/api/v1/auth/jwt/login' from origin 'http://localhost:5177' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5177/login:0
+[   22037ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8000/api/v1/auth/jwt/login:0

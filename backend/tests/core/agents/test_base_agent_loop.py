@@ -64,7 +64,10 @@ async def test_tool_call_then_text() -> None:
 
     assert result == "Content from URL: summary"
     assert mock_llm.chat.call_count == 2
-    mock_dispatch.assert_called_once_with("fetch_url", {"url": "http://example.com"})
+    mock_dispatch.assert_called_once()
+    call_args = mock_dispatch.call_args
+    assert call_args.args[0] == "fetch_url"
+    assert call_args.args[1] == {"url": "http://example.com"}
 
 
 @pytest.mark.anyio
