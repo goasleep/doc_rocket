@@ -39,9 +39,18 @@ async def trigger_workflow(current_user: CurrentUser, body: WorkflowRunCreate) -
     from app.models import Article, TaskRun
     from app.models.workflow import WorkflowInput
 
+    # Validate topic is required
+    if not body.topic or not body.topic.strip():
+        raise HTTPException(status_code=400, detail="主题不能为空")
+
     run = WorkflowRun(
         type=body.type,
-        input=WorkflowInput(article_ids=body.article_ids, topic=body.topic),
+        input=WorkflowInput(
+            topic=body.topic,
+            style_hints=body.style_hints,
+            article_ids=body.article_ids,
+            auto_match_styles=body.auto_match_styles,
+        ),
         status="pending",
         created_by=current_user.id,
         use_orchestrator=body.use_orchestrator,
@@ -68,7 +77,7 @@ async def trigger_workflow(current_user: CurrentUser, body: WorkflowRunCreate) -
             task_type="workflow",
             entity_type=None,
             entity_id=None,
-            entity_name=(body.topic or "")[:100] if body.topic else None,
+            entity_name=body.topic[:100],
             workflow_run_id=run.id,
             status="pending",
         )

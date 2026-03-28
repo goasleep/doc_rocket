@@ -5,22 +5,94 @@ import uuid
 from datetime import datetime, timezone
 
 
-async def _build_analyses_context(run: object) -> str:  # type: ignore[return]
+async def _build_analyses_context(run: object) -> tuple[str, str]:  # type: ignore[return]
+    """Build analyses context with optional automatic style matching.
+
+    Supports hybrid matching: user-selected articles get higher priority,
+    while auto-matched articles provide additional style diversity.
+
+    Returns:
+        tuple: (analyses_context, style_guide)
+    """
     from app.models import ArticleAnalysis, WorkflowRun
+    from app.services import StyleMatcher
+
     run = run  # type: WorkflowRun
-    if not run.input.article_ids:  # type: ignore[union-attr]
-        return ""
-    analyses = []
-    for art_id in run.input.article_ids:  # type: ignore[union-attr]
+
+    # Get input parameters
+    auto_match = getattr(run.input, "auto_match_styles", True)
+    user_article_ids = run.input.article_ids if run.input.article_ids else []
+    topic = run.input.topic or ""
+    style_hints = getattr(run.input, "style_hints", []) or []
+
+    all_article_ids = list(user_article_ids)  # Start with user-selected
+    style_guide = ""
+
+    # Auto-match additional articles if enabled and topic is provided
+    if auto_match and topic:
+        matcher = StyleMatcher()
+        match_result = await matcher.match_articles(
+            topic=topic,
+            style_hints=style_hints,
+            limit=5,
+        )
+
+        # Merge auto-matched articles (excluding duplicates)
+        auto_matched_ids = [
+            aid for aid in match_result.article_ids
+            if aid not in all_article_ids
+        ]
+        all_article_ids.extend(auto_matched_ids)
+
+        style_guide = match_result.style_guide
+
+        # Publish style matching event
+        from app.core.redis_client import sync_redis
+        import json
+
+        sync_redis.publish(
+            f"workflow:{run.id}",
+            json.dumps({
+                "type": "style_matched",
+                "user_selected_count": len(user_article_ids),
+                "auto_matched_count": len(auto_matched_ids),
+                "primary_id": str(match_result.primary_id) if match_result.primary_id else None,
+                "secondary_ids": [str(id) for id in match_result.secondary_ids],
+                "total_count": len(all_article_ids),
+            }),
+        )
+
+    if not all_article_ids:
+        return "", style_guide
+
+    # Fetch analyses and sort: user-selected first, then by match score
+    analyses_with_priority = []
+    for idx, art_id in enumerate(all_article_ids):
         analysis = await ArticleAnalysis.find_one(ArticleAnalysis.article_id == art_id)
         if analysis:
-            analyses.append(analysis)
-    if not analyses:
-        return ""
+            # User-selected articles get priority (lower index = higher priority)
+            is_user_selected = idx < len(user_article_ids)
+            priority = 0 if is_user_selected else 1
+            analyses_with_priority.append((analysis, priority, idx))
+
+    if not analyses_with_priority:
+        return "", style_guide
+
+    # Sort by priority first, then by original order
+    analyses_with_priority.sort(key=lambda x: (x[1], x[2]))
+
     ctx_parts = []
-    for a in analyses:
+    user_count = len(user_article_ids)
+
+    for i, (a, priority, _) in enumerate(analyses_with_priority):
+        if priority == 0:
+            ref_type = f"用户指定参考{i + 1}" if user_count > 1 else "用户指定参考"
+        else:
+            auto_idx = i - user_count
+            ref_type = "主风格" if auto_idx == 0 else f"辅助风格{auto_idx}"
+
         ctx_parts.append(
-            f"--- 参考文章分析 ---\n"
+            f"--- {ref_type}参考文章分析 ---\n"
             f"Hook类型: {a.hook_type}\n"
             f"写作框架: {a.framework}\n"
             f"情绪触发: {', '.join(a.emotional_triggers)}\n"
@@ -28,7 +100,8 @@ async def _build_analyses_context(run: object) -> str:  # type: ignore[return]
             f"目标受众: {a.target_audience}\n"
             f"风格: 语气={a.style.tone}, 正式度={a.style.formality}\n"
         )
-    return "\n".join(ctx_parts)
+
+    return "\n".join(ctx_parts), style_guide
 
 
 async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publish: object) -> None:  # type: ignore[return]
@@ -45,7 +118,7 @@ async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publis
     run = run  # type: WorkflowRun
     manager = TaskGraphManager()
 
-    analyses_context = await _build_analyses_context(run)
+    analyses_context, style_guide = await _build_analyses_context(run)
     feedback_context = ""
     if run.user_feedback:  # type: ignore[union-attr]
         feedback_context = f"\n\n用户修改意见：{run.user_feedback}"
@@ -77,11 +150,17 @@ async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publis
         "message": "Creating task graph with dependencies...",
     })
 
+    # Build writer input with topic and style guide
+    writer_input = f"主题：{topic}\n\n"
+    if style_guide:
+        writer_input += f"{style_guide}\n\n"
+    writer_input += f"{analyses_context}{feedback_context}"
+
     # Writer task (no dependencies)
     writer_task = await manager.create_task(
         workflow_run_id=workflow_id,
         subject="Generate article draft",
-        description=f"Write article on topic: {topic}\n\n{analyses_context}{feedback_context}",
+        description=f"Write article on topic: {topic}",
         priority=10,
     )
 
@@ -173,8 +252,8 @@ async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publis
 
                 if "writer" in task.subject.lower() or "draft" in task.subject.lower():
                     agent = create_agent_for_config(writer_cfg)
-                    step.input = analyses_context + feedback_context
-                    result = await agent.run(step.input)
+                    step.input = writer_input
+                    result = await agent.run(writer_input)
                     current_content = result
                     step.output = result
 
@@ -280,10 +359,18 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
     if not agents_configs:
         raise ValueError("No active agent configs found")
 
-    analyses_context = await _build_analyses_context(run)
+    analyses_context, style_guide = await _build_analyses_context(run)
     feedback_context = ""
     if run.user_feedback:  # type: ignore[union-attr]
         feedback_context = f"\n\n用户修改意见：{run.user_feedback}"
+
+    topic = run.input.topic or "请根据参考素材创作一篇高质量文章"  # type: ignore[union-attr]
+
+    # Build writer input with topic and style guide
+    writer_input = f"主题：{topic}\n\n"
+    if style_guide:
+        writer_input += f"{style_guide}\n\n"
+    writer_input += f"{analyses_context}{feedback_context}"
 
     current_content = ""
 
@@ -308,8 +395,8 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
             agent = create_agent_for_config(agent_config)
 
             if agent_config.role == "writer":
-                step.input = analyses_context + feedback_context
-                result = await agent.run(step.input)
+                step.input = writer_input
+                result = await agent.run(writer_input)
                 current_content = result
                 step.output = result
             elif agent_config.role == "editor":
@@ -417,14 +504,17 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
     from app.core.agents.orchestrator import OrchestratorAgent
     run = run  # type: WorkflowRun
 
-    analyses_context = await _build_analyses_context(run)
+    analyses_context, style_guide = await _build_analyses_context(run)
     feedback_context = ""
     if run.user_feedback:  # type: ignore[union-attr]
         feedback_context = f"\n\n用户修改意见：{run.user_feedback}"
 
     # Build orchestrator input
     topic = run.input.topic or "请根据参考素材创作一篇高质量文章"  # type: ignore[union-attr]
-    orchestrator_input = f"任务：{topic}\n\n{analyses_context}{feedback_context}"
+    orchestrator_input = f"任务：{topic}\n\n"
+    if style_guide:
+        orchestrator_input += f"{style_guide}\n\n"
+    orchestrator_input += f"{analyses_context}{feedback_context}"
 
     # Load orchestrator agent config if exists
     orch_cfg = await AgentConfig.find_one(

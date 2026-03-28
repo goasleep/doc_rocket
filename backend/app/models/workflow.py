@@ -37,9 +37,11 @@ class AgentStep(BaseModel):
 
 
 class WorkflowInput(BaseModel):
-    article_ids: list[uuid.UUID] = Field(default_factory=list)
-    topic: str | None = None
-    content: str | None = None
+    topic: str  # 必填：写什么主题
+    style_hints: list[str] = Field(default_factory=list)  # 可选：风格偏好提示
+    article_ids: list[uuid.UUID] = Field(default_factory=list)  # 可选：手动指定参考文章
+    auto_match_styles: bool = True  # 是否启用自动风格匹配
+    content: str | None = None  # 保留向后兼容
 
 
 class WorkflowRun(Document):
@@ -67,8 +69,10 @@ class WorkflowRun(Document):
 
 class WorkflowRunCreate(BaseModel):
     type: str = "writing"
-    article_ids: list[uuid.UUID] = Field(default_factory=list)
-    topic: str | None = None
+    topic: str  # 必填：写什么主题
+    style_hints: list[str] = Field(default_factory=list)  # 可选：风格偏好提示
+    article_ids: list[uuid.UUID] = Field(default_factory=list)  # 可选：手动指定参考文章
+    auto_match_styles: bool = True  # 是否启用自动风格匹配
     use_orchestrator: bool = False
 
 

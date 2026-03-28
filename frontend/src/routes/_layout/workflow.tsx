@@ -9,6 +9,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Settings2,
   X,
   XCircle,
 } from "lucide-react"
@@ -25,6 +26,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Switch } from "@/components/ui/switch"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -622,11 +624,65 @@ function WorkflowRunView({ runId }: { runId: string }) {
 
 // ─── New Workflow Trigger ──────────────────────────────────────────────────────
 
+const STYLE_OPTIONS = [
+  { value: "story", label: "故事化叙述", desc: "用故事带动内容" },
+  { value: "data", label: "数据驱动", desc: "用数据论证观点" },
+  { value: "sharp", label: "犀利点评", desc: "观点鲜明、点评直接" },
+  { value: "casual", label: "口语化", desc: "轻松自然的表达" },
+  { value: "suspense", label: "悬念开头", desc: "用悬念吸引读者" },
+  { value: "contrast", label: "对比结构", desc: "通过对比突出观点" },
+  { value: "emotional", label: "情绪共鸣", desc: "引发情感共鸣" },
+  { value: "practical", label: "实用干货", desc: "注重实用性" },
+]
+
+function StyleHintTags({
+  selected,
+  onChange,
+}: {
+  selected: string[]
+  onChange: (values: string[]) => void
+}) {
+  const toggle = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter((v) => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {STYLE_OPTIONS.map((opt) => {
+        const isSelected = selected.includes(opt.value)
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => toggle(opt.value)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+              isSelected
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted hover:bg-muted/80 text-muted-foreground"
+            }`}
+            title={opt.desc}
+          >
+            {opt.label}
+            {isSelected && <CheckCircle2 className="h-3.5 w-3.5" />}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function NewWorkflowPanel() {
   const navigate = useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [topic, setTopic] = useState("")
+  const [styleHints, setStyleHints] = useState<string[]>([])
+  const [autoMatchStyles, setAutoMatchStyles] = useState(true)
   const [useOrchestrator, setUseOrchestrator] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const { data: articles } = useQuery({
     queryKey: ["articles"],
@@ -640,8 +696,10 @@ function NewWorkflowPanel() {
       WorkflowsService.triggerWorkflow({
         requestBody: {
           type: "writing",
+          topic: topic.trim(),
+          style_hints: styleHints,
           article_ids: Array.from(selectedIds),
-          topic: topic || undefined,
+          auto_match_styles: autoMatchStyles,
           use_orchestrator: useOrchestrator,
         },
       }),
@@ -654,40 +712,42 @@ function NewWorkflowPanel() {
 
   const analyzed = articles?.data.filter((a) => a.status === "analyzed") ?? []
 
+  const canSubmit = topic.trim().length > 0
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">触发仿写工作流</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
+        {/* Topic - Required */}
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">
-            选择素材文章（可选）
-          </p>
-          {analyzed.length === 0 ? (
-            <p className="text-sm text-muted-foreground border rounded px-3 py-2">
-              暂无已分析文章
-            </p>
-          ) : (
-            <ArticleMultiSelect
-              options={analyzed}
-              selectedIds={selectedIds}
-              onChange={setSelectedIds}
-            />
-          )}
-        </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">
-            或输入主题
-          </p>
+          <label className="text-sm font-medium mb-1.5 flex items-center gap-1">
+            写作主题
+            <span className="text-destructive">*</span>
+          </label>
           <input
             type="text"
-            placeholder="例如：AI 未来趋势分析..."
-            className="w-full text-sm rounded border border-input bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="例如：AI 会取代程序员吗？"
+            className="w-full text-sm rounded border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            告诉 AI 你想写什么内容，AI 会自动生成大纲
+          </p>
         </div>
+
+        {/* Style Hints - Optional */}
+        <div>
+          <label className="text-sm font-medium mb-2 block">风格偏好（可选）</label>
+          <StyleHintTags selected={styleHints} onChange={setStyleHints} />
+          <p className="text-xs text-muted-foreground mt-2">
+            选择风格偏好帮助 AI 更精准匹配参考文章
+          </p>
+        </div>
+
+        {/* Orchestrator Mode */}
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div className="space-y-0.5">
             <p className="text-sm font-medium">使用 Orchestrator 模式</p>
@@ -700,14 +760,80 @@ function NewWorkflowPanel() {
             onCheckedChange={setUseOrchestrator}
           />
         </div>
+
+        {/* Advanced: Manual Article Selection */}
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Settings2 className="h-4 w-4" />
+              高级：指定参考文章
+              {advancedOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 space-y-3">
+            {/* Auto-match toggle */}
+            <div className="flex items-start gap-3 rounded-lg border p-3">
+              <Checkbox
+                id="auto-match"
+                checked={autoMatchStyles}
+                onCheckedChange={(v) => setAutoMatchStyles(v as boolean)}
+              />
+              <div className="space-y-1">
+                <label
+                  htmlFor="auto-match"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  同时自动匹配风格文章
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  开启后，AI 会在你指定的文章基础上，自动从文章库匹配更多风格参考
+                </p>
+              </div>
+            </div>
+
+            {/* Manual article selection */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                指定参考文章（可选）
+              </label>
+              {analyzed.length === 0 ? (
+                <p className="text-sm text-muted-foreground border rounded px-3 py-2">
+                  暂无已分析文章，请先分析文章
+                </p>
+              ) : (
+                <ArticleMultiSelect
+                  options={analyzed}
+                  selectedIds={selectedIds}
+                  onChange={setSelectedIds}
+                />
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                指定的文章将作为主要风格参考，优先级高于自动匹配的文章
+              </p>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
         <Button
           onClick={() => triggerMutation.mutate()}
-          disabled={
-            triggerMutation.isPending ||
-            (selectedIds.size === 0 && !topic.trim())
-          }
+          disabled={triggerMutation.isPending || !canSubmit}
+          className="w-full"
         >
-          {triggerMutation.isPending ? "触发中..." : "开始仿写"}
+          {triggerMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              触发中...
+            </>
+          ) : (
+            "开始仿写"
+          )}
         </Button>
       </CardContent>
     </Card>
