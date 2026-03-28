@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
 // Helper to login before tests
 test.beforeEach(async ({ page }) => {
@@ -58,7 +58,9 @@ test.describe("Token Usage on Agents Page", () => {
     await expect(page.getByText("API Calls")).toBeVisible()
   })
 
-  test("Chart time range selector (7d/30d/90d) works correctly", async ({ page }) => {
+  test("Chart time range selector (7d/30d/90d) works correctly", async ({
+    page,
+  }) => {
     // Navigate to agents page
     await page.goto("/agents")
 
@@ -66,7 +68,9 @@ test.describe("Token Usage on Agents Page", () => {
     await page.waitForLoadState("networkidle")
 
     // Find the time range selector
-    const selector = page.locator('button[role="combobox"]').filter({ hasText: /Last \d+ days/ })
+    const selector = page
+      .locator('button[role="combobox"]')
+      .filter({ hasText: /Last \d+ days/ })
     await expect(selector).toBeVisible()
 
     // Click to open the dropdown
@@ -79,7 +83,11 @@ test.describe("Token Usage on Agents Page", () => {
     await page.waitForTimeout(500)
 
     // Verify the selector shows the new value
-    await expect(page.locator('button[role="combobox"]').filter({ hasText: "Last 30 days" })).toBeVisible()
+    await expect(
+      page
+        .locator('button[role="combobox"]')
+        .filter({ hasText: "Last 30 days" }),
+    ).toBeVisible()
 
     // Click to open again
     await selector.click()
@@ -91,7 +99,11 @@ test.describe("Token Usage on Agents Page", () => {
     await page.waitForTimeout(500)
 
     // Verify the selector shows the new value
-    await expect(page.locator('button[role="combobox"]').filter({ hasText: "Last 90 days" })).toBeVisible()
+    await expect(
+      page
+        .locator('button[role="combobox"]')
+        .filter({ hasText: "Last 90 days" }),
+    ).toBeVisible()
   })
 
   test("Agent comparison chart displays", async ({ page }) => {
@@ -134,14 +146,20 @@ test.describe("Token Usage on Article Detail Page", () => {
       await page.getByRole("tab", { name: /Token 消耗/ }).click()
 
       // Check for token usage content
-      await expect(page.getByText("Token Usage Breakdown").or(page.getByText("No token usage recorded"))).toBeVisible()
+      await expect(
+        page
+          .getByText("Token Usage Breakdown")
+          .or(page.getByText("No token usage recorded")),
+      ).toBeVisible()
     } else {
       // Skip if no articles exist
       test.skip()
     }
   })
 
-  test("Article detail page shows distribution charts when data exists", async ({ page }) => {
+  test("Article detail page shows distribution charts when data exists", async ({
+    page,
+  }) => {
     // Navigate to articles list
     await page.goto("/articles")
 
@@ -164,7 +182,10 @@ test.describe("Token Usage on Article Detail Page", () => {
         await page.waitForTimeout(500)
 
         // Check if distribution charts are visible (if there's data)
-        const hasData = await page.getByText("Tokens by Operation").isVisible().catch(() => false)
+        const hasData = await page
+          .getByText("Tokens by Operation")
+          .isVisible()
+          .catch(() => false)
 
         if (hasData) {
           await expect(page.getByText("Tokens by Operation")).toBeVisible()

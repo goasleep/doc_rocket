@@ -2,18 +2,18 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Suspense, useState } from "react"
 
 import {
-  TokenUsageCard,
-  TokenTrendChart,
   AgentComparisonChart,
+  TokenTrendChart,
+  TokenUsageCard,
   TokenUsageSectionSkeleton,
 } from "@/components/token-usage"
+import useAuth from "@/hooks/useAuth"
 import {
+  useAgentTokenStats,
+  useAgentTrendData,
   useTodayStats,
   useYesterdayStats,
-  useAgentTrendData,
-  useAgentTokenStats,
 } from "@/hooks/useTokenUsage"
-import useAuth from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,

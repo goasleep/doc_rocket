@@ -1,17 +1,17 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  Cell,
 } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatNumber, getChartColor } from "./utils"
 
 interface AgentComparisonItem {
@@ -69,7 +69,11 @@ export function AgentComparisonChart({
               margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
               layout="vertical"
             >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                className="stroke-muted"
+                horizontal={false}
+              />
               <XAxis
                 type="number"
                 tick={{ fontSize: 12 }}
@@ -83,19 +87,27 @@ export function AgentComparisonChart({
               />
               <Tooltip
                 content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
+                  if (active && payload?.length) {
                     const data = payload[0].payload as AgentComparisonItem
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-sm">
                         <div className="font-medium">{data.name}</div>
                         <div className="mt-2 space-y-1 text-sm">
                           <div className="flex justify-between gap-4">
-                            <span className="text-muted-foreground">Tokens:</span>
-                            <span className="font-medium">{formatNumber(data.tokens)}</span>
+                            <span className="text-muted-foreground">
+                              Tokens:
+                            </span>
+                            <span className="font-medium">
+                              {formatNumber(data.tokens)}
+                            </span>
                           </div>
                           <div className="flex justify-between gap-4">
-                            <span className="text-muted-foreground">Calls:</span>
-                            <span className="font-medium">{formatNumber(data.calls)}</span>
+                            <span className="text-muted-foreground">
+                              Calls:
+                            </span>
+                            <span className="font-medium">
+                              {formatNumber(data.calls)}
+                            </span>
                           </div>
                         </div>
                       </div>

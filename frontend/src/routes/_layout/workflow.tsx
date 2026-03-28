@@ -22,13 +22,18 @@ import {
   type WorkflowRunPublic,
   WorkflowsService,
 } from "@/client"
+import { AgentGraph } from "@/components/AgentGraph"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Switch } from "@/components/ui/switch"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { StatusBadge } from "@/components/ui/StatusBadge"
+import { Switch } from "@/components/ui/switch"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useSSE } from "@/hooks/useSSE"
 import { useWorkflowPolling } from "@/hooks/useWorkflowPolling"
@@ -268,7 +273,16 @@ function StepBubble({ step }: { step: AgentStep }) {
 
 // ─── Routing Log Panel ─────────────────────────────────────────────────────────
 
-function RoutingLogPanel({ routingLog }: { routingLog: Array<{ timestamp?: string; from_agent: string; to_agent: string; reason?: string }> }) {
+function RoutingLogPanel({
+  routingLog,
+}: {
+  routingLog: Array<{
+    timestamp?: string
+    from_agent: string
+    to_agent: string
+    reason?: string
+  }>
+}) {
   if (!routingLog || routingLog.length === 0) return null
 
   return (
@@ -277,9 +291,13 @@ function RoutingLogPanel({ routingLog }: { routingLog: Array<{ timestamp?: strin
       <div className="space-y-2">
         {routingLog.map((event, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <Badge variant="secondary" className="text-xs">{event.from_agent}</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {event.from_agent}
+            </Badge>
             <span className="text-muted-foreground">→</span>
-            <Badge variant="secondary" className="text-xs">{event.to_agent}</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {event.to_agent}
+            </Badge>
             <span className="text-xs text-muted-foreground flex-1 truncate">
               {event.reason}
             </span>
@@ -308,7 +326,8 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
   // Find title candidates from editor step or orchestrator step
   const editorStep = run.steps.find((s) => s.role === "editor")
   const orchestratorStep = run.steps.find((s) => s.role === "orchestrator")
-  const titleCandidates = editorStep?.title_candidates ?? orchestratorStep?.title_candidates ?? []
+  const titleCandidates =
+    editorStep?.title_candidates ?? orchestratorStep?.title_candidates ?? []
 
   const approveMutation = useMutation({
     mutationFn: () =>
@@ -552,8 +571,12 @@ function WorkflowRunView({ runId }: { runId: string }) {
     sseActive && !isTerminal ? `/api/v1/workflows/${runId}/stream` : null,
     {
       onEvent: (type, _data: any) => {
-        if (type === "agent_start" || type === "agent_output" ||
-            type === "subagent_start" || type === "subagent_output") {
+        if (
+          type === "agent_start" ||
+          type === "agent_output" ||
+          type === "subagent_start" ||
+          type === "subagent_output"
+        ) {
           queryClient.invalidateQueries({ queryKey: ["workflow", runId] })
         }
         if (type === "workflow_paused" || type === "workflow_done") {
@@ -613,10 +636,19 @@ function WorkflowRunView({ runId }: { runId: string }) {
 
       {run.status === "waiting_human" && <HumanReviewPanel run={run} />}
 
+      {/* Orchestrator Agent Graph */}
+      {run.use_orchestrator &&
+        run.routing_log &&
+        run.routing_log.length > 0 && (
+          <AgentGraph routingLog={run.routing_log} />
+        )}
+
       {/* Orchestrator routing log */}
-      {run.use_orchestrator && run.routing_log && run.routing_log.length > 0 && (
-        <RoutingLogPanel routingLog={run.routing_log} />
-      )}
+      {run.use_orchestrator &&
+        run.routing_log &&
+        run.routing_log.length > 0 && (
+          <RoutingLogPanel routingLog={run.routing_log} />
+        )}
 
       {/* Failed workflow - show error and retry */}
       {run.status === "failed" && (
@@ -780,7 +812,9 @@ function NewWorkflowPanel() {
 
         {/* Style Hints - Optional */}
         <div>
-          <label className="text-sm font-medium mb-2 block">风格偏好（可选）</label>
+          <label className="text-sm font-medium mb-2 block">
+            风格偏好（可选）
+          </label>
           <StyleHintTags selected={styleHints} onChange={setStyleHints} />
           <p className="text-xs text-muted-foreground mt-2">
             选择风格偏好帮助 AI 更精准匹配参考文章
@@ -833,7 +867,8 @@ function NewWorkflowPanel() {
                   同时自动匹配风格文章
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  开启后，AI 会在你指定的文章基础上，自动从文章库匹配更多风格参考
+                  开启后，AI
+                  会在你指定的文章基础上，自动从文章库匹配更多风格参考
                 </p>
               </div>
             </div>

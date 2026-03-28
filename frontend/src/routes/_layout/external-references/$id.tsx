@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, ExternalLink, Globe } from "lucide-react"
 import { Suspense } from "react"
 
-import { ExternalReferencesService, ArticlesService } from "@/client"
+import { ArticlesService, ExternalReferencesService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

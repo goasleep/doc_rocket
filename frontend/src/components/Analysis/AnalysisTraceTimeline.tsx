@@ -1,8 +1,20 @@
+import {
+  Brain,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Eye,
+  FileText,
+  Lightbulb,
+  Loader2,
+  Wrench,
+  XCircle,
+} from "lucide-react"
 import { useState } from "react"
+import type { AnalysisTraceStep } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronRight, Clock, CheckCircle2, XCircle, Loader2, Wrench, Brain, Eye, FileText, Lightbulb } from "lucide-react"
-import type { AnalysisTraceStep } from "@/client"
 
 interface AnalysisTraceTimelineProps {
   trace: AnalysisTraceStep[]
@@ -26,9 +38,12 @@ const stepTypeIcons: Record<string, React.ReactNode> = {
 
 const stepTypeColors: Record<string, string> = {
   thought: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  tool_call: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-  observation: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  conclusion: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  tool_call:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  observation:
+    "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  conclusion:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
   reflection: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
 }
 
@@ -58,7 +73,13 @@ function groupStepsByParallelGroup(trace: AnalysisTraceStep[]): GroupedSteps[] {
   return groups
 }
 
-function TraceStepCard({ step, index }: { step: AnalysisTraceStep; index: number }) {
+function TraceStepCard({
+  step,
+  index,
+}: {
+  step: AnalysisTraceStep
+  index: number
+}) {
   const [expanded, setExpanded] = useState(false)
   const stepType = step.step_type || "thought"
   const stepName = step.step_name || `步骤 ${index + 1}`
@@ -76,7 +97,9 @@ function TraceStepCard({ step, index }: { step: AnalysisTraceStep; index: number
           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
         )}
 
-        <div className={`p-1.5 rounded-md shrink-0 ${stepTypeColors[stepType] || stepTypeColors.thought}`}>
+        <div
+          className={`p-1.5 rounded-md shrink-0 ${stepTypeColors[stepType] || stepTypeColors.thought}`}
+        >
           {stepTypeIcons[stepType] || stepTypeIcons.thought}
         </div>
 
@@ -114,31 +137,46 @@ function TraceStepCard({ step, index }: { step: AnalysisTraceStep; index: number
           <div className="pt-3 space-y-3">
             {step.input_summary && (
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">输入</div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  输入
+                </div>
                 <p className="text-sm">{step.input_summary}</p>
               </div>
             )}
 
             {step.output_summary && (
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">输出</div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  输出
+                </div>
                 <p className="text-sm">{step.output_summary}</p>
               </div>
             )}
 
             {step.tool_calls && step.tool_calls.length > 0 && (
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-2">工具调用</div>
+                <div className="text-xs font-medium text-muted-foreground mb-2">
+                  工具调用
+                </div>
                 <div className="space-y-2">
                   {step.tool_calls.map((toolCall, idx) => (
                     <div key={idx} className="bg-muted rounded p-2 text-sm">
                       <div className="flex items-center gap-2">
                         <Wrench className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-mono font-medium">{toolCall.tool_name}</span>
+                        <span className="font-mono font-medium">
+                          {toolCall.tool_name}
+                        </span>
                         {toolCall.success ? (
-                          <Badge variant="outline" className="text-xs text-green-600">成功</Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-xs text-green-600"
+                          >
+                            成功
+                          </Badge>
                         ) : (
-                          <Badge variant="destructive" className="text-xs">失败</Badge>
+                          <Badge variant="destructive" className="text-xs">
+                            失败
+                          </Badge>
                         )}
                       </div>
                       {toolCall.input_params && (
@@ -164,7 +202,9 @@ function TraceStepCard({ step, index }: { step: AnalysisTraceStep; index: number
 
             {step.raw_response && (
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">原始响应</div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  原始响应
+                </div>
                 <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap">
                   {step.raw_response}
                 </pre>
@@ -177,7 +217,13 @@ function TraceStepCard({ step, index }: { step: AnalysisTraceStep; index: number
   )
 }
 
-function ParallelGroupCard({ group, startIndex }: { group: GroupedSteps; startIndex: number }) {
+function ParallelGroupCard({
+  group,
+  startIndex,
+}: {
+  group: GroupedSteps
+  startIndex: number
+}) {
   const [expanded, setExpanded] = useState(true)
 
   if (!group.parallelGroup) {
@@ -185,7 +231,11 @@ function ParallelGroupCard({ group, startIndex }: { group: GroupedSteps; startIn
     return (
       <>
         {group.steps.map((step, idx) => (
-          <TraceStepCard key={startIndex + idx} step={step} index={startIndex + idx} />
+          <TraceStepCard
+            key={startIndex + idx}
+            step={step}
+            index={startIndex + idx}
+          />
         ))}
       </>
     )
@@ -214,7 +264,11 @@ function ParallelGroupCard({ group, startIndex }: { group: GroupedSteps; startIn
       {expanded && (
         <div className="space-y-2 pl-4 border-l-2 border-primary/20">
           {group.steps.map((step, idx) => (
-            <TraceStepCard key={startIndex + idx} step={step} index={startIndex + idx} />
+            <TraceStepCard
+              key={startIndex + idx}
+              step={step}
+              index={startIndex + idx}
+            />
           ))}
         </div>
       )}

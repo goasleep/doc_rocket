@@ -1,11 +1,15 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ExternalLink, RefreshCw, Search, Trash2 } from "lucide-react"
 import { Suspense, useState } from "react"
 
 import {
-  ExternalReferencesService,
   type ExternalReferencePublic,
+  ExternalReferencesService,
 } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -205,7 +209,9 @@ function ExternalReferences() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">外部参考</h1>
-        <p className="text-muted-foreground">文章分析过程中收集的外部参考文章</p>
+        <p className="text-muted-foreground">
+          文章分析过程中收集的外部参考文章
+        </p>
       </div>
       <Suspense
         fallback={

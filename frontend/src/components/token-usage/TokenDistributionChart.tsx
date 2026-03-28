@@ -1,7 +1,14 @@
 "use client"
 
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { formatNumber, getChartColor } from "./utils"
 
 interface DistributionItem {
@@ -71,9 +78,10 @@ export function TokenDistributionChart({
               </Pie>
               <Tooltip
                 content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
+                  if (active && payload?.length) {
                     const data = payload[0].payload as DistributionItem
-                    const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : "0"
+                    const percentage =
+                      total > 0 ? ((data.value / total) * 100).toFixed(1) : "0"
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-sm">
                         <div className="font-medium">{data.name}</div>

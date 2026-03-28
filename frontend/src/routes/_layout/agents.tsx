@@ -56,7 +56,15 @@ export const Route = createFileRoute("/_layout/agents")({
 
 const agentSchema = z.object({
   name: z.string().min(1, "名称不能为空"),
-  role: z.enum(["writer", "editor", "reviewer", "analyzer", "refiner", "orchestrator", "custom"]),
+  role: z.enum([
+    "writer",
+    "editor",
+    "reviewer",
+    "analyzer",
+    "refiner",
+    "orchestrator",
+    "custom",
+  ]),
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
   model_config_name: z.string(),
@@ -281,7 +289,9 @@ function AgentFormSheet({
                             </SelectItem>
                           ))}
                         {(!modelConfigsData ||
-                          modelConfigsData.data.filter((c) => c.is_active && c.api_key_masked).length === 0) && (
+                          modelConfigsData.data.filter(
+                            (c) => c.is_active && c.api_key_masked,
+                          ).length === 0) && (
                           <SelectItem value="" disabled>
                             请先在"模型配置"页面添加配置
                           </SelectItem>

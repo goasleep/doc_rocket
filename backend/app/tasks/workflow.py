@@ -522,23 +522,64 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         AgentConfig.is_active == True,  # noqa: E712
     )
 
-    # Define event callback to publish real-time events
+    # Track subagent steps for real-time persistence
+    _current_subagent_step: AgentStep | None = None
+
+    # Define event callback to publish real-time events and persist steps
     def event_callback(event_type: str, data: dict) -> None:
+        nonlocal _current_subagent_step
+
         if event_type == "subagent_start":
+            # Create and save step immediately for real-time visibility
+            step = AgentStep(
+                id=uuid.uuid4(),
+                agent_name=data.get("agent", "Unknown"),
+                role=data.get("role", ""),
+                input=data.get("input", ""),
+                status="running",
+                started_at=datetime.now(timezone.utc),
+                iteration_count=data.get("iteration", 0),
+            )
+            _current_subagent_step = step
+            run.steps.append(step)  # type: ignore[union-attr]
+            # Fire-and-forget save for real-time updates
+            asyncio.create_task(run.save())  # type: ignore[union-attr]
+
             publish("agent_start", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
                 "role": data.get("role"),
                 "message": data.get("message"),
                 "iteration": data.get("iteration", 0),
             })
+
         elif event_type == "subagent_output":
+            # Update the current step with output
+            if _current_subagent_step:
+                _current_subagent_step.output = data.get("output", "")
+                _current_subagent_step.status = "done"
+                _current_subagent_step.ended_at = datetime.now(timezone.utc)
+                if data.get("title_candidates"):
+                    _current_subagent_step.title_candidates = data.get("title_candidates", [])
+                # Fire-and-forget save for real-time updates
+                asyncio.create_task(run.save())  # type: ignore[union-attr]
+
             publish("agent_output", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
                 "role": data.get("role"),
-                "content": data.get("output_preview", ""),
+                "content": data.get("output", ""),
+                "output_preview": data.get("output_preview", ""),
                 "title_candidates": data.get("title_candidates", []),
             })
+
         elif event_type == "subagent_error":
+            # Update the current step with error
+            if _current_subagent_step:
+                _current_subagent_step.output = data.get("error", "")
+                _current_subagent_step.status = "failed"
+                _current_subagent_step.ended_at = datetime.now(timezone.utc)
+                # Fire-and-forget save for real-time updates
+                asyncio.create_task(run.save())  # type: ignore[union-attr]
+
             publish("agent_error", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
                 "message": data.get("error", ""),
@@ -579,16 +620,20 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         final_content = orch_agent._final_output or result
         title_candidates = orch_agent._final_title_candidates
 
-        # Add subagent steps first (Writer, Editor, Reviewer steps)
+        # Note: Subagent steps are already added in real-time via event_callback
+        # We just need to ensure any steps in _subagent_steps that weren't
+        # captured by the callback are added (fallback)
+        existing_step_ids = {str(s.id) for s in run.steps}  # type: ignore[union-attr]
         for subagent_step in orch_agent._subagent_steps:
-            run.steps.append(subagent_step)  # type: ignore[union-attr]
+            if str(subagent_step.id) not in existing_step_ids:
+                run.steps.append(subagent_step)  # type: ignore[union-attr]
 
         # Create a summary AgentStep for Orchestrator
         step = AgentStep(
             agent_name="Orchestrator",
             role="orchestrator",
-            input=orchestrator_input[:500],
-            output=final_content[:500],
+            input=orchestrator_input,
+            output=final_content,
             title_candidates=title_candidates,
             status="done",
             started_at=datetime.now(timezone.utc),
@@ -604,7 +649,8 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         publish("agent_output", {  # type: ignore[call-arg,operator]
             "agent": "Orchestrator",
             "role": "orchestrator",
-            "content": final_content[:500],
+            "content": final_content,
+            "output_preview": final_content[:500] if len(final_content) > 500 else final_content,
             "title_candidates": title_candidates,
         })
 

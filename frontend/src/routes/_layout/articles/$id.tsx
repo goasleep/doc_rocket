@@ -39,18 +39,18 @@ import {
   ComparisonReferenceCard,
   QualityScoreDetailCard,
 } from "@/components/Analysis"
+import {
+  TokenDistributionChart,
+  TokenUsageBreakdown,
+  TokenUsageBreakdownSkeleton,
+} from "@/components/token-usage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  TokenUsageBreakdown,
-  TokenDistributionChart,
-  TokenUsageBreakdownSkeleton,
-} from "@/components/token-usage"
-import { useArticleTokenUsage } from "@/hooks/useTokenUsage"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useArticleTokenUsage } from "@/hooks/useTokenUsage"
 
 export const Route = createFileRoute("/_layout/articles/$id")({
   component: ArticleDetailPage,
@@ -72,10 +72,10 @@ function QualityScoreCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
           {analysis.quality_score.toFixed(0)}
         </div>
         <div className="text-xs text-muted-foreground mt-1">
-          深度 {analysis.quality_breakdown?.content_depth?.toFixed(0) ?? "—"}{" "}
-          · 可读 {analysis.quality_breakdown?.readability?.toFixed(0) ?? "—"}{" "}
-          · 原创 {analysis.quality_breakdown?.originality?.toFixed(0) ?? "—"}{" "}
-          · 传播{" "}
+          深度 {analysis.quality_breakdown?.content_depth?.toFixed(0) ?? "—"} ·
+          可读 {analysis.quality_breakdown?.readability?.toFixed(0) ?? "—"} ·
+          原创 {analysis.quality_breakdown?.originality?.toFixed(0) ?? "—"} ·
+          传播{" "}
           {analysis.quality_breakdown?.virality_potential?.toFixed(0) ?? "—"}
         </div>
         {analysis.rubric_version && (
@@ -114,7 +114,11 @@ function HookFrameworkCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
   )
 }
 
-function EmotionalTriggersCard({ analysis }: { analysis: ArticleAnalysisPublic }) {
+function EmotionalTriggersCard({
+  analysis,
+}: {
+  analysis: ArticleAnalysisPublic
+}) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -229,28 +233,30 @@ function AnalysisCards({ analysis }: { analysis: ArticleAnalysisPublic }) {
       </div>
 
       {/* Quality Score Details */}
-      {analysis.quality_score_details && analysis.quality_score_details.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">维度评分详情</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysis.quality_score_details.map((detail, idx) => (
-              <QualityScoreDetailCard key={idx} detail={detail} />
-            ))}
+      {analysis.quality_score_details &&
+        analysis.quality_score_details.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">维度评分详情</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analysis.quality_score_details.map((detail, idx) => (
+                <QualityScoreDetailCard key={idx} detail={detail} />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Comparison References */}
-      {analysis.comparison_references && analysis.comparison_references.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">对比参考</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysis.comparison_references.map((ref, idx) => (
-              <ComparisonReferenceCard key={idx} reference={ref} />
-            ))}
+      {analysis.comparison_references &&
+        analysis.comparison_references.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">对比参考</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analysis.comparison_references.map((ref, idx) => (
+                <ComparisonReferenceCard key={idx} reference={ref} />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Analysis Summary */}
       {analysis.analysis_summary && (
@@ -475,9 +481,12 @@ function TokenUsageTab({ articleId }: { articleId: string }) {
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Coins className="h-12 w-12 text-muted-foreground mb-4" />
-            <div className="text-muted-foreground">No token usage recorded for this article</div>
+            <div className="text-muted-foreground">
+              No token usage recorded for this article
+            </div>
             <div className="text-sm text-muted-foreground">
-              Token usage will appear here after processing operations like refine or analyze
+              Token usage will appear here after processing operations like
+              refine or analyze
             </div>
           </div>
         </CardContent>
@@ -491,10 +500,12 @@ function TokenUsageTab({ articleId }: { articleId: string }) {
     const current = operationMap.get(op.operation) || 0
     operationMap.set(op.operation, current + op.total_tokens)
   }
-  const distributionData = Array.from(operationMap.entries()).map(([name, value]) => ({
-    name,
-    value,
-  }))
+  const distributionData = Array.from(operationMap.entries()).map(
+    ([name, value]) => ({
+      name,
+      value,
+    }),
+  )
 
   // Prepare model distribution data
   const modelMap = new Map<string, number>()
@@ -502,10 +513,12 @@ function TokenUsageTab({ articleId }: { articleId: string }) {
     const current = modelMap.get(op.model_name) || 0
     modelMap.set(op.model_name, current + op.total_tokens)
   }
-  const modelDistributionData = Array.from(modelMap.entries()).map(([name, value]) => ({
-    name,
-    value,
-  }))
+  const modelDistributionData = Array.from(modelMap.entries()).map(
+    ([name, value]) => ({
+      name,
+      value,
+    }),
+  )
 
   return (
     <div className="space-y-4">
@@ -761,7 +774,9 @@ function ArticleDetailContent() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground animate-pulse">
-                  {article.refine_status === "refining" ? "正在精修中..." : "等待精修..."}
+                  {article.refine_status === "refining"
+                    ? "正在精修中..."
+                    : "等待精修..."}
                 </div>
               )}
             </TabsContent>

@@ -1,5 +1,16 @@
 "use client"
 
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
+import type { TrendDataPoint } from "@/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -8,18 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
-import { formatNumber, formatDate, chartColors } from "./utils"
-import type { TrendDataPoint } from "@/client"
+import { chartColors, formatDate, formatNumber } from "./utils"
 
 interface TokenTrendChartProps {
   data: TrendDataPoint[]
@@ -39,8 +39,15 @@ export function TokenTrendChart({
   }
 
   const chartData = data.map((item) => ({
-    date: typeof item.date === "string" ? item.date : new Date(item.date).toISOString().split("T")[0],
-    displayDate: formatDate(typeof item.date === "string" ? item.date : new Date(item.date).toISOString()),
+    date:
+      typeof item.date === "string"
+        ? item.date
+        : new Date(item.date).toISOString().split("T")[0],
+    displayDate: formatDate(
+      typeof item.date === "string"
+        ? item.date
+        : new Date(item.date).toISOString(),
+    ),
     tokens: item.total_tokens,
     calls: item.total_calls,
   }))
@@ -51,7 +58,7 @@ export function TokenTrendChart({
         <CardTitle className="text-lg">Token Usage Trend</CardTitle>
         <Select
           value={days.toString()}
-          onValueChange={(value) => onDaysChange(Number.parseInt(value))}
+          onValueChange={(value) => onDaysChange(Number.parseInt(value, 10))}
         >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select range" />
@@ -66,7 +73,10 @@ export function TokenTrendChart({
       <CardContent>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="displayDate"
@@ -81,7 +91,7 @@ export function TokenTrendChart({
               />
               <Tooltip
                 content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
+                  if (active && payload?.length) {
                     return (
                       <div className="rounded-lg border bg-background p-3 shadow-sm">
                         <div className="font-medium">{label}</div>
@@ -91,7 +101,9 @@ export function TokenTrendChart({
                               className="h-2 w-2 rounded-full"
                               style={{ backgroundColor: chartColors.primary }}
                             />
-                            <span className="text-muted-foreground">Total Tokens:</span>
+                            <span className="text-muted-foreground">
+                              Total Tokens:
+                            </span>
                             <span className="font-medium">
                               {formatNumber(payload[0].value as number)}
                             </span>
@@ -101,7 +113,9 @@ export function TokenTrendChart({
                               className="h-2 w-2 rounded-full"
                               style={{ backgroundColor: chartColors.secondary }}
                             />
-                            <span className="text-muted-foreground">Calls:</span>
+                            <span className="text-muted-foreground">
+                              Calls:
+                            </span>
                             <span className="font-medium">
                               {formatNumber(payload[1]?.value as number)}
                             </span>

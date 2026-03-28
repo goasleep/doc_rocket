@@ -152,23 +152,24 @@ class OrchestratorAgent(BaseAgent):
             "Initial draft request" if not revision_feedback else f"Revision #{self._revision_count + 1}"
         )
 
-        # Create step record
+        # Create step record - store full input
         step = AgentStep(
             id=uuid.uuid4(),
             agent_name="Writer",
             role="writer",
-            input=prompt[:500],
+            input=prompt,
             status="running",
             started_at=datetime.now(timezone.utc),
             iteration_count=self._revision_count + 1 if revision_feedback else 0,
         )
 
-        # Emit start event
+        # Emit start event with full input
         self._emit_event("subagent_start", {
             "agent": "Writer",
             "role": "writer",
             "message": "Initial draft" if not revision_feedback else f"Revision #{self._revision_count + 1}",
             "iteration": step.iteration_count,
+            "input": prompt,
         })
 
         try:
@@ -178,17 +179,18 @@ class OrchestratorAgent(BaseAgent):
                 max_iterations=5,
             )
 
-            # Fill result
-            step.output = draft[:500]
+            # Fill result - store full output
+            step.output = draft
             step.status = "done"
             step.ended_at = datetime.now(timezone.utc)
             self._subagent_steps.append(step)
 
-            # Emit output event
+            # Emit output event with full content
             self._emit_event("subagent_output", {
                 "agent": "Writer",
                 "role": "writer",
-                "output_preview": draft[:300],
+                "output": draft,
+                "output_preview": draft[:300] if len(draft) > 300 else draft,
                 "iteration": step.iteration_count,
             })
 
@@ -221,21 +223,22 @@ class OrchestratorAgent(BaseAgent):
 
         prompt = f"请编辑并评估以下稿件质量：\n\n{draft}"
 
-        # Create step record
+        # Create step record - store full input
         step = AgentStep(
             id=uuid.uuid4(),
             agent_name="Editor",
             role="editor",
-            input=prompt[:500],
+            input=prompt,
             status="running",
             started_at=datetime.now(timezone.utc),
         )
 
-        # Emit start event
+        # Emit start event with full input
         self._emit_event("subagent_start", {
             "agent": "Editor",
             "role": "editor",
             "message": "Editing and quality review",
+            "input": prompt,
         })
 
         try:
@@ -277,18 +280,20 @@ class OrchestratorAgent(BaseAgent):
         if "approved" not in data:
             data["approved"] = True
 
-        # Fill result
-        step.output = data.get("content", result)[:500]
+        # Fill result - store full output
+        content = data.get("content", result)
+        step.output = content
         step.title_candidates = data.get("title_candidates", [])
         step.status = "done"
         step.ended_at = datetime.now(timezone.utc)
         self._subagent_steps.append(step)
 
-        # Emit output event
+        # Emit output event with full content
         self._emit_event("subagent_output", {
             "agent": "Editor",
             "role": "editor",
-            "output_preview": data.get("content", result)[:300],
+            "output": content,
+            "output_preview": content[:300] if len(content) > 300 else content,
             "title_candidates": data.get("title_candidates", []),
             "approved": data.get("approved", True),
         })
@@ -306,21 +311,22 @@ class OrchestratorAgent(BaseAgent):
 
         prompt = f"请审核以下稿件的事实和格式：\n\n{draft}"
 
-        # Create step record
+        # Create step record - store full input
         step = AgentStep(
             id=uuid.uuid4(),
             agent_name="Reviewer",
             role="reviewer",
-            input=prompt[:500],
+            input=prompt,
             status="running",
             started_at=datetime.now(timezone.utc),
         )
 
-        # Emit start event
+        # Emit start event with full input
         self._emit_event("subagent_start", {
             "agent": "Reviewer",
             "role": "reviewer",
             "message": "Fact-check and format review",
+            "input": prompt,
         })
 
         try:
@@ -330,17 +336,18 @@ class OrchestratorAgent(BaseAgent):
                 max_iterations=5,
             )
 
-            # Fill result
-            step.output = result[:500]
+            # Fill result - store full output
+            step.output = result
             step.status = "done"
             step.ended_at = datetime.now(timezone.utc)
             self._subagent_steps.append(step)
 
-            # Emit output event
+            # Emit output event with full content
             self._emit_event("subagent_output", {
                 "agent": "Reviewer",
                 "role": "reviewer",
-                "output_preview": result[:300],
+                "output": result,
+                "output_preview": result[:300] if len(result) > 300 else result,
             })
 
             return result

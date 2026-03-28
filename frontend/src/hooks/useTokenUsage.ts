@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import {
-  TokenUsageService,
-  type TokenUsageGetTrendDataData,
   type TokenUsageGetAgentStatsData,
   type TokenUsageGetSingleAgentStatsData,
+  type TokenUsageGetTrendDataData,
+  TokenUsageService,
 } from "@/client"
 
 // Query keys for token usage data
@@ -15,8 +15,10 @@ export const tokenUsageKeys = {
     [...tokenUsageKeys.all, "trend", params] as const,
   agents: (params: TokenUsageGetAgentStatsData) =>
     [...tokenUsageKeys.all, "agents", params] as const,
-  agent: (agentId: string, params: Omit<TokenUsageGetSingleAgentStatsData, "agentId">) =>
-    [...tokenUsageKeys.all, "agent", agentId, params] as const,
+  agent: (
+    agentId: string,
+    params: Omit<TokenUsageGetSingleAgentStatsData, "agentId">,
+  ) => [...tokenUsageKeys.all, "agent", agentId, params] as const,
   article: (articleId: string) =>
     [...tokenUsageKeys.all, "article", articleId] as const,
 }
@@ -70,11 +72,12 @@ export function useAgentTokenStats(params: TokenUsageGetAgentStatsData = {}) {
  */
 export function useSingleAgentStats(
   agentId: string,
-  params: Omit<TokenUsageGetSingleAgentStatsData, "agentId"> = {}
+  params: Omit<TokenUsageGetSingleAgentStatsData, "agentId"> = {},
 ) {
   return useQuery({
     queryKey: tokenUsageKeys.agent(agentId, params),
-    queryFn: () => TokenUsageService.getSingleAgentStats({ agentId, ...params }),
+    queryFn: () =>
+      TokenUsageService.getSingleAgentStats({ agentId, ...params }),
     enabled: !!agentId,
   })
 }

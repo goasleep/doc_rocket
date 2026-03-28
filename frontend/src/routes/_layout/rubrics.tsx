@@ -1,9 +1,18 @@
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, Plus, Scale, X } from "lucide-react"
 import { Suspense, useState } from "react"
 
-import { RubricsService, type QualityRubricPublic, type RubricDimension } from "@/client"
+import {
+  type QualityRubricPublic,
+  type RubricDimension,
+  RubricsService,
+} from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,14 +48,18 @@ function DimensionCard({ dimension }: { dimension: RubricDimension }) {
           <CardTitle className="text-base">
             {dimensionLabels[dimension.name] || dimension.name}
           </CardTitle>
-          <Badge variant="outline">权重 {Math.round(dimension.weight * 100)}%</Badge>
+          <Badge variant="outline">
+            权重 {Math.round(dimension.weight * 100)}%
+          </Badge>
         </div>
         <p className="text-sm text-muted-foreground">{dimension.description}</p>
       </CardHeader>
       <CardContent className="pt-0">
         {dimension.criteria && dimension.criteria.length > 0 && (
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">评分档位</div>
+            <div className="text-xs font-medium text-muted-foreground">
+              评分档位
+            </div>
             <div className="space-y-1">
               {dimension.criteria.map((criterion, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-sm">
@@ -144,7 +157,9 @@ function RubricCard({
           </div>
         </div>
         {rubric.description && (
-          <p className="text-sm text-muted-foreground mt-2">{rubric.description}</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            {rubric.description}
+          </p>
         )}
       </CardHeader>
       <CardContent>
@@ -193,11 +208,31 @@ function CreateRubricDialog() {
               description: "内容深度与信息密度",
               weight: 0.3,
               criteria: [
-                { min_score: 0, max_score: 20, description: "浅层内容，缺乏实质信息" },
-                { min_score: 21, max_score: 40, description: "基础内容，信息有限" },
-                { min_score: 41, max_score: 60, description: "中等深度，有一定信息量" },
-                { min_score: 61, max_score: 80, description: "深度内容，信息丰富" },
-                { min_score: 81, max_score: 100, description: "极具深度，信息密集且有价值" },
+                {
+                  min_score: 0,
+                  max_score: 20,
+                  description: "浅层内容，缺乏实质信息",
+                },
+                {
+                  min_score: 21,
+                  max_score: 40,
+                  description: "基础内容，信息有限",
+                },
+                {
+                  min_score: 41,
+                  max_score: 60,
+                  description: "中等深度，有一定信息量",
+                },
+                {
+                  min_score: 61,
+                  max_score: 80,
+                  description: "深度内容，信息丰富",
+                },
+                {
+                  min_score: 81,
+                  max_score: 100,
+                  description: "极具深度，信息密集且有价值",
+                },
               ],
             },
             {
@@ -205,11 +240,31 @@ function CreateRubricDialog() {
               description: "可读性与表达清晰度",
               weight: 0.25,
               criteria: [
-                { min_score: 0, max_score: 20, description: "晦涩难懂，表达混乱" },
-                { min_score: 21, max_score: 40, description: "较为晦涩，需要费力理解" },
-                { min_score: 41, max_score: 60, description: "基本可读，偶有晦涩" },
-                { min_score: 61, max_score: 80, description: "流畅易读，表达清晰" },
-                { min_score: 81, max_score: 100, description: "极佳可读性，引人入胜" },
+                {
+                  min_score: 0,
+                  max_score: 20,
+                  description: "晦涩难懂，表达混乱",
+                },
+                {
+                  min_score: 21,
+                  max_score: 40,
+                  description: "较为晦涩，需要费力理解",
+                },
+                {
+                  min_score: 41,
+                  max_score: 60,
+                  description: "基本可读，偶有晦涩",
+                },
+                {
+                  min_score: 61,
+                  max_score: 80,
+                  description: "流畅易读，表达清晰",
+                },
+                {
+                  min_score: 81,
+                  max_score: 100,
+                  description: "极佳可读性，引人入胜",
+                },
               ],
             },
             {
@@ -217,11 +272,27 @@ function CreateRubricDialog() {
               description: "原创性与独特视角",
               weight: 0.25,
               criteria: [
-                { min_score: 0, max_score: 20, description: "完全复制，毫无新意" },
-                { min_score: 21, max_score: 40, description: "缺乏原创，观点陈旧" },
+                {
+                  min_score: 0,
+                  max_score: 20,
+                  description: "完全复制，毫无新意",
+                },
+                {
+                  min_score: 21,
+                  max_score: 40,
+                  description: "缺乏原创，观点陈旧",
+                },
                 { min_score: 41, max_score: 60, description: "有一定原创元素" },
-                { min_score: 61, max_score: 80, description: "观点新颖，有独特视角" },
-                { min_score: 81, max_score: 100, description: "极具原创性，开创性观点" },
+                {
+                  min_score: 61,
+                  max_score: 80,
+                  description: "观点新颖，有独特视角",
+                },
+                {
+                  min_score: 81,
+                  max_score: 100,
+                  description: "极具原创性，开创性观点",
+                },
               ],
             },
             {
@@ -232,8 +303,16 @@ function CreateRubricDialog() {
                 { min_score: 0, max_score: 20, description: "无传播价值" },
                 { min_score: 21, max_score: 40, description: "传播潜力低" },
                 { min_score: 41, max_score: 60, description: "有一定传播潜力" },
-                { min_score: 61, max_score: 80, description: "高传播潜力，话题性强" },
-                { min_score: 81, max_score: 100, description: "爆款潜质，极具传播力" },
+                {
+                  min_score: 61,
+                  max_score: 80,
+                  description: "高传播潜力，话题性强",
+                },
+                {
+                  min_score: 81,
+                  max_score: 100,
+                  description: "爆款潜质，极具传播力",
+                },
               ],
             },
           ],
@@ -343,7 +422,8 @@ function RubricsContent() {
               <div>
                 <div className="font-medium">{activeRubric.name}</div>
                 <div className="text-sm text-muted-foreground">
-                  版本 {activeRubric.version} · {activeRubric.dimensions.length} 个维度
+                  版本 {activeRubric.version} · {activeRubric.dimensions.length}{" "}
+                  个维度
                 </div>
               </div>
               <Badge className="bg-primary text-primary-foreground">

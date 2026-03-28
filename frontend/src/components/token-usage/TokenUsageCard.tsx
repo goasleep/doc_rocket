@@ -1,6 +1,6 @@
+import { Activity, Minus, TrendingDown, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatNumber, calculatePercentChange } from "./utils"
-import { TrendingUp, TrendingDown, Minus, Activity } from "lucide-react"
+import { calculatePercentChange, formatNumber } from "./utils"
 
 interface TokenUsageCardProps {
   title: string
@@ -73,7 +73,9 @@ export function TokenUsageCard({
           </div>
           <div>
             <div className="font-medium text-muted-foreground">Completion</div>
-            <div className="font-semibold">{formatNumber(completionTokens)}</div>
+            <div className="font-semibold">
+              {formatNumber(completionTokens)}
+            </div>
           </div>
           <div>
             <div className="font-medium text-muted-foreground">Calls</div>

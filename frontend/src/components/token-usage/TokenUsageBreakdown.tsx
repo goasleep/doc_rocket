@@ -1,8 +1,15 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { formatNumber, formatDate } from "./utils"
 import type { ArticleTokenUsage } from "@/client"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { formatDate, formatNumber } from "./utils"
 
 interface TokenUsageBreakdownProps {
   operations: ArticleTokenUsage[]
@@ -33,7 +40,9 @@ export function TokenUsageBreakdown({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="text-muted-foreground">No token usage recorded for this article</div>
+            <div className="text-muted-foreground">
+              No token usage recorded for this article
+            </div>
             <div className="text-sm text-muted-foreground">
               Token usage will appear here after processing
             </div>
@@ -51,8 +60,14 @@ export function TokenUsageBreakdown({
       <CardContent>
         <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatBox label="Total Tokens" value={formatNumber(totalTokens)} />
-          <StatBox label="Prompt Tokens" value={formatNumber(totalPromptTokens)} />
-          <StatBox label="Completion Tokens" value={formatNumber(totalCompletionTokens)} />
+          <StatBox
+            label="Prompt Tokens"
+            value={formatNumber(totalPromptTokens)}
+          />
+          <StatBox
+            label="Completion Tokens"
+            value={formatNumber(totalCompletionTokens)}
+          />
           <StatBox label="Operations" value={formatNumber(operationCount)} />
         </div>
 
@@ -74,10 +89,18 @@ export function TokenUsageBreakdown({
                   <TableCell>
                     <Badge variant="outline">{op.operation}</Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{op.model_name}</TableCell>
-                  <TableCell className="text-right">{formatNumber(op.prompt_tokens)}</TableCell>
-                  <TableCell className="text-right">{formatNumber(op.completion_tokens)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatNumber(op.total_tokens)}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {op.model_name}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatNumber(op.prompt_tokens)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatNumber(op.completion_tokens)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatNumber(op.total_tokens)}
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                     {op.created_at ? formatDate(op.created_at) : "-"}
                   </TableCell>

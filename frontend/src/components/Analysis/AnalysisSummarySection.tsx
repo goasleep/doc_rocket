@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FileText, TrendingUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, FileText } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface AnalysisSummarySectionProps {
   summary: string
@@ -66,7 +66,9 @@ export function AnalysisSummarySection({
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
                     {idx + 1}
                   </div>
-                  <p className="text-sm text-muted-foreground pt-0.5">{suggestion}</p>
+                  <p className="text-sm text-muted-foreground pt-0.5">
+                    {suggestion}
+                  </p>
                 </li>
               ))}
             </ul>
