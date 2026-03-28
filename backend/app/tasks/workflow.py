@@ -521,7 +521,33 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         AgentConfig.role == "orchestrator",
         AgentConfig.is_active == True,  # noqa: E712
     )
-    orch_agent = OrchestratorAgent(agent_config=orch_cfg)
+
+    # Define event callback to publish real-time events
+    def event_callback(event_type: str, data: dict) -> None:
+        if event_type == "subagent_start":
+            publish("agent_start", {  # type: ignore[call-arg,operator]
+                "agent": data.get("agent"),
+                "role": data.get("role"),
+                "message": data.get("message"),
+                "iteration": data.get("iteration", 0),
+            })
+        elif event_type == "subagent_output":
+            publish("agent_output", {  # type: ignore[call-arg,operator]
+                "agent": data.get("agent"),
+                "role": data.get("role"),
+                "content": data.get("output_preview", ""),
+                "title_candidates": data.get("title_candidates", []),
+            })
+        elif event_type == "subagent_error":
+            publish("agent_error", {  # type: ignore[call-arg,operator]
+                "agent": data.get("agent"),
+                "message": data.get("error", ""),
+            })
+
+    orch_agent = OrchestratorAgent(
+        agent_config=orch_cfg,
+        event_callback=event_callback,
+    )
 
     publish("agent_start", {  # type: ignore[call-arg,operator]
         "agent": "Orchestrator",
@@ -553,7 +579,11 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         final_content = orch_agent._final_output or result
         title_candidates = orch_agent._final_title_candidates
 
-        # Create a summary AgentStep
+        # Add subagent steps first (Writer, Editor, Reviewer steps)
+        for subagent_step in orch_agent._subagent_steps:
+            run.steps.append(subagent_step)  # type: ignore[union-attr]
+
+        # Create a summary AgentStep for Orchestrator
         step = AgentStep(
             agent_name="Orchestrator",
             role="orchestrator",

@@ -223,6 +223,11 @@ function StepBubble({ step }: { step: AgentStep }) {
             <Badge variant="outline" className="text-xs capitalize">
               {step.role}
             </Badge>
+            {step.iteration_count > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                修订 #{step.iteration_count}
+              </Badge>
+            )}
           </div>
           {step.output && (
             <Button
@@ -256,6 +261,35 @@ function StepBubble({ step }: { step: AgentStep }) {
               候选标题：{step.title_candidates.length} 个
             </p>
           )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Routing Log Panel ─────────────────────────────────────────────────────────
+
+function RoutingLogPanel({ routingLog }: { routingLog: Array<{ timestamp?: string; from_agent: string; to_agent: string; reason?: string }> }) {
+  if (!routingLog || routingLog.length === 0) return null
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-4">
+      <h4 className="text-sm font-medium mb-3">路由决策日志</h4>
+      <div className="space-y-2">
+        {routingLog.map((event, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <Badge variant="secondary" className="text-xs">{event.from_agent}</Badge>
+            <span className="text-muted-foreground">→</span>
+            <Badge variant="secondary" className="text-xs">{event.to_agent}</Badge>
+            <span className="text-xs text-muted-foreground flex-1 truncate">
+              {event.reason}
+            </span>
+            {event.timestamp && (
+              <span className="text-xs text-muted-foreground">
+                {new Date(event.timestamp).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -518,7 +552,8 @@ function WorkflowRunView({ runId }: { runId: string }) {
     sseActive && !isTerminal ? `/api/v1/workflows/${runId}/stream` : null,
     {
       onEvent: (type, _data: any) => {
-        if (type === "agent_start" || type === "agent_output") {
+        if (type === "agent_start" || type === "agent_output" ||
+            type === "subagent_start" || type === "subagent_output") {
           queryClient.invalidateQueries({ queryKey: ["workflow", runId] })
         }
         if (type === "workflow_paused" || type === "workflow_done") {
@@ -577,6 +612,11 @@ function WorkflowRunView({ runId }: { runId: string }) {
       </div>
 
       {run.status === "waiting_human" && <HumanReviewPanel run={run} />}
+
+      {/* Orchestrator routing log */}
+      {run.use_orchestrator && run.routing_log && run.routing_log.length > 0 && (
+        <RoutingLogPanel routingLog={run.routing_log} />
+      )}
 
       {/* Failed workflow - show error and retry */}
       {run.status === "failed" && (
