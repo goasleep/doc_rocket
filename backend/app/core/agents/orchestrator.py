@@ -1,7 +1,8 @@
 """OrchestratorAgent — coordinates Writer/Editor/Reviewer via delegation tools."""
 import json
+import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from app.core.agents.base import BaseAgent
 
@@ -98,14 +99,21 @@ DELEGATION_TOOLS: list[dict[str, Any]] = [
 class OrchestratorAgent(BaseAgent):
     """Orchestrator that coordinates the writing team via delegation tools."""
 
-    def __init__(self, agent_config: Any | None = None, max_revisions: int = 3) -> None:
+    def __init__(
+        self,
+        agent_config: Any | None = None,
+        max_revisions: int = 3,
+        event_callback: Callable[[str, dict], None] | None = None,
+    ) -> None:
         super().__init__(agent_config=agent_config)
         self.max_revisions = max_revisions
+        self.event_callback = event_callback
         self._final_output: str | None = None
         self._final_title_candidates: list[str] = []
         self._revision_count = 0
         self._routing_log: list[dict[str, Any]] = []
         self._workflow_run_id: str | None = None
+        self._subagent_steps: list[Any] = []  # Store subagent AgentStep records
 
     def _base_system_prompt(self) -> str:
         if self.agent_config and self.agent_config.system_prompt:
@@ -120,11 +128,17 @@ class OrchestratorAgent(BaseAgent):
             "reason": reason,
         })
 
+    def _emit_event(self, event_type: str, data: dict) -> None:
+        """Emit event to callback if registered."""
+        if self.event_callback:
+            self.event_callback(event_type, data)
+
     async def _delegate_to_writer(
         self, task: str, context: str, revision_feedback: str = ""
     ) -> str:
         """Delegate to writer using isolated subagent."""
         from app.core.agents.subagent import SubagentRunner
+        from app.models.workflow import AgentStep
 
         runner = SubagentRunner()
 
@@ -132,7 +146,30 @@ class OrchestratorAgent(BaseAgent):
         if revision_feedback:
             prompt += f"\n\n修改意见：\n{revision_feedback}"
 
-        self._log_routing("orchestrator", "writer", "Initial draft request" if not revision_feedback else f"Revision #{self._revision_count + 1}")
+        self._log_routing(
+            "orchestrator",
+            "writer",
+            "Initial draft request" if not revision_feedback else f"Revision #{self._revision_count + 1}"
+        )
+
+        # Create step record
+        step = AgentStep(
+            id=uuid.uuid4(),
+            agent_name="Writer",
+            role="writer",
+            input=prompt[:500],
+            status="running",
+            started_at=datetime.now(timezone.utc),
+            iteration_count=self._revision_count + 1 if revision_feedback else 0,
+        )
+
+        # Emit start event
+        self._emit_event("subagent_start", {
+            "agent": "Writer",
+            "role": "writer",
+            "message": "Initial draft" if not revision_feedback else f"Revision #{self._revision_count + 1}",
+            "iteration": step.iteration_count,
+        })
 
         try:
             draft = await runner.run(
@@ -140,21 +177,66 @@ class OrchestratorAgent(BaseAgent):
                 prompt=prompt,
                 max_iterations=5,
             )
+
+            # Fill result
+            step.output = draft[:500]
+            step.status = "done"
+            step.ended_at = datetime.now(timezone.utc)
+            self._subagent_steps.append(step)
+
+            # Emit output event
+            self._emit_event("subagent_output", {
+                "agent": "Writer",
+                "role": "writer",
+                "output_preview": draft[:300],
+                "iteration": step.iteration_count,
+            })
+
             return draft
         except Exception as e:
             error_msg = f"Writer agent failed: {str(e)}"
             self._log_routing("writer", "error", error_msg)
+
+            step.status = "failed"
+            step.output = error_msg
+            step.ended_at = datetime.now(timezone.utc)
+            self._subagent_steps.append(step)
+
+            self._emit_event("subagent_error", {
+                "agent": "Writer",
+                "role": "writer",
+                "error": error_msg,
+            })
+
             return f"Error: {error_msg}"
 
     async def _delegate_to_editor(self, draft: str) -> str:
         """Delegate to editor using isolated subagent."""
         from app.core.agents.subagent import SubagentRunner
+        from app.models.workflow import AgentStep
 
         runner = SubagentRunner()
 
         self._log_routing("orchestrator", "editor", "Editing and quality review")
 
         prompt = f"请编辑并评估以下稿件质量：\n\n{draft}"
+
+        # Create step record
+        step = AgentStep(
+            id=uuid.uuid4(),
+            agent_name="Editor",
+            role="editor",
+            input=prompt[:500],
+            status="running",
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Emit start event
+        self._emit_event("subagent_start", {
+            "agent": "Editor",
+            "role": "editor",
+            "message": "Editing and quality review",
+        })
 
         try:
             result = await runner.run(
@@ -165,6 +247,18 @@ class OrchestratorAgent(BaseAgent):
         except Exception as e:
             error_msg = f"Editor agent failed: {str(e)}"
             self._log_routing("editor", "error", error_msg)
+
+            step.status = "failed"
+            step.output = error_msg
+            step.ended_at = datetime.now(timezone.utc)
+            self._subagent_steps.append(step)
+
+            self._emit_event("subagent_error", {
+                "agent": "Editor",
+                "role": "editor",
+                "error": error_msg,
+            })
+
             return json.dumps({
                 "content": draft,
                 "title_candidates": [],
@@ -183,11 +277,28 @@ class OrchestratorAgent(BaseAgent):
         if "approved" not in data:
             data["approved"] = True
 
+        # Fill result
+        step.output = data.get("content", result)[:500]
+        step.title_candidates = data.get("title_candidates", [])
+        step.status = "done"
+        step.ended_at = datetime.now(timezone.utc)
+        self._subagent_steps.append(step)
+
+        # Emit output event
+        self._emit_event("subagent_output", {
+            "agent": "Editor",
+            "role": "editor",
+            "output_preview": data.get("content", result)[:300],
+            "title_candidates": data.get("title_candidates", []),
+            "approved": data.get("approved", True),
+        })
+
         return json.dumps(data, ensure_ascii=False)
 
     async def _delegate_to_reviewer(self, draft: str) -> str:
         """Delegate to reviewer using isolated subagent."""
         from app.core.agents.subagent import SubagentRunner
+        from app.models.workflow import AgentStep
 
         runner = SubagentRunner()
 
@@ -195,15 +306,59 @@ class OrchestratorAgent(BaseAgent):
 
         prompt = f"请审核以下稿件的事实和格式：\n\n{draft}"
 
+        # Create step record
+        step = AgentStep(
+            id=uuid.uuid4(),
+            agent_name="Reviewer",
+            role="reviewer",
+            input=prompt[:500],
+            status="running",
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Emit start event
+        self._emit_event("subagent_start", {
+            "agent": "Reviewer",
+            "role": "reviewer",
+            "message": "Fact-check and format review",
+        })
+
         try:
-            return await runner.run(
+            result = await runner.run(
                 agent_role="reviewer",
                 prompt=prompt,
                 max_iterations=5,
             )
+
+            # Fill result
+            step.output = result[:500]
+            step.status = "done"
+            step.ended_at = datetime.now(timezone.utc)
+            self._subagent_steps.append(step)
+
+            # Emit output event
+            self._emit_event("subagent_output", {
+                "agent": "Reviewer",
+                "role": "reviewer",
+                "output_preview": result[:300],
+            })
+
+            return result
         except Exception as e:
             error_msg = f"Reviewer agent failed: {str(e)}"
             self._log_routing("reviewer", "error", error_msg)
+
+            step.status = "failed"
+            step.output = error_msg
+            step.ended_at = datetime.now(timezone.utc)
+            self._subagent_steps.append(step)
+
+            self._emit_event("subagent_error", {
+                "agent": "Reviewer",
+                "role": "reviewer",
+                "error": error_msg,
+            })
+
             return f"Error: {error_msg}"
 
     async def _finalize(
@@ -212,6 +367,13 @@ class OrchestratorAgent(BaseAgent):
         self._final_output = content
         self._final_title_candidates = title_candidates or []
         self._log_routing("orchestrator", "finalize", "Workflow finalized")
+
+        self._emit_event("subagent_start", {
+            "agent": "Orchestrator",
+            "role": "orchestrator",
+            "message": "Finalizing workflow",
+        })
+
         return "done"
 
     async def run(self, input_text: str) -> str:  # type: ignore[override]
