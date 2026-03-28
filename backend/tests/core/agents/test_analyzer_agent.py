@@ -138,13 +138,26 @@ async def test_react_analyzer_run_integration() -> None:
 
     # Mock LLM responses for different steps
     llm_responses = [
-        # Step 1: Understand
+        # Step 1: Understand (now includes legacy fields)
         ChatResponse(content=json.dumps({
             "topic": "AI Technology",
             "core_ideas": ["AI is transforming industries"],
             "target_audience": "Tech professionals",
             "article_type": "opinion",
             "key_entities": ["AI", "Machine Learning"],
+            "hook_type": "好奇型",
+            "framework": "AIDA",
+            "emotional_triggers": ["好奇心", "紧迫感"],
+            "structure": {
+                "intro": "以问题引入AI的重要性",
+                "body_sections": ["AI现状", "行业应用", "未来趋势"],
+                "cta": "呼吁关注AI发展"
+            },
+            "style": {
+                "tone": "专业",
+                "formality": "半正式",
+                "avg_sentence_length": 25
+            }
         }), tool_calls=[]),
         # Step 4: Dimension analysis (called 4 times in parallel)
         ChatResponse(content=json.dumps({
@@ -196,3 +209,13 @@ async def test_react_analyzer_run_integration() -> None:
     assert "quality_score_details" in result
     assert "trace" in result
     assert len(result["trace"]) > 0
+    # Verify legacy fields are populated
+    assert result["hook_type"] == "好奇型"
+    assert result["framework"] == "AIDA"
+    assert result["emotional_triggers"] == ["好奇心", "紧迫感"]
+    assert result["structure"]["intro"] == "以问题引入AI的重要性"
+    assert result["structure"]["body_sections"] == ["AI现状", "行业应用", "未来趋势"]
+    assert result["structure"]["cta"] == "呼吁关注AI发展"
+    assert result["style"]["tone"] == "专业"
+    assert result["style"]["formality"] == "半正式"
+    assert result["style"]["avg_sentence_length"] == 25

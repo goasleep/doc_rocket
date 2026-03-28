@@ -132,7 +132,20 @@ class ReactAnalyzerAgent(BaseAgent):
   "target_audience": "目标受众描述",
   "article_type": "文章类型 (news/opinion/tutorial/story/review/other)",
   "key_entities": ["关键实体1", "关键实体2"],
-  "estimated_read_time": "预估阅读时间"
+  "estimated_read_time": "预估阅读时间",
+  "hook_type": "开头钩子类型 (痛点型|好奇型|数字型|故事型|争议型|权威型|其他)",
+  "framework": "文章框架 (AIDA|PAS|故事型|清单型|问答型|倒金字塔|其他)",
+  "emotional_triggers": ["情绪触发词1", "情绪触发词2", "情绪触发词3"],
+  "structure": {
+    "intro": "开头/引言部分的主要内容描述",
+    "body_sections": ["正文段落1主题", "正文段落2主题", "正文段落3主题"],
+    "cta": "结尾/行动号召部分的内容描述"
+  },
+  "style": {
+    "tone": "语气语调 (犀利|温暖|幽默|严肃|客观|口语化|专业|亲切)",
+    "formality": "正式程度 (正式|半正式|口语化)",
+    "avg_sentence_length": 25
+  }
 }"""
 
         messages = [
@@ -704,6 +717,10 @@ class ReactAnalyzerAgent(BaseAgent):
             "virality_potential": scores.get("virality_potential", 0),
         }
 
+        # Extract legacy fields from understanding with defaults
+        structure_data = understanding.get("structure", {})
+        style_data = understanding.get("style", {})
+
         return {
             "quality_score": round(final_score, 2),
             "quality_breakdown": quality_breakdown,
@@ -714,13 +731,21 @@ class ReactAnalyzerAgent(BaseAgent):
             "rubric_version": rubric.version if rubric else "",
             "analysis_duration_ms": total_duration_ms,
             "trace": [t.model_dump() for t in self.trace],
-            # Legacy fields
-            "hook_type": "",
-            "framework": "",
-            "emotional_triggers": [],
+            # Legacy fields - now populated from analysis
+            "hook_type": understanding.get("hook_type", ""),
+            "framework": understanding.get("framework", ""),
+            "emotional_triggers": understanding.get("emotional_triggers", []),
             "key_phrases": understanding.get("core_ideas", []),
             "keywords": understanding.get("key_entities", []),
-            "structure": {"intro": "", "body_sections": [], "cta": ""},
-            "style": {"tone": "", "formality": "", "avg_sentence_length": 0},
+            "structure": {
+                "intro": structure_data.get("intro", "") if isinstance(structure_data, dict) else "",
+                "body_sections": structure_data.get("body_sections", []) if isinstance(structure_data, dict) else [],
+                "cta": structure_data.get("cta", "") if isinstance(structure_data, dict) else "",
+            },
+            "style": {
+                "tone": style_data.get("tone", "") if isinstance(style_data, dict) else "",
+                "formality": style_data.get("formality", "") if isinstance(style_data, dict) else "",
+                "avg_sentence_length": style_data.get("avg_sentence_length", 0) if isinstance(style_data, dict) else 0,
+            },
             "target_audience": understanding.get("target_audience", ""),
         }

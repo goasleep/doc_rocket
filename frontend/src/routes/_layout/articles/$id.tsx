@@ -13,6 +13,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Coins,
   FileText,
   History,
   Pen,
@@ -43,6 +44,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  TokenUsageBreakdown,
+  TokenDistributionChart,
+  TokenUsageBreakdownSkeleton,
+} from "@/components/token-usage"
+import { useArticleTokenUsage } from "@/hooks/useTokenUsage"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/articles/$id")({
@@ -452,6 +459,77 @@ function AnalysisTraceSection({ trace }: { trace: AnalysisTraceStep[] }) {
   )
 }
 
+function TokenUsageTab({ articleId }: { articleId: string }) {
+  const { data, isLoading } = useArticleTokenUsage(articleId)
+
+  if (isLoading) {
+    return <TokenUsageBreakdownSkeleton />
+  }
+
+  if (!data || data.operation_count === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Token Usage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Coins className="h-12 w-12 text-muted-foreground mb-4" />
+            <div className="text-muted-foreground">No token usage recorded for this article</div>
+            <div className="text-sm text-muted-foreground">
+              Token usage will appear here after processing operations like refine or analyze
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Prepare distribution data for pie chart - group by operation
+  const operationMap = new Map<string, number>()
+  for (const op of data.operations) {
+    const current = operationMap.get(op.operation) || 0
+    operationMap.set(op.operation, current + op.total_tokens)
+  }
+  const distributionData = Array.from(operationMap.entries()).map(([name, value]) => ({
+    name,
+    value,
+  }))
+
+  // Prepare model distribution data
+  const modelMap = new Map<string, number>()
+  for (const op of data.operations) {
+    const current = modelMap.get(op.model_name) || 0
+    modelMap.set(op.model_name, current + op.total_tokens)
+  }
+  const modelDistributionData = Array.from(modelMap.entries()).map(([name, value]) => ({
+    name,
+    value,
+  }))
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <TokenDistributionChart
+          data={distributionData}
+          title="Tokens by Operation"
+        />
+        <TokenDistributionChart
+          data={modelDistributionData}
+          title="Tokens by Model"
+        />
+      </div>
+      <TokenUsageBreakdown
+        operations={data.operations}
+        totalTokens={data.total_tokens}
+        totalPromptTokens={data.total_prompt_tokens}
+        totalCompletionTokens={data.total_completion_tokens}
+        operationCount={data.operation_count}
+      />
+    </div>
+  )
+}
+
 function ArticleDetailContent() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
@@ -634,6 +712,10 @@ function ArticleDetailContent() {
             <BarChart3 className="h-4 w-4 mr-1" />
             分析结果
           </TabsTrigger>
+          <TabsTrigger value="token-usage">
+            <Coins className="h-4 w-4 mr-1" />
+            Token 消耗
+          </TabsTrigger>
           <TabsTrigger value="history">
             <History className="h-4 w-4 mr-1" />
             任务历史
@@ -704,6 +786,10 @@ function ArticleDetailContent() {
             createdAt={article.created_at}
             inputType={article.input_type}
           />
+        </TabsContent>
+
+        <TabsContent value="token-usage" className="mt-4">
+          <TokenUsageTab articleId={id} />
         </TabsContent>
       </Tabs>
     </div>

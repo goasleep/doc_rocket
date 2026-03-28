@@ -17,6 +17,8 @@ from app.models import (
     SystemConfig,
     TaskNode,
     TaskRun,
+    TokenUsage,
+    TokenUsageDaily,
     User,
     WorkflowRun,
 )
@@ -47,6 +49,8 @@ async def db() -> AsyncGenerator[None, None]:
     await LLMModelConfig.delete_all()
     await TaskRun.delete_all()
     await TaskNode.delete_all()
+    await TokenUsage.delete_all()
+    await TokenUsageDaily.delete_all()
     client.close()
 
 

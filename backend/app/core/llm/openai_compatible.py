@@ -4,7 +4,7 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from app.core.llm.base import ChatResponse, LLMClient, ToolCall
+from app.core.llm.base import ChatResponse, LLMClient, ToolCall, UsageData
 
 
 class OpenAICompatibleClient(LLMClient):
@@ -62,6 +62,15 @@ class OpenAICompatibleClient(LLMClient):
                     arguments=arguments,
                 ))
 
+        # Extract usage data if available
+        usage: UsageData | None = None
+        if response.usage:
+            usage = UsageData(
+                prompt_tokens=response.usage.prompt_tokens or 0,
+                completion_tokens=response.usage.completion_tokens or 0,
+                total_tokens=response.usage.total_tokens or 0,
+            )
+
         content = message.content or None
         reasoning_content = getattr(message, 'reasoning_content', None)
-        return ChatResponse(content=content, tool_calls=tool_calls, reasoning_content=reasoning_content)
+        return ChatResponse(content=content, tool_calls=tool_calls, reasoning_content=reasoning_content, usage=usage)

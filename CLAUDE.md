@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tech Stack
 
-- **Backend:** FastAPI + Beanie ODM (v2.x) + MongoDB + Motor (async driver) + PyJWT + pwdlib (argon2 + bcrypt)
+- **Backend:** FastAPI + Beanie ODM (v2.x) + MongoDB + Motor (async driver) + Celery + Redis + Playwright
 - **Testing:** Pytest + anyio + httpx (AsyncClient + ASGITransport)
 - **Frontend:** React 19 + TypeScript + Vite + TanStack Router + TanStack Query + Tailwind CSS v4 + shadcn/ui
 - **Package managers:** `uv` (Python), `pnpm` (JS)
@@ -64,13 +64,48 @@ The generated client lives in `frontend/src/client/` — do not edit it manually
 ### Backend
 
 - **Entry:** `backend/app/main.py` — creates FastAPI app with lifespan (calls `init_db`), CORS middleware, mounts all routes under `/api/v1`
-- **Routes:** `backend/app/api/main.py` aggregates route modules: `login`, `users`, `items`, `utils`, `private` (local-only)
-- **Auth:** JWT (PyJWT). `backend/app/api/deps.py` provides `CurrentUser`, `TokenDep`, and `get_current_active_superuser` dependencies
-- **Models:** `backend/app/models.py` — Beanie `Document` classes for `User` and `Item` with UUID PKs; Pydantic `BaseModel` for all request/response schemas
-- **CRUD:** `backend/app/crud.py` — async thin layer over Beanie queries
+- **Routes:** `backend/app/api/main.py` aggregates route modules including `users`, `items`, `sources`, `articles`, `submit`, `analyses`, `agents`, `workflows`, `drafts`, `skills`, `tools`, `task_runs`, `rubrics`, `external_references`, `token_usage`, `system_config`
+- **Auth:** fastapi-users v15 (JWT). `backend/app/core/users.py` provides `current_active_user`, `current_superuser` dependencies
+- **Models:** `backend/app/models/` — Beanie `Document` classes with UUID PKs; see `models/__init__.py` for full list
 - **Config:** `backend/app/core/config.py` — Pydantic `BaseSettings` loaded from top-level `.env`
-- **DB:** `backend/app/core/db.py` — `init_db()` creates `AsyncIOMotorClient`, calls `init_beanie([User, Item])`, seeds first superuser, returns client (closed by lifespan on shutdown)
-- **Prestart:** `backend/scripts/prestart.sh` runs `backend_pre_start.py` (MongoDB ping with retry) then `initial_data.py` (calls `init_db()` to seed superuser)
+- **DB:** `backend/app/core/db.py` — `init_db()` creates `AsyncIOMotorClient`, calls `init_beanie()` with all models, seeds first superuser
+
+### Content Intelligence Engine (Core Domain)
+
+The application is a content intelligence platform with the following key components:
+
+#### Article Lifecycle
+1. **Ingestion** (`submit.py`, `fetch.py`)
+   - Manual text submission
+   - URL fetching (HTTP + Playwright fallback with LLM quality validation)
+   - RSS/API source fetching
+2. **Refinement** (`refiner.py`, `refine.py`)
+   - Content cleaning and structuring
+   - Markdown conversion
+3. **Analysis** (`react_analyzer.py`, `analyze.py`)
+   - ReAct-based AI analysis with tool calling
+   - Quality scoring via rubrics
+   - External reference enrichment
+
+#### Agent System (`core/agents/`)
+- **BaseAgent** (`base.py`): Core agent loop with tool dispatch, context compression, token usage tracking
+- **Specialized Agents**: RefinerAgent, ReactAnalyzerAgent, WriterAgent, EditorAgent, ReviewerAgent, OrchestratorAgent
+- **FetcherAgent** (`fetcher.py`): Intelligent content fetching with HTTP/Playwright/LLM validation
+- **AgentConfig** (`models/agent_config.py`): Database-driven agent configuration (role, model, tools, skills)
+
+#### Task System (`tasks/`)
+Celery tasks for async processing:
+- `fetch_source_task`: Batch fetch from RSS/API sources
+- `fetch_url_and_analyze_task`: Manual URL submission
+- `refetch_article_task`: Re-fetch existing article
+- `refine_article_task`: Content refinement
+- `analyze_article_task`: AI analysis
+- `rewrite_section_task`: Content rewriting
+
+#### Workflow System (`workflows.py`, `workflow.py`)
+- Multi-step agent workflows with human-in-the-loop approval
+- SSE streaming for real-time updates
+- Support for approve/reject/retry operations
 
 ### Frontend
 
@@ -80,11 +115,26 @@ The generated client lives in `frontend/src/client/` — do not edit it manually
 - **UI components** follow shadcn/ui pattern in `src/components/`
 - **Forms** use react-hook-form + Zod validation
 
+### Key Models
+
+| Model | Purpose |
+|-------|---------|
+| `User` | Authentication via fastapi-users |
+| `Article` | Content articles (raw → refined → analyzed) |
+| `Source` | RSS/API subscription sources |
+| `AgentConfig` | AI agent configurations |
+| `WorkflowRun` | Multi-step workflow executions |
+| `Draft` | Editable content drafts |
+| `Skill` | Reusable agent capabilities |
+| `Tool` | External tool definitions |
+| `TaskRun` | Task execution tracking |
+| `QualityRubric` | Analysis scoring criteria |
+| `ExternalReference` | Reference materials for analysis |
+| `TokenUsage` | LLM token usage tracking |
+
 ### Database
 
-MongoDB with Beanie ODM. No migrations needed — Beanie manages indexes automatically on startup via `init_beanie()`. Collections: `users`, `items`.
-
-**Password hashing:** argon2 (via pwdlib) is the default. Legacy bcrypt hashes are automatically upgraded to argon2 on next login (`crud.authenticate` handles this transparently).
+MongoDB with Beanie ODM. No migrations needed — Beanie manages indexes automatically on startup via `init_beanie()`.
 
 **Async testing pattern:** all tests are `async def` (auto-run via `anyio_mode = "auto"`). Use `httpx.AsyncClient(transport=ASGITransport(app=app))` — never `TestClient`, which creates a separate event loop incompatible with Beanie/Motor. The `db` fixture (session-scoped) calls `init_db()` once and cleans up with `delete_all()` after the session.
 
@@ -99,5 +149,20 @@ Copy `.env` template and set at minimum: `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD
 | Backend API | 8000 |
 | Frontend | 5173 |
 | MongoDB | 27017 |
+| Redis | 6379 |
 | Traefik dashboard | 8090 |
 | Mailcatcher (web) | 1080 |
+
+## Key File Locations
+
+| Purpose | Path |
+|---------|------|
+| Models | `backend/app/models/` |
+| API Routes | `backend/app/api/routes/` |
+| Agents | `backend/app/core/agents/` |
+| Tasks | `backend/app/tasks/` |
+| Tools | `backend/app/core/tools/` |
+| LLM Clients | `backend/app/core/llm/` |
+| Frontend Routes | `frontend/src/routes/` |
+| Frontend Components | `frontend/src/components/` |
+| Generated Client | `frontend/src/client/` |

@@ -15,7 +15,6 @@ node_modules/
 /playwright/.cache/
 
 # Claude Code / Ralph Loop
-.claude/
 .remember/
 .playwright-mcp/
 

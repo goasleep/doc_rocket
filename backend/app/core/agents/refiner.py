@@ -1,5 +1,5 @@
 """RefinerAgent — converts raw fetched article text into clean, structured Markdown."""
-from app.core.agents.base import BaseAgent
+from app.core.agents.base import AgentContext, BaseAgent
 
 # Max chars to send to LLM for refinement
 MAX_CONTENT_CHARS = 16000
@@ -30,17 +30,26 @@ REFINER_SYSTEM_PROMPT = """\
 
 
 class RefinerAgent(BaseAgent):
-    async def run(self, input_text: str) -> str:  # type: ignore[override]
+    async def run(self, input_text: str, context: AgentContext | None = None) -> str:  # type: ignore[override]
         """Refine raw article text into clean Markdown. Returns the refined Markdown string."""
         content = input_text[:MAX_CONTENT_CHARS]
         if len(input_text) > MAX_CONTENT_CHARS:
             content += "\n[内容已截断...]"
 
         llm = await self._get_llm()
+        self._last_llm = llm  # Store for token usage recording
+
+        # Use agent_config system_prompt if available, fallback to default
+        system_prompt = self._base_system_prompt()
         messages = [
-            {"role": "system", "content": REFINER_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"请整理以下文章内容：\n\n{content}"},
         ]
 
         chat_response = await llm.chat(messages)
+
+        # Record token usage if context is provided
+        if context:
+            await self._record_token_usage(chat_response, context)
+
         return chat_response.content or input_text

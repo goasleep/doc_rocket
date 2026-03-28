@@ -17,6 +17,8 @@ from app.models import (
     SystemConfig,
     TaskNode,
     TaskRun,
+    TokenUsage,
+    TokenUsageDaily,
     Tool,
     Transcript,
     User,
@@ -47,6 +49,8 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             ExternalReference,
             Transcript,
             TaskNode,
+            TokenUsage,
+            TokenUsageDaily,
         ],
     )
 

@@ -14,6 +14,7 @@ from app.api.routes import (
     submit,
     system_config,
     task_runs,
+    token_usage,
     tools,
     workflows,
 )
@@ -73,6 +74,7 @@ api_router.include_router(tools.router)
 api_router.include_router(task_runs.router)
 api_router.include_router(rubrics.router)
 api_router.include_router(external_references.router)
+api_router.include_router(token_usage.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

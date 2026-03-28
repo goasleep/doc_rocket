@@ -14,6 +14,14 @@ class AgentRunContext:
     compressed_count: int = 0  # Track how many times compression occurred
 
 
+@dataclass
+class AgentContext:
+    """Context for tracking token usage and entity information."""
+    entity_type: str = ""  # "article", "workflow", "task", "draft"
+    entity_id: str | None = None  # UUID as string
+    operation: str = ""  # "refine", "analyze", "rewrite", "chat"
+
+
 class BaseAgent:
     """Base class for all content intelligence agents.
 
@@ -136,11 +144,12 @@ class BaseAgent:
 
         return True
 
-    async def run(self, input_text: str) -> str:
+    async def run(self, input_text: str, context: AgentContext | None = None) -> str:
         """Agentic event loop: reason → tool_call → execute → observe → repeat."""
         from app.core.agents.background import BackgroundTaskManager
 
         llm = await self._get_llm()
+        self._last_llm = llm  # Store for token usage recording
         system_prompt = await self._build_system_prompt()
         tools_schema = await self._build_tools_schema()
 
@@ -179,6 +188,10 @@ class BaseAgent:
                         })
 
             response = await llm.chat(messages, tools=tools_schema)
+
+            # Record token usage if context is provided
+            if context:
+                await self._record_token_usage(response, context)
 
             if not response.tool_calls:
                 # Final answer
@@ -257,6 +270,76 @@ class BaseAgent:
         # max_iterations reached or circuit breaker triggered
         return last_content
 
+    async def _record_token_usage(
+        self,
+        response: Any,
+        context: AgentContext,
+    ) -> None:
+        """Record token usage after an LLM call.
+
+        Args:
+            response: The ChatResponse from the LLM call
+            context: The AgentContext containing entity and operation info
+        """
+        import uuid
+
+        from app.services.token_usage import TokenUsageService
+
+        # Get agent config info
+        agent_config_id = None
+        agent_config_name = ""
+        if self.agent_config:
+            agent_config_id = getattr(self.agent_config, "id", None)
+            agent_config_name = getattr(self.agent_config, "name", "")
+
+        # Get model name from LLM client
+        model_name = ""
+        if hasattr(self, "_last_llm") and self._last_llm:
+            model_name = getattr(self._last_llm, "model_name", "")
+
+        # Extract usage data
+        usage = getattr(response, "usage", None)
+        if usage:
+            prompt_tokens = getattr(usage, "prompt_tokens", 0)
+            completion_tokens = getattr(usage, "completion_tokens", 0)
+            total_tokens = getattr(usage, "total_tokens", 0)
+            usage_missing = False
+        else:
+            prompt_tokens = completion_tokens = total_tokens = 0
+            usage_missing = True
+
+        # Parse entity_id as UUID if provided
+        entity_id_uuid = None
+        if context.entity_id:
+            try:
+                entity_id_uuid = uuid.UUID(context.entity_id)
+            except ValueError:
+                pass
+
+        # Parse agent_config_id as UUID if needed
+        agent_id_uuid = None
+        if agent_config_id:
+            try:
+                if isinstance(agent_config_id, str):
+                    agent_id_uuid = uuid.UUID(agent_config_id)
+                else:
+                    agent_id_uuid = agent_config_id
+            except ValueError:
+                pass
+
+        await TokenUsageService.record_usage(
+            agent_config_id=agent_id_uuid,
+            agent_config_name=agent_config_name,
+            model_name=model_name,
+            entity_type=context.entity_type,
+            entity_id=entity_id_uuid,
+            operation=context.operation,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            usage_missing=usage_missing,
+        )
+
 
 def create_agent_for_config(agent_config: Any) -> "BaseAgent":
     """Instantiate the right agent subclass based on agent_config.role."""
@@ -280,5 +363,8 @@ def create_agent_for_config(agent_config: Any) -> "BaseAgent":
     elif role == "analyzer":
         from app.core.agents.react_analyzer import ReactAnalyzerAgent
         return ReactAnalyzerAgent(agent_config=agent_config)
+    elif role == "refiner":
+        from app.core.agents.refiner import RefinerAgent
+        return RefinerAgent(agent_config=agent_config)
     else:
         return BaseAgent(agent_config=agent_config)

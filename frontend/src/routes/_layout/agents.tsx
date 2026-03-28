@@ -56,7 +56,7 @@ export const Route = createFileRoute("/_layout/agents")({
 
 const agentSchema = z.object({
   name: z.string().min(1, "名称不能为空"),
-  role: z.enum(["writer", "editor", "reviewer", "orchestrator", "custom"]),
+  role: z.enum(["writer", "editor", "reviewer", "analyzer", "refiner", "orchestrator", "custom"]),
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
   model_config_name: z.string(),
@@ -88,12 +88,15 @@ function AgentFormSheet({
           role: initialData.role as AgentFormValues["role"],
           responsibilities: initialData.responsibilities,
           system_prompt: initialData.system_prompt,
-          model_config_name: initialData.model_config_name ?? "",
+          model_config_name: initialData.model_config_name || "",
           workflow_order: initialData.workflow_order,
-          skills: initialData.skills ?? [],
+          skills: initialData.skills || [],
         }
       : {
+          name: "",
           role: "writer",
+          responsibilities: "",
+          system_prompt: "",
           model_config_name: "",
           workflow_order: 0,
           skills: [],
@@ -197,6 +200,12 @@ function AgentFormSheet({
                         <SelectItem value="reviewer">
                           Reviewer（审核者）
                         </SelectItem>
+                        <SelectItem value="analyzer">
+                          Analyzer（分析者）
+                        </SelectItem>
+                        <SelectItem value="refiner">
+                          Refiner（精修者）
+                        </SelectItem>
                         <SelectItem value="orchestrator">
                           Orchestrator（协调者）
                         </SelectItem>
@@ -251,7 +260,10 @@ function AgentFormSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>模型配置</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="选择模型配置..." />
@@ -269,7 +281,7 @@ function AgentFormSheet({
                             </SelectItem>
                           ))}
                         {(!modelConfigsData ||
-                          modelConfigsData.count === 0) && (
+                          modelConfigsData.data.filter((c) => c.is_active && c.api_key_masked).length === 0) && (
                           <SelectItem value="" disabled>
                             请先在"模型配置"页面添加配置
                           </SelectItem>
@@ -402,6 +414,8 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
     writer: "Writer",
     editor: "Editor",
     reviewer: "Reviewer",
+    analyzer: "Analyzer",
+    refiner: "Refiner",
     orchestrator: "Orchestrator",
     custom: "Custom",
   }
@@ -518,6 +532,7 @@ function Agents() {
           新建 Agent
         </Button>
       </div>
+
       <Suspense
         fallback={
           <div className="flex justify-center py-12 text-muted-foreground">
