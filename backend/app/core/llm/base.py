@@ -25,6 +25,7 @@ class ChatResponse:
     """Unified response from any LLM client."""
     content: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
+    reasoning_content: str | None = None  # For models with thinking enabled
 
 
 class LLMClient(ABC):

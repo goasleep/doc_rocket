@@ -961,6 +961,7 @@ export type WorkflowRunPublic = {
     type: string;
     input: WorkflowInput;
     status: string;
+    error_message: (string | null);
     steps: Array<AgentStep>;
     parent_run_id: (string | null);
     user_feedback: (string | null);
@@ -1509,3 +1510,9 @@ export type WorkflowsAbortWorkflowData = {
 };
 
 export type WorkflowsAbortWorkflowResponse = (Message);
+
+export type WorkflowsRetryWorkflowData = {
+    id: string;
+};
+
+export type WorkflowsRetryWorkflowResponse = (WorkflowRunPublic);

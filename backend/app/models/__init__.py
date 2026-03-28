@@ -132,6 +132,12 @@ from app.models.external_reference import (
     ExternalReferenceUpdate,
     ExternalReferenceDetail,
 )
+from app.models.transcript import (
+    Transcript,
+)
+from app.models.task_graph import (
+    TaskNode,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -186,6 +192,10 @@ __all__ = [
     # ExternalReference
     "ExternalReference", "ExternalReferenceCreate", "ExternalReferenceUpdate",
     "ExternalReferencePublic", "ExternalReferencesPublic", "ExternalReferenceDetail",
+    # Transcript
+    "Transcript",
+    # Task Graph
+    "TaskNode",
     # Generic
     "Message",
 ]

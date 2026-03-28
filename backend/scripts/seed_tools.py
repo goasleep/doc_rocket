@@ -60,6 +60,21 @@ BUILTIN_TOOLS = [
         "category": "skill",
     },
     {
+        "name": "load_skill",
+        "description": "Load a skill's full content into context. Use this when you need to use a specific skill's knowledge. The skill content will be injected into the conversation.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "The skill name to load"},
+            },
+            "required": ["name"],
+        },
+        "executor": "python",
+        "function_name": "load_skill",
+        "is_builtin": True,
+        "category": "skill",
+    },
+    {
         "name": "run_skill_script",
         "description": "Execute a script bundled with a skill. Returns stdout, stderr, and exit code.",
         "parameters_schema": {
@@ -107,6 +122,153 @@ BUILTIN_TOOLS = [
         "function_name": "save_draft",
         "is_builtin": True,
         "category": "output",
+    },
+    {
+        "name": "compress_context",
+        "description": "Compress conversation context to free up token space. Use when approaching context limits or before complex operations.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string", "description": "Optional reason for compression", "default": ""},
+            },
+        },
+        "executor": "python",
+        "function_name": "compress_context",
+        "is_builtin": True,
+        "category": "system",
+    },
+    {
+        "name": "spawn_subagent",
+        "description": "Spawn an isolated subagent to complete a task independently. Creates a fresh agent context that runs independently and returns only the final result, preventing parent context bloat.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "The task description for the subagent"},
+                "agent_role": {"type": "string", "description": "The role of agent to spawn (writer, editor, reviewer, analyzer, etc.)", "default": "general-purpose"},
+                "agent_type": {"type": "string", "description": "Type of subagent - 'Explore' (read-only tools only) or 'general-purpose' (full tools)", "default": "general-purpose"},
+                "max_iterations": {"type": "integer", "description": "Maximum iterations for the subagent", "default": 5},
+                "model_config_name": {"type": "string", "description": "Optional specific LLM model config name to use", "default": ""},
+            },
+            "required": ["task"],
+        },
+        "executor": "python",
+        "function_name": "spawn_subagent",
+        "is_builtin": True,
+        "category": "agent",
+    },
+    {
+        "name": "background_run",
+        "description": "Run a command in the background using Celery. Creates a Celery task that executes independently and returns a task ID immediately. Use check_background to poll for results.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "The command to execute"},
+                "timeout": {"type": "integer", "description": "Maximum execution time in seconds", "default": 120},
+                "workflow_run_id": {"type": "string", "description": "Optional workflow run ID for tracking"},
+            },
+            "required": ["command"],
+        },
+        "executor": "python",
+        "function_name": "background_run",
+        "is_builtin": True,
+        "category": "execution",
+    },
+    {
+        "name": "check_background",
+        "description": "Check the status of a background task. Use this to poll for results from background_run.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "The task ID to check. If None, checks all recent tasks."},
+            },
+        },
+        "executor": "python",
+        "function_name": "check_background",
+        "is_builtin": True,
+        "category": "execution",
+    },
+    {
+        "name": "task_create",
+        "description": "Create a task in the task graph. Use this to create tasks with optional dependencies for workflow coordination.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "workflow_run_id": {"type": "string", "description": "The workflow run ID"},
+                "subject": {"type": "string", "description": "Task title/subject"},
+                "description": {"type": "string", "description": "Detailed task description", "default": ""},
+                "blocked_by": {"type": "array", "items": {"type": "string"}, "description": "List of task IDs this task depends on", "default": []},
+                "priority": {"type": "integer", "description": "Task priority (higher = more important)", "default": 0},
+                "task_type": {"type": "string", "description": "Task categorization", "default": "general"},
+            },
+            "required": ["workflow_run_id", "subject"],
+        },
+        "executor": "python",
+        "function_name": "task_create",
+        "is_builtin": True,
+        "category": "task_graph",
+    },
+    {
+        "name": "task_claim",
+        "description": "Claim a task for execution. Marks a task as in_progress and assigns an owner.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "The task ID to claim"},
+                "owner": {"type": "string", "description": "The agent/role claiming the task"},
+            },
+            "required": ["task_id", "owner"],
+        },
+        "executor": "python",
+        "function_name": "task_claim",
+        "is_builtin": True,
+        "category": "task_graph",
+    },
+    {
+        "name": "task_complete",
+        "description": "Mark a task as completed. This will also unblock any dependent tasks.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "The task ID to complete"},
+                "result": {"type": "string", "description": "Optional task result/output"},
+            },
+            "required": ["task_id"],
+        },
+        "executor": "python",
+        "function_name": "task_complete",
+        "is_builtin": True,
+        "category": "task_graph",
+    },
+    {
+        "name": "task_list",
+        "description": "List all tasks in a workflow with their status and dependencies.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "workflow_run_id": {"type": "string", "description": "The workflow run ID"},
+                "status": {"type": "string", "description": "Optional status filter (pending, in_progress, completed, failed)", "default": None},
+            },
+            "required": ["workflow_run_id"],
+        },
+        "executor": "python",
+        "function_name": "task_list",
+        "is_builtin": True,
+        "category": "task_graph",
+    },
+    {
+        "name": "task_graph_status",
+        "description": "Get overall status of the task graph including counts, ready tasks, and cycle detection.",
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "workflow_run_id": {"type": "string", "description": "The workflow run ID"},
+            },
+            "required": ["workflow_run_id"],
+        },
+        "executor": "python",
+        "function_name": "task_graph_status",
+        "is_builtin": True,
+        "category": "task_graph",
     },
 ]
 

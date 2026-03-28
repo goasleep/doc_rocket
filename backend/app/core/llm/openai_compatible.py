@@ -63,4 +63,5 @@ class OpenAICompatibleClient(LLMClient):
                 ))
 
         content = message.content or None
-        return ChatResponse(content=content, tool_calls=tool_calls)
+        reasoning_content = getattr(message, 'reasoning_content', None)
+        return ChatResponse(content=content, tool_calls=tool_calls, reasoning_content=reasoning_content)

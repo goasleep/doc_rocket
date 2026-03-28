@@ -47,6 +47,7 @@ class WorkflowRun(Document):
     type: str = "writing"
     input: WorkflowInput = Field(default_factory=WorkflowInput)
     status: str = "pending"  # pending | running | waiting_human | done | failed | interrupted
+    error_message: str | None = None  # Error message when status is failed
     steps: list[AgentStep] = Field(default_factory=list)
     parent_run_id: uuid.UUID | None = None
     user_feedback: str | None = None
@@ -77,6 +78,7 @@ class WorkflowRunPublic(BaseModel):
     type: str
     input: WorkflowInput
     status: str
+    error_message: str | None
     steps: list[AgentStep]
     parent_run_id: uuid.UUID | None
     user_feedback: str | None

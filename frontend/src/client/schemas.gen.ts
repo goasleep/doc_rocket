@@ -3906,6 +3906,17 @@ export const WorkflowRunPublicSchema = {
             type: 'string',
             title: 'Status'
         },
+        error_message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error Message'
+        },
         steps: {
             items: {
                 '$ref': '#/components/schemas/AgentStep'
@@ -3981,7 +3992,7 @@ export const WorkflowRunPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'type', 'input', 'status', 'steps', 'parent_run_id', 'user_feedback', 'final_output', 'created_by', 'created_at', 'use_orchestrator', 'routing_log', 'iteration_count'],
+    required: ['id', 'type', 'input', 'status', 'error_message', 'steps', 'parent_run_id', 'user_feedback', 'final_output', 'created_by', 'created_at', 'use_orchestrator', 'routing_log', 'iteration_count'],
     title: 'WorkflowRunPublic'
 } as const;
 

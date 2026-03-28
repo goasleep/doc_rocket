@@ -123,23 +123,23 @@ class OrchestratorAgent(BaseAgent):
     async def _delegate_to_writer(
         self, task: str, context: str, revision_feedback: str = ""
     ) -> str:
-        from app.models import AgentConfig
-        from app.core.agents.writer import WriterAgent
+        """Delegate to writer using isolated subagent."""
+        from app.core.agents.subagent import SubagentRunner
 
-        agent_cfg = await AgentConfig.find_one(
-            AgentConfig.role == "writer",
-            AgentConfig.is_active == True,  # noqa: E712
-        )
-        if not agent_cfg:
-            return "Error: No active writer agent config found"
-        agent = WriterAgent(agent_config=agent_cfg)
+        runner = SubagentRunner()
 
         prompt = f"{task}\n\n素材：\n{context}"
         if revision_feedback:
             prompt += f"\n\n修改意见：\n{revision_feedback}"
 
+        self._log_routing("orchestrator", "writer", "Initial draft request" if not revision_feedback else f"Revision #{self._revision_count + 1}")
+
         try:
-            draft = await agent.run(prompt)
+            draft = await runner.run(
+                agent_role="writer",
+                prompt=prompt,
+                max_iterations=5,
+            )
             return draft
         except Exception as e:
             error_msg = f"Writer agent failed: {str(e)}"
@@ -147,25 +147,21 @@ class OrchestratorAgent(BaseAgent):
             return f"Error: {error_msg}"
 
     async def _delegate_to_editor(self, draft: str) -> str:
-        from app.models import AgentConfig
-        from app.core.agents.editor import EditorAgent
+        """Delegate to editor using isolated subagent."""
+        from app.core.agents.subagent import SubagentRunner
 
-        agent_cfg = await AgentConfig.find_one(
-            AgentConfig.role == "editor",
-            AgentConfig.is_active == True,  # noqa: E712
-        )
-        if not agent_cfg:
-            return json.dumps({
-                "content": draft,
-                "title_candidates": [],
-                "feedback": "Error: No active editor agent config found",
-                "changed_sections": [],
-                "approved": True  # Force approve to avoid infinite loop
-            }, ensure_ascii=False)
+        runner = SubagentRunner()
 
-        agent = EditorAgent(agent_config=agent_cfg)
+        self._log_routing("orchestrator", "editor", "Editing and quality review")
+
+        prompt = f"请编辑并评估以下稿件质量：\n\n{draft}"
+
         try:
-            raw = await agent.run(draft)
+            result = await runner.run(
+                agent_role="editor",
+                prompt=prompt,
+                max_iterations=5,
+            )
         except Exception as e:
             error_msg = f"Editor agent failed: {str(e)}"
             self._log_routing("editor", "error", error_msg)
@@ -179,9 +175,9 @@ class OrchestratorAgent(BaseAgent):
 
         # Ensure result has approved field
         try:
-            data = json.loads(raw)
+            data = json.loads(result)
         except (json.JSONDecodeError, TypeError):
-            data = {"content": raw, "title_candidates": [], "feedback": "", "changed_sections": []}
+            data = {"content": result, "title_candidates": [], "feedback": "", "changed_sections": []}
 
         # Add approved field based on whether there's significant feedback
         if "approved" not in data:
@@ -190,19 +186,21 @@ class OrchestratorAgent(BaseAgent):
         return json.dumps(data, ensure_ascii=False)
 
     async def _delegate_to_reviewer(self, draft: str) -> str:
-        from app.models import AgentConfig
-        from app.core.agents.reviewer import ReviewerAgent
+        """Delegate to reviewer using isolated subagent."""
+        from app.core.agents.subagent import SubagentRunner
 
-        agent_cfg = await AgentConfig.find_one(
-            AgentConfig.role == "reviewer",
-            AgentConfig.is_active == True,  # noqa: E712
-        )
-        if not agent_cfg:
-            return "Error: No active reviewer agent config found"
+        runner = SubagentRunner()
 
-        agent = ReviewerAgent(agent_config=agent_cfg)
+        self._log_routing("orchestrator", "reviewer", "Fact-check and format review")
+
+        prompt = f"请审核以下稿件的事实和格式：\n\n{draft}"
+
         try:
-            return await agent.run(draft)
+            return await runner.run(
+                agent_role="reviewer",
+                prompt=prompt,
+                max_iterations=5,
+            )
         except Exception as e:
             error_msg = f"Reviewer agent failed: {str(e)}"
             self._log_routing("reviewer", "error", error_msg)
@@ -255,11 +253,15 @@ class OrchestratorAgent(BaseAgent):
                 }
                 for tc in response.tool_calls
             ]
-            messages.append({
+            assistant_msg: dict[str, Any] = {
                 "role": "assistant",
                 "content": response.content,
                 "tool_calls": tool_calls_payload,
-            })
+            }
+            # Include reasoning_content if present (required for some models with thinking enabled)
+            if response.reasoning_content:
+                assistant_msg["reasoning_content"] = response.reasoning_content
+            messages.append(assistant_msg)
 
             finalized = False
             for tc in response.tool_calls:

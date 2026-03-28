@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Clock,
   Loader2,
+  RefreshCw,
   Search,
   X,
   XCircle,
@@ -268,9 +269,10 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
   const [customTitle, setCustomTitle] = useState("")
   const [feedback, setFeedback] = useState("")
 
-  // Find title candidates from editor step
+  // Find title candidates from editor step or orchestrator step
   const editorStep = run.steps.find((s) => s.role === "editor")
-  const titleCandidates = editorStep?.title_candidates ?? []
+  const orchestratorStep = run.steps.find((s) => s.role === "orchestrator")
+  const titleCandidates = editorStep?.title_candidates ?? orchestratorStep?.title_candidates ?? []
 
   const approveMutation = useMutation({
     mutationFn: () =>
@@ -344,7 +346,7 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
         )}
 
         {/* Title candidates */}
-        {titleCandidates.length > 0 && (
+        {titleCandidates.length > 0 ? (
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-2">
               选择标题
@@ -376,6 +378,21 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
               onChange={(e) => {
                 setCustomTitle(e.target.value)
                 setSelectedTitle("")
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              输入标题
+            </p>
+            <input
+              type="text"
+              placeholder="请输入文章标题..."
+              className="w-full text-sm rounded border border-input bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+              value={customTitle}
+              onChange={(e) => {
+                setCustomTitle(e.target.value)
               }}
             />
           </div>
@@ -468,11 +485,26 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
 
 function WorkflowRunView({ runId }: { runId: string }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   const [sseActive, setSseActive] = useState(true)
   // Initial fetch
   const { data: run, isLoading } = useQuery({
     queryKey: ["workflow", runId],
     queryFn: () => WorkflowsService.getWorkflow({ id: runId }),
+  })
+
+  const retryMutation = useMutation({
+    mutationFn: () => WorkflowsService.retryWorkflow({ id: runId }),
+    onSuccess: (newRun) => {
+      showSuccessToast("已创建重试工作流")
+      navigate({ to: "/workflow", search: { run_id: newRun.id } })
+      queryClient.invalidateQueries({ queryKey: ["workflows"] })
+    },
+    onError: (err: any) => {
+      const detail = err?.body?.detail ?? "重试失败"
+      showErrorToast(detail)
+    },
   })
 
   const isTerminal =
@@ -543,6 +575,47 @@ function WorkflowRunView({ runId }: { runId: string }) {
       </div>
 
       {run.status === "waiting_human" && <HumanReviewPanel run={run} />}
+
+      {/* Failed workflow - show error and retry */}
+      {run.status === "failed" && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-destructive flex items-center gap-2">
+              <XCircle className="h-5 w-5" />
+              工作流失败
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {run.error_message && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  错误原因
+                </p>
+                <div className="text-sm bg-background border rounded p-2 text-destructive">
+                  {run.error_message}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => retryMutation.mutate()}
+                disabled={retryMutation.isPending}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                {retryMutation.isPending ? "重试中..." : "重新执行"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate({ to: "/workflow" })}
+              >
+                新建工作流
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

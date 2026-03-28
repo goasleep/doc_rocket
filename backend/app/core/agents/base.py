@@ -11,6 +11,7 @@ class AgentRunContext:
     tools_used: set[str] = field(default_factory=set)
     skills_activated: set[str] = field(default_factory=set)
     start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    compressed_count: int = 0  # Track how many times compression occurred
 
 
 class BaseAgent:
@@ -22,6 +23,7 @@ class BaseAgent:
 
     def __init__(self, agent_config: Any | None = None) -> None:
         self.agent_config = agent_config
+        self.bg_manager: Any | None = None  # Initialized lazily
 
     async def _get_llm(self) -> Any:
         from app.core.llm.factory import get_llm_client_by_config_name
@@ -67,6 +69,7 @@ class BaseAgent:
         for skill in skills:
             catalog_parts.append(f'  <skill name="{skill.name}">{skill.description}</skill>')
         catalog_parts.append("</available_skills>")
+        catalog_parts.append("\nTo use a skill, call the load_skill(name) tool.")
 
         return base + "\n\n" + "\n".join(catalog_parts)
 
@@ -102,14 +105,50 @@ class BaseAgent:
 
         return definitions if definitions else None
 
+    async def _check_and_compress(
+        self,
+        messages: list[dict[str, Any]],
+        llm: Any,
+        workflow_run_id: str | None = None,
+        force: bool = False,
+    ) -> bool:
+        """Check if compression is needed and perform it.
+
+        Returns True if compression was performed.
+        """
+        from app.core.agents.compression import ContextCompressor
+
+        compressor = ContextCompressor()
+
+        if not force and not compressor.should_compress(messages):
+            return False
+
+        # Use microcompact for first compression, full compact for subsequent
+        if len(messages) > 20:
+            compressed, transcript_id = await compressor.compact(messages, llm, workflow_run_id)
+            messages.clear()
+            messages.extend(compressed)
+        else:
+            # Just microcompact for smaller contexts
+            compressed = compressor.microcompact(messages)
+            messages.clear()
+            messages.extend(compressed)
+
+        return True
+
     async def run(self, input_text: str) -> str:
         """Agentic event loop: reason → tool_call → execute → observe → repeat."""
+        from app.core.agents.background import BackgroundTaskManager
+
         llm = await self._get_llm()
         system_prompt = await self._build_system_prompt()
         tools_schema = await self._build_tools_schema()
 
         max_iterations = getattr(self.agent_config, "max_iterations", 5) if self.agent_config else 5
         ctx = AgentRunContext()
+
+        # Initialize background task manager
+        self.bg_manager = BackgroundTaskManager()
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
@@ -121,6 +160,23 @@ class BaseAgent:
 
         while ctx.iteration_count < max_iterations:
             ctx.iteration_count += 1
+
+            # Check for context compression before LLM call
+            workflow_run_id = getattr(self, "_current_workflow_run_id", None)
+            compressed = await self._check_and_compress(messages, llm, workflow_run_id)
+            if compressed:
+                ctx.compressed_count += 1
+
+            # Check for background task notifications
+            if self.bg_manager:
+                notifications = self.bg_manager.drain_notifications()
+                if notifications:
+                    notification_msg = self.bg_manager.format_notifications(notifications)
+                    if notification_msg:
+                        messages.append({
+                            "role": "system",
+                            "content": notification_msg,
+                        })
 
             response = await llm.chat(messages, tools=tools_schema)
 
@@ -137,11 +193,15 @@ class BaseAgent:
                 }
                 for tc in response.tool_calls
             ]
-            messages.append({
+            assistant_msg: dict[str, Any] = {
                 "role": "assistant",
                 "content": response.content,
                 "tool_calls": tool_calls_payload,
-            })
+            }
+            # Include reasoning_content if present (required for some models with thinking enabled)
+            if response.reasoning_content:
+                assistant_msg["reasoning_content"] = response.reasoning_content
+            messages.append(assistant_msg)
 
             if response.content:
                 last_content = response.content
@@ -152,7 +212,28 @@ class BaseAgent:
 
             for tc in response.tool_calls:
                 ctx.tools_used.add(tc.name)
-                result = await dispatch_tool(tc.name, tc.arguments)
+
+                # Special handling for background_run to track the task
+                if tc.name == "background_run" and self.bg_manager:
+                    # First dispatch to create the Celery task
+                    result = await dispatch_tool(tc.name, tc.arguments, context={
+                        "messages": messages,
+                        "workflow_run_id": workflow_run_id,
+                    })
+
+                    # Extract task_id from result and register with manager
+                    import re
+                    task_id_match = re.search(r"Task ID: ([a-f0-9-]+)", result)
+                    if task_id_match:
+                        task_id = task_id_match.group(1)
+                        command = tc.arguments.get("command", "unknown")
+                        await self.bg_manager.submit(task_id, command)
+                        result += f"\n[Task registered with agent. You'll be notified when it completes.]"
+                else:
+                    result = await dispatch_tool(tc.name, tc.arguments, context={
+                        "messages": messages,
+                        "workflow_run_id": workflow_run_id,
+                    })
 
                 # Track failures for circuit breaker
                 is_error = result.startswith(f"Tool '{tc.name}' error:") or result.startswith(f"Tool '{tc.name}' is not available")
