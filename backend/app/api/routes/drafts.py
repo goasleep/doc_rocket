@@ -1,12 +1,15 @@
-"""Draft management routes — CRUD, approve, export, rewrite-section."""
+"""Draft management routes — CRUD, approve, export, rewrite-section, preview, publish."""
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
+from app.core.markdown import markdown_to_wechat_html
+from app.core.wechat_mp import WeChatMPClient, WeChatMPError
 from app.models import (
     Draft,
     DraftPublic,
@@ -14,9 +17,29 @@ from app.models import (
     DraftUpdate,
     EditHistoryEntry,
     Message,
+    PublishHistory,
     RewriteSectionRequest,
     RewriteSectionResponse,
 )
+
+
+class DraftPreviewResponse(BaseModel):
+    """Response schema for draft preview."""
+    title: str
+    html_content: str
+
+
+class PublishRequest(BaseModel):
+    """Request schema for publishing a draft."""
+    confirmed: bool = False
+
+
+class PublishResponse(BaseModel):
+    """Response schema for publish operation."""
+    success: bool
+    publish_id: str | None = None
+    article_url: str | None = None
+    message: str
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
 
@@ -120,3 +143,107 @@ async def rewrite_section(
         context=body.context,
     )
     return RewriteSectionResponse(rewritten_text=rewritten)
+
+
+@router.post("/{id}/preview", response_model=DraftPreviewResponse)
+async def preview_draft(
+    current_user: CurrentUser, id: uuid.UUID
+) -> Any:
+    """Preview draft content as WeChat MP compatible HTML."""
+    draft = await Draft.find_one(Draft.id == id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    html_content = markdown_to_wechat_html(draft.content, draft.title)
+    return DraftPreviewResponse(title=draft.title, html_content=html_content)
+
+
+@router.post("/{id}/publish", response_model=PublishResponse)
+async def publish_draft(
+    current_user: CurrentUser, id: uuid.UUID, body: PublishRequest
+) -> Any:
+    """Publish draft to WeChat MP.
+
+    Requires confirmed=True to proceed with publishing.
+    Creates a PublishHistory record to track the publish attempt.
+    """
+    if not body.confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Publication must be confirmed by setting confirmed=true"
+        )
+
+    draft = await Draft.find_one(Draft.id == id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    # Create PublishHistory record with pending status
+    publish_history = PublishHistory(
+        draft_id=draft.id,
+        title=draft.title,
+        target_platform="wechat_mp",
+        target_name="",  # Will be updated after getting account info
+        status="pending",
+    )
+    await publish_history.insert()
+
+    try:
+        # Get WeChat MP client from config
+        client = await WeChatMPClient.from_config()
+
+        # Get account info for target_name
+        try:
+            account_info = await client.get_account_info()
+            publish_history.target_name = account_info.get("nick_name", "Unknown")
+        except WeChatMPError:
+            publish_history.target_name = "WeChat MP"
+
+        # Convert content to HTML
+        html_content = markdown_to_wechat_html(draft.content, draft.title)
+
+        # Create draft on WeChat MP
+        media_id = await client.add_draft(
+            title=draft.title,
+            content=html_content,
+        )
+
+        # Submit for publishing
+        publish_id = await client.submit_publish(media_id=media_id)
+
+        # Update PublishHistory with success
+        publish_history.status = "success"
+        publish_history.publish_id = publish_id
+        publish_history.updated_at = datetime.now(timezone.utc)
+        await publish_history.save()
+
+        # Close client
+        await client.close()
+
+        return PublishResponse(
+            success=True,
+            publish_id=publish_id,
+            message="Draft published successfully to WeChat MP"
+        )
+
+    except WeChatMPError as e:
+        # Update PublishHistory with failure
+        publish_history.status = "failed"
+        publish_history.error_message = str(e)
+        publish_history.updated_at = datetime.now(timezone.utc)
+        await publish_history.save()
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"WeChat MP API error: {str(e)}"
+        )
+    except Exception as e:
+        # Update PublishHistory with failure
+        publish_history.status = "failed"
+        publish_history.error_message = str(e)
+        publish_history.updated_at = datetime.now(timezone.utc)
+        await publish_history.save()
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to publish: {str(e)}"
+        )
