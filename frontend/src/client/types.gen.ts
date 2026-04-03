@@ -407,6 +407,14 @@ export type DistributionItem = {
     value: number;
 };
 
+/**
+ * Response schema for draft preview.
+ */
+export type DraftPreviewResponse = {
+    title: string;
+    html_content: string;
+};
+
 export type DraftPublic = {
     id: string;
     source_article_ids: Array<(string)>;
@@ -542,6 +550,7 @@ export type InsightSnapshotPublic = {
     framework_distribution: Array<DistributionItem>;
     hook_type_distribution: Array<DistributionItem>;
     topic_distribution: Array<DistributionItem>;
+    ai_flavor_distribution: Array<QualityScoreBucket>;
     suggestion_aggregation: Array<SuggestionDimensionItem>;
     quality_score_distribution: Array<QualityScoreBucket>;
     article_count: number;
@@ -655,10 +664,60 @@ export type PrivateUserCreate = {
     is_verified?: boolean;
 };
 
+export type PublishHistoriesPublic = {
+    data: Array<PublishHistoryPublic>;
+    count: number;
+};
+
+export type PublishHistoryPublic = {
+    id: string;
+    draft_id: string;
+    title: string;
+    target_platform: "wechat_mp";
+    target_name: string;
+    status: 'pending' | 'success' | 'failed';
+    publish_id: (string | null);
+    published_url: (string | null);
+    error_message: (string | null);
+    created_at: string;
+    updated_at: string;
+};
+
+export type status = 'pending' | 'success' | 'failed';
+
+/**
+ * Request schema for publishing a draft.
+ */
+export type PublishRequest = {
+    confirmed?: boolean;
+};
+
+/**
+ * Response schema for publish operation.
+ */
+export type PublishResponse = {
+    success: boolean;
+    publish_id?: (string | null);
+    article_url?: (string | null);
+    message: string;
+};
+
+/**
+ * Response schema for publish status check.
+ */
+export type PublishStatusResponse = {
+    status: string;
+    article_url?: (string | null);
+    raw_data?: ({
+    [key: string]: unknown;
+} | null);
+};
+
 export type QualityBreakdown = {
     content_depth?: number;
     readability?: number;
     originality?: number;
+    ai_flavor?: number;
     virality_potential?: number;
 };
 
@@ -963,6 +1022,8 @@ export type SystemConfigPublic = {
     writing: ModelDefaults;
     search: SearchConfig;
     orchestrator: OrchestratorConfig;
+    word_cloud_filter: WordCloudFilterConfig;
+    wechat_mp: WechatMPConfigPublic;
 };
 
 export type SystemConfigUpdate = {
@@ -974,6 +1035,8 @@ export type SystemConfigUpdate = {
     writing?: (ModelDefaults | null);
     search?: (SearchConfig | null);
     orchestrator?: (OrchestratorConfig | null);
+    word_cloud_filter?: (WordCloudFilterConfig | null);
+    wechat_mp?: (WechatMPConfig | null);
 };
 
 export type TaskRunPublic = {
@@ -997,7 +1060,7 @@ export type task_type = 'analyze' | 'fetch' | 'refine' | 'workflow' | 'insight_s
 
 export type triggered_by = 'manual' | 'scheduler' | 'agent';
 
-export type status = 'pending' | 'running' | 'done' | 'failed';
+export type status2 = 'pending' | 'running' | 'done' | 'failed';
 
 export type TaskRunsPublic = {
     data: Array<TaskRunPublic>;
@@ -1119,6 +1182,42 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * 微信公众号配置
+ */
+export type WechatMPConfig = {
+    app_id?: string;
+    app_secret_encrypted?: (string | null);
+    enabled?: boolean;
+};
+
+/**
+ * 微信公众号公开配置（app_secret 脱敏）
+ */
+export type WechatMPConfigPublic = {
+    app_id: string;
+    app_secret_masked?: (string | null);
+    enabled: boolean;
+};
+
+/**
+ * 词云关键词过滤配置
+ */
+export type WordCloudFilterConfig = {
+    /**
+     * 需要过滤的关键词列表
+     */
+    excluded_keywords?: Array<(string)>;
+    /**
+     * 最小关键词长度
+     */
+    min_keyword_length?: number;
+    /**
+     * 词云最大关键词数量
+     */
+    max_keyword_count?: number;
 };
 
 /**
@@ -1366,6 +1465,19 @@ export type DraftsRewriteSectionData = {
 
 export type DraftsRewriteSectionResponse = (RewriteSectionResponse);
 
+export type DraftsPreviewDraftData = {
+    id: string;
+};
+
+export type DraftsPreviewDraftResponse = (DraftPreviewResponse);
+
+export type DraftsPublishDraftData = {
+    id: string;
+    requestBody: PublishRequest;
+};
+
+export type DraftsPublishDraftResponse = (PublishResponse);
+
 export type ExternalReferencesListExternalReferencesData = {
     limit?: number;
     search?: string;
@@ -1475,6 +1587,20 @@ export type PrivateCreateUserData = {
 };
 
 export type PrivateCreateUserResponse = (UserRead);
+
+export type PublishHistoryListPublishHistoryData = {
+    limit?: number;
+    skip?: number;
+    status?: (string | null);
+};
+
+export type PublishHistoryListPublishHistoryResponse = (PublishHistoriesPublic);
+
+export type PublishHistoryCheckPublishStatusData = {
+    id: string;
+};
+
+export type PublishHistoryCheckPublishStatusResponse = (PublishStatusResponse);
 
 export type RubricsListRubricsData = {
     limit?: number;

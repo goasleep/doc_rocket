@@ -1521,6 +1521,23 @@ export const DistributionItemSchema = {
     description: '分布图数据项'
 } as const;
 
+export const DraftPreviewResponseSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        html_content: {
+            type: 'string',
+            title: 'Html Content'
+        }
+    },
+    type: 'object',
+    required: ['title', 'html_content'],
+    title: 'DraftPreviewResponse',
+    description: 'Response schema for draft preview.'
+} as const;
+
 export const DraftPublicSchema = {
     properties: {
         id: {
@@ -2060,6 +2077,13 @@ export const InsightSnapshotPublicSchema = {
             type: 'array',
             title: 'Topic Distribution'
         },
+        ai_flavor_distribution: {
+            items: {
+                '$ref': '#/components/schemas/QualityScoreBucket'
+            },
+            type: 'array',
+            title: 'Ai Flavor Distribution'
+        },
         suggestion_aggregation: {
             items: {
                 '$ref': '#/components/schemas/SuggestionDimensionItem'
@@ -2085,7 +2109,7 @@ export const InsightSnapshotPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'scope', 'overview', 'keyword_cloud', 'emotional_trigger_cloud', 'framework_distribution', 'hook_type_distribution', 'topic_distribution', 'suggestion_aggregation', 'quality_score_distribution', 'article_count', 'created_at'],
+    required: ['id', 'scope', 'overview', 'keyword_cloud', 'emotional_trigger_cloud', 'framework_distribution', 'hook_type_distribution', 'topic_distribution', 'ai_flavor_distribution', 'suggestion_aggregation', 'quality_score_distribution', 'article_count', 'created_at'],
     title: 'InsightSnapshotPublic',
     description: '快照公开模型'
 } as const;
@@ -2539,6 +2563,192 @@ export const PrivateUserCreateSchema = {
     title: 'PrivateUserCreate'
 } as const;
 
+export const PublishHistoriesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PublishHistoryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PublishHistoriesPublic'
+} as const;
+
+export const PublishHistoryPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        draft_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Draft Id'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        target_platform: {
+            type: 'string',
+            const: 'wechat_mp',
+            title: 'Target Platform'
+        },
+        target_name: {
+            type: 'string',
+            title: 'Target Name'
+        },
+        status: {
+            type: 'string',
+            enum: ['pending', 'success', 'failed'],
+            title: 'Status'
+        },
+        publish_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Publish Id'
+        },
+        published_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Published Url'
+        },
+        error_message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error Message'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'draft_id', 'title', 'target_platform', 'target_name', 'status', 'publish_id', 'published_url', 'error_message', 'created_at', 'updated_at'],
+    title: 'PublishHistoryPublic'
+} as const;
+
+export const PublishRequestSchema = {
+    properties: {
+        confirmed: {
+            type: 'boolean',
+            title: 'Confirmed',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'PublishRequest',
+    description: 'Request schema for publishing a draft.'
+} as const;
+
+export const PublishResponseSchema = {
+    properties: {
+        success: {
+            type: 'boolean',
+            title: 'Success'
+        },
+        publish_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Publish Id'
+        },
+        article_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Article Url'
+        },
+        message: {
+            type: 'string',
+            title: 'Message'
+        }
+    },
+    type: 'object',
+    required: ['success', 'message'],
+    title: 'PublishResponse',
+    description: 'Response schema for publish operation.'
+} as const;
+
+export const PublishStatusResponseSchema = {
+    properties: {
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        article_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Article Url'
+        },
+        raw_data: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Data'
+        }
+    },
+    type: 'object',
+    required: ['status'],
+    title: 'PublishStatusResponse',
+    description: 'Response schema for publish status check.'
+} as const;
+
 export const QualityBreakdownSchema = {
     properties: {
         content_depth: {
@@ -2554,6 +2764,11 @@ export const QualityBreakdownSchema = {
         originality: {
             type: 'number',
             title: 'Originality',
+            default: 0
+        },
+        ai_flavor: {
+            type: 'number',
+            title: 'Ai Flavor',
             default: 0
         },
         virality_potential: {
@@ -3581,10 +3796,16 @@ export const SystemConfigPublicSchema = {
         },
         orchestrator: {
             '$ref': '#/components/schemas/OrchestratorConfig'
+        },
+        word_cloud_filter: {
+            '$ref': '#/components/schemas/WordCloudFilterConfig'
+        },
+        wechat_mp: {
+            '$ref': '#/components/schemas/WechatMPConfigPublic'
         }
     },
     type: 'object',
-    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator'],
+    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator', 'word_cloud_filter', 'wechat_mp'],
     title: 'SystemConfigPublic'
 } as const;
 
@@ -3667,6 +3888,26 @@ export const SystemConfigUpdateSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/OrchestratorConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        word_cloud_filter: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/WordCloudFilterConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        wechat_mp: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/WechatMPConfig'
                 },
                 {
                     type: 'null'
@@ -4354,6 +4595,91 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const WechatMPConfigSchema = {
+    properties: {
+        app_id: {
+            type: 'string',
+            title: 'App Id',
+            default: ''
+        },
+        app_secret_encrypted: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'App Secret Encrypted'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'WechatMPConfig',
+    description: '微信公众号配置'
+} as const;
+
+export const WechatMPConfigPublicSchema = {
+    properties: {
+        app_id: {
+            type: 'string',
+            title: 'App Id'
+        },
+        app_secret_masked: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'App Secret Masked'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled'
+        }
+    },
+    type: 'object',
+    required: ['app_id', 'enabled'],
+    title: 'WechatMPConfigPublic',
+    description: '微信公众号公开配置（app_secret 脱敏）'
+} as const;
+
+export const WordCloudFilterConfigSchema = {
+    properties: {
+        excluded_keywords: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Excluded Keywords',
+            description: '需要过滤的关键词列表'
+        },
+        min_keyword_length: {
+            type: 'integer',
+            title: 'Min Keyword Length',
+            description: '最小关键词长度',
+            default: 2
+        },
+        max_keyword_count: {
+            type: 'integer',
+            title: 'Max Keyword Count',
+            description: '词云最大关键词数量',
+            default: 100
+        }
+    },
+    type: 'object',
+    title: 'WordCloudFilterConfig',
+    description: '词云关键词过滤配置'
 } as const;
 
 export const WordCloudItemSchema = {
