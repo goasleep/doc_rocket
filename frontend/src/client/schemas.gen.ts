@@ -2060,6 +2060,13 @@ export const InsightSnapshotPublicSchema = {
             type: 'array',
             title: 'Topic Distribution'
         },
+        ai_flavor_distribution: {
+            items: {
+                '$ref': '#/components/schemas/QualityScoreBucket'
+            },
+            type: 'array',
+            title: 'Ai Flavor Distribution'
+        },
         suggestion_aggregation: {
             items: {
                 '$ref': '#/components/schemas/SuggestionDimensionItem'
@@ -2085,7 +2092,7 @@ export const InsightSnapshotPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'scope', 'overview', 'keyword_cloud', 'emotional_trigger_cloud', 'framework_distribution', 'hook_type_distribution', 'topic_distribution', 'suggestion_aggregation', 'quality_score_distribution', 'article_count', 'created_at'],
+    required: ['id', 'scope', 'overview', 'keyword_cloud', 'emotional_trigger_cloud', 'framework_distribution', 'hook_type_distribution', 'topic_distribution', 'ai_flavor_distribution', 'suggestion_aggregation', 'quality_score_distribution', 'article_count', 'created_at'],
     title: 'InsightSnapshotPublic',
     description: '快照公开模型'
 } as const;
@@ -2556,6 +2563,11 @@ export const QualityBreakdownSchema = {
             title: 'Originality',
             default: 0
         },
+        ai_flavor: {
+            type: 'number',
+            title: 'Ai Flavor',
+            default: 0
+        },
         virality_potential: {
             type: 'number',
             title: 'Virality Potential',
@@ -2564,39 +2576,6 @@ export const QualityBreakdownSchema = {
     },
     type: 'object',
     title: 'QualityBreakdown'
-} as const;
-
-export const QualityRubricCreateSchema = {
-    properties: {
-        version: {
-            type: 'string',
-            title: 'Version'
-        },
-        name: {
-            type: 'string',
-            title: 'Name'
-        },
-        description: {
-            type: 'string',
-            title: 'Description',
-            default: ''
-        },
-        dimensions: {
-            items: {
-                '$ref': '#/components/schemas/RubricDimension'
-            },
-            type: 'array',
-            title: 'Dimensions'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: false
-        }
-    },
-    type: 'object',
-    required: ['version', 'name', 'dimensions'],
-    title: 'QualityRubricCreate'
 } as const;
 
 export const QualityRubricPublicSchema = {
@@ -2645,71 +2624,6 @@ export const QualityRubricPublicSchema = {
     title: 'QualityRubricPublic'
 } as const;
 
-export const QualityRubricUpdateSchema = {
-    properties: {
-        version: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Version'
-        },
-        name: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Name'
-        },
-        description: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Description'
-        },
-        dimensions: {
-            anyOf: [
-                {
-                    items: {
-                        '$ref': '#/components/schemas/RubricDimension'
-                    },
-                    type: 'array'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Dimensions'
-        },
-        is_active: {
-            anyOf: [
-                {
-                    type: 'boolean'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Is Active'
-        }
-    },
-    type: 'object',
-    title: 'QualityRubricUpdate'
-} as const;
-
 export const QualityRubricsPublicSchema = {
     properties: {
         data: {
@@ -2726,7 +2640,8 @@ export const QualityRubricsPublicSchema = {
     },
     type: 'object',
     required: ['data', 'count'],
-    title: 'QualityRubricsPublic'
+    title: 'QualityRubricsPublic',
+    description: '列表响应 - 现在只返回一个默认评分标准'
 } as const;
 
 export const QualityScoreBucketSchema = {
@@ -2937,7 +2852,7 @@ export const RubricDimensionSchema = {
         name: {
             type: 'string',
             title: 'Name',
-            description: '维度名称 (content_depth, readability, originality, virality_potential)'
+            description: '维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)'
         },
         description: {
             type: 'string',
@@ -3581,10 +3496,13 @@ export const SystemConfigPublicSchema = {
         },
         orchestrator: {
             '$ref': '#/components/schemas/OrchestratorConfig'
+        },
+        word_cloud_filter: {
+            '$ref': '#/components/schemas/WordCloudFilterConfig'
         }
     },
     type: 'object',
-    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator'],
+    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator', 'word_cloud_filter'],
     title: 'SystemConfigPublic'
 } as const;
 
@@ -3667,6 +3585,16 @@ export const SystemConfigUpdateSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/OrchestratorConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        word_cloud_filter: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/WordCloudFilterConfig'
                 },
                 {
                     type: 'null'
@@ -4354,6 +4282,34 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const WordCloudFilterConfigSchema = {
+    properties: {
+        excluded_keywords: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Excluded Keywords',
+            description: '需要过滤的关键词列表'
+        },
+        min_keyword_length: {
+            type: 'integer',
+            title: 'Min Keyword Length',
+            description: '最小关键词长度',
+            default: 2
+        },
+        max_keyword_count: {
+            type: 'integer',
+            title: 'Max Keyword Count',
+            description: '词云最大关键词数量',
+            default: 100
+        }
+    },
+    type: 'object',
+    title: 'WordCloudFilterConfig',
+    description: '词云关键词过滤配置'
 } as const;
 
 export const WordCloudItemSchema = {

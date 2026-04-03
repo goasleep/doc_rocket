@@ -542,6 +542,7 @@ export type InsightSnapshotPublic = {
     framework_distribution: Array<DistributionItem>;
     hook_type_distribution: Array<DistributionItem>;
     topic_distribution: Array<DistributionItem>;
+    ai_flavor_distribution: Array<QualityScoreBucket>;
     suggestion_aggregation: Array<SuggestionDimensionItem>;
     quality_score_distribution: Array<QualityScoreBucket>;
     article_count: number;
@@ -659,15 +660,8 @@ export type QualityBreakdown = {
     content_depth?: number;
     readability?: number;
     originality?: number;
+    ai_flavor?: number;
     virality_potential?: number;
-};
-
-export type QualityRubricCreate = {
-    version: string;
-    name: string;
-    description?: string;
-    dimensions: Array<RubricDimension>;
-    is_active?: boolean;
 };
 
 export type QualityRubricPublic = {
@@ -681,17 +675,12 @@ export type QualityRubricPublic = {
     updated_at: string;
 };
 
+/**
+ * 列表响应 - 现在只返回一个默认评分标准
+ */
 export type QualityRubricsPublic = {
     data: Array<QualityRubricPublic>;
     count: number;
-};
-
-export type QualityRubricUpdate = {
-    version?: (string | null);
-    name?: (string | null);
-    description?: (string | null);
-    dimensions?: (Array<RubricDimension> | null);
-    is_active?: (boolean | null);
 };
 
 /**
@@ -799,7 +788,7 @@ export type RubricCriterion = {
  */
 export type RubricDimension = {
     /**
-     * 维度名称 (content_depth, readability, originality, virality_potential)
+     * 维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)
      */
     name: string;
     /**
@@ -963,6 +952,7 @@ export type SystemConfigPublic = {
     writing: ModelDefaults;
     search: SearchConfig;
     orchestrator: OrchestratorConfig;
+    word_cloud_filter: WordCloudFilterConfig;
 };
 
 export type SystemConfigUpdate = {
@@ -974,6 +964,7 @@ export type SystemConfigUpdate = {
     writing?: (ModelDefaults | null);
     search?: (SearchConfig | null);
     orchestrator?: (OrchestratorConfig | null);
+    word_cloud_filter?: (WordCloudFilterConfig | null);
 };
 
 export type TaskRunPublic = {
@@ -1119,6 +1110,24 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * 词云关键词过滤配置
+ */
+export type WordCloudFilterConfig = {
+    /**
+     * 需要过滤的关键词列表
+     */
+    excluded_keywords?: Array<(string)>;
+    /**
+     * 最小关键词长度
+     */
+    min_keyword_length?: number;
+    /**
+     * 词云最大关键词数量
+     */
+    max_keyword_count?: number;
 };
 
 /**
@@ -1476,18 +1485,7 @@ export type PrivateCreateUserData = {
 
 export type PrivateCreateUserResponse = (UserRead);
 
-export type RubricsListRubricsData = {
-    limit?: number;
-    skip?: number;
-};
-
 export type RubricsListRubricsResponse = (QualityRubricsPublic);
-
-export type RubricsCreateRubricData = {
-    requestBody: QualityRubricCreate;
-};
-
-export type RubricsCreateRubricResponse = (QualityRubricPublic);
 
 export type RubricsGetActiveRubricResponse = (QualityRubricPublic);
 
@@ -1496,25 +1494,6 @@ export type RubricsGetRubricData = {
 };
 
 export type RubricsGetRubricResponse = (QualityRubricPublic);
-
-export type RubricsUpdateRubricData = {
-    requestBody: QualityRubricUpdate;
-    rubricId: string;
-};
-
-export type RubricsUpdateRubricResponse = (QualityRubricPublic);
-
-export type RubricsDeleteRubricData = {
-    rubricId: string;
-};
-
-export type RubricsDeleteRubricResponse = (Message);
-
-export type RubricsActivateRubricData = {
-    rubricId: string;
-};
-
-export type RubricsActivateRubricResponse = (QualityRubricPublic);
 
 export type SkillsListSkillsData = {
     limit?: number;
