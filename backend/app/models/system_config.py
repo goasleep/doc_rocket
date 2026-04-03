@@ -45,6 +45,13 @@ class WordCloudFilterConfig(BaseModel):
     max_keyword_count: int = Field(default=100, description="词云最大关键词数量")
 
 
+class WechatMPConfig(BaseModel):
+    """微信公众号配置"""
+    app_id: str = ""
+    app_secret_encrypted: str | None = None
+    enabled: bool = False
+
+
 class SystemConfig(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     llm_providers: LLMProvidersConfig = Field(default_factory=LLMProvidersConfig)
@@ -54,6 +61,7 @@ class SystemConfig(Document):
     search: SearchConfig = Field(default_factory=SearchConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     word_cloud_filter: WordCloudFilterConfig = Field(default_factory=WordCloudFilterConfig)
+    wechat_mp: WechatMPConfig = Field(default_factory=WechatMPConfig)
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -73,6 +81,14 @@ class LLMProvidersPublic(BaseModel):
     openai: LLMProviderPublic
 
 
+class WechatMPConfigPublic(BaseModel):
+    """微信公众号公开配置（app_secret 脱敏）"""
+    model_config = ConfigDict(from_attributes=True)
+    app_id: str
+    app_secret_masked: str | None = None
+    enabled: bool
+
+
 class SystemConfigPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     llm_providers: LLMProvidersPublic
@@ -82,6 +98,7 @@ class SystemConfigPublic(BaseModel):
     search: SearchConfig
     orchestrator: OrchestratorConfig
     word_cloud_filter: WordCloudFilterConfig
+    wechat_mp: WechatMPConfigPublic
 
 
 class SystemConfigUpdate(BaseModel):
@@ -94,3 +111,4 @@ class SystemConfigUpdate(BaseModel):
     search: SearchConfig | None = None
     orchestrator: OrchestratorConfig | None = None
     word_cloud_filter: WordCloudFilterConfig | None = None
+    wechat_mp: WechatMPConfig | None = None
