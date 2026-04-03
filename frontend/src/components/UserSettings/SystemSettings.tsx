@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useForm, Controller } from "react-hook-form"
 import { useState } from "react"
+import { Controller, useForm } from "react-hook-form"
 
-import { SystemConfigService, type SystemConfigUpdate, type SystemConfigPublic } from "@/client"
+import {
+  type SystemConfigPublic,
+  SystemConfigService,
+  type SystemConfigUpdate,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 
 // Extended types for word cloud filter (not yet in generated client)
@@ -12,8 +16,15 @@ type WordCloudFilterConfig = {
   max_keyword_count: number
 }
 
+type WechatMPConfig = {
+  app_id: string
+  app_secret_masked: string | null
+  enabled: boolean
+}
+
 interface ExtendedSystemConfigPublic extends SystemConfigPublic {
   word_cloud_filter?: WordCloudFilterConfig
+  wechat_mp?: WechatMPConfig
 }
 
 interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
@@ -21,10 +32,13 @@ interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
   excluded_keywords?: string[]
   min_keyword_length?: number
   max_keyword_count?: number
+  wechat_mp?: WechatMPConfig
 }
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 
 function ProviderKeyField({
@@ -64,13 +78,18 @@ export function SystemSettings() {
 
   const { data: config, isLoading } = useQuery<ExtendedSystemConfigPublic>({
     queryKey: ["system-config"],
-    queryFn: () => SystemConfigService.getSystemConfig() as Promise<ExtendedSystemConfigPublic>,
+    queryFn: () =>
+      SystemConfigService.getSystemConfig() as Promise<ExtendedSystemConfigPublic>,
   })
 
-  const { register, handleSubmit, reset, control, watch, setValue } = useForm<ExtendedSystemConfigUpdate>()
+  const { register, handleSubmit, reset, control, watch, setValue } =
+    useForm<ExtendedSystemConfigUpdate>()
 
   // Watch excluded keywords for UI updates
-  const excludedKeywords = watch("excluded_keywords") || config?.word_cloud_filter?.excluded_keywords || []
+  const excludedKeywords =
+    watch("excluded_keywords") ||
+    config?.word_cloud_filter?.excluded_keywords ||
+    []
 
   const updateMutation = useMutation({
     mutationFn: (data: SystemConfigUpdate) =>
@@ -92,11 +111,39 @@ export function SystemSettings() {
 
     // Include word cloud filter config
     const wordCloudFilter = {
-      excluded_keywords: values.excluded_keywords || config?.word_cloud_filter?.excluded_keywords || [],
-      min_keyword_length: values.min_keyword_length ?? config?.word_cloud_filter?.min_keyword_length ?? 2,
-      max_keyword_count: values.max_keyword_count ?? config?.word_cloud_filter?.max_keyword_count ?? 100,
+      excluded_keywords:
+        values.excluded_keywords ||
+        config?.word_cloud_filter?.excluded_keywords ||
+        [],
+      min_keyword_length:
+        values.min_keyword_length ??
+        config?.word_cloud_filter?.min_keyword_length ??
+        2,
+      max_keyword_count:
+        values.max_keyword_count ??
+        config?.word_cloud_filter?.max_keyword_count ??
+        100,
     }
     payload.word_cloud_filter = wordCloudFilter
+
+    // Include WeChat MP config if any field is provided
+    const wechatMpConfig: Partial<WechatMPConfig> = {}
+    if (values.wechat_mp?.app_id) {
+      wechatMpConfig.app_id = values.wechat_mp.app_id
+    }
+    if (values.wechat_mp?.app_secret_masked) {
+      wechatMpConfig.app_secret_masked = values.wechat_mp.app_secret_masked
+    }
+    // Always include enabled if it's explicitly set, otherwise use current config
+    if (values.wechat_mp?.enabled !== undefined) {
+      wechatMpConfig.enabled = values.wechat_mp.enabled
+    } else if (config?.wechat_mp?.enabled !== undefined) {
+      wechatMpConfig.enabled = config.wechat_mp.enabled
+    }
+
+    if (Object.keys(wechatMpConfig).length > 0) {
+      payload.wechat_mp = wechatMpConfig as WechatMPConfig
+    }
 
     updateMutation.mutate(payload as SystemConfigUpdate)
   }
@@ -112,7 +159,10 @@ export function SystemSettings() {
 
   const removeExcludedKeyword = (keyword: string) => {
     const current = excludedKeywords || []
-    setValue("excluded_keywords", current.filter((k: string) => k !== keyword))
+    setValue(
+      "excluded_keywords",
+      current.filter((k: string) => k !== keyword),
+    )
   }
 
   if (isLoading) {
@@ -241,20 +291,83 @@ export function SystemSettings() {
               <Controller
                 name="max_keyword_count"
                 control={control}
-                defaultValue={config?.word_cloud_filter?.max_keyword_count || 100}
+                defaultValue={
+                  config?.word_cloud_filter?.max_keyword_count || 100
+                }
                 render={({ field }) => (
                   <Input
                     type="number"
                     min={10}
                     max={500}
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    onChange={(e) =>
+                      field.onChange(parseInt(e.target.value, 10))
+                    }
                   />
                 )}
               />
               <p className="text-xs text-muted-foreground">
                 词云中显示的最大关键词数量（10-500）
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">微信公众号配置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AppID</label>
+              <Controller
+                name="wechat_mp.app_id"
+                control={control}
+                defaultValue={config?.wechat_mp?.app_id || ""}
+                render={({ field }) => (
+                  <Input placeholder="输入微信公众号 AppID..." {...field} />
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AppSecret</label>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-mono">
+                  {config?.wechat_mp?.app_secret_masked || "未配置"}
+                </span>
+              </div>
+              <Controller
+                name="wechat_mp.app_secret_masked"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <Input
+                    type="password"
+                    placeholder={
+                      config?.wechat_mp?.app_secret_masked
+                        ? "输入新的 AppSecret 以替换..."
+                        : "输入 AppSecret..."
+                    }
+                    {...field}
+                  />
+                )}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Controller
+                name="wechat_mp.enabled"
+                control={control}
+                defaultValue={config?.wechat_mp?.enabled || false}
+                render={({ field }) => (
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+              <label className="text-sm font-medium">启用微信公众号发布</label>
             </div>
           </CardContent>
         </Card>
