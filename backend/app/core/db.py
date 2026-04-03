@@ -6,13 +6,11 @@ from app.models import (
     AgentConfig,
     Article,
     ArticleAnalysis,
-    DEFAULT_RUBRIC_V1,
     Draft,
     ExternalReference,
     InsightSnapshot,
     Item,
     LLMModelConfig,
-    QualityRubric,
     Skill,
     Source,
     SystemConfig,
@@ -46,7 +44,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             Skill,
             Tool,
             TaskRun,
-            QualityRubric,
+            # QualityRubric removed - now code-defined
             ExternalReference,
             Transcript,
             TaskNode,
@@ -121,31 +119,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
         for agent in defaults:
             await agent.insert()
 
-    # Seed default QualityRubric v1 if none exist
-    rubric_count = await QualityRubric.count()
-    if rubric_count == 0:
-        from app.models.quality_rubric import RubricCriterion, RubricDimension
-
-        dimensions = []
-        for dim_data in DEFAULT_RUBRIC_V1["dimensions"]:
-            criteria = [
-                RubricCriterion(**c) for c in dim_data["criteria"]
-            ]
-            dimensions.append(RubricDimension(
-                name=dim_data["name"],
-                description=dim_data["description"],
-                weight=dim_data["weight"],
-                criteria=criteria,
-            ))
-
-        default_rubric = QualityRubric(
-            version=DEFAULT_RUBRIC_V1["version"],
-            name=DEFAULT_RUBRIC_V1["name"],
-            description=DEFAULT_RUBRIC_V1["description"],
-            dimensions=dimensions,
-            is_active=True,
-        )
-        await default_rubric.insert()
+    # QualityRubric seeding removed - now code-defined in quality_rubric.py
 
     # Register redbeat schedule for insight snapshot (daily at 2 AM)
     _register_insight_snapshot_schedule()
