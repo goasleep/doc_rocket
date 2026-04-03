@@ -84,7 +84,8 @@ The application is a content intelligence platform with the following key compon
    - Markdown conversion
 3. **Analysis** (`react_analyzer.py`, `analyze.py`)
    - ReAct-based AI analysis with tool calling
-   - Quality scoring via rubrics
+   - Quality scoring via rubrics (5 dimensions: content_depth, readability, originality, ai_flavor, virality_potential)
+   - AI flavor detection (high score = natural human writing, low score = AI-generated)
    - External reference enrichment
 
 #### Agent System (`core/agents/`)
@@ -114,6 +115,7 @@ Celery tasks for async processing:
 - **Auth routes** (`login.tsx`, `signup.tsx`, etc.) are at the top level; authenticated pages live under `src/routes/_layout/`
 - **UI components** follow shadcn/ui pattern in `src/components/`
 - **Forms** use react-hook-form + Zod validation
+- **System Settings** (`UserSettings/SystemSettings.tsx`): Configure word cloud filters (excluded keywords, max count) and API keys
 
 ### Key Models
 
@@ -128,9 +130,34 @@ Celery tasks for async processing:
 | `Skill` | Reusable agent capabilities |
 | `Tool` | External tool definitions |
 | `TaskRun` | Task execution tracking |
-| `QualityRubric` | Analysis scoring criteria |
+| `QualityRubric` | Analysis scoring criteria (content_depth, readability, originality, ai_flavor, virality_potential) |
 | `ExternalReference` | Reference materials for analysis |
+| `InsightSnapshot` | Pre-aggregated knowledge base analytics with word clouds and distributions |
+| `SystemConfig` | System-wide configuration including word cloud filters and LLM provider settings |
 | `TokenUsage` | LLM token usage tracking |
+| `InsightSnapshot` | Pre-aggregated knowledge base analytics |
+
+### Deployment (Docker)
+
+**Build and deploy all services:**
+```bash
+docker compose build --no-cache backend
+docker compose build --no-cache frontend
+docker compose up -d
+```
+
+**Verify deployment:**
+```bash
+docker compose ps
+curl -s http://localhost:8000/api/v1/utils/health-check/
+curl -s http://localhost:5173/ > /dev/null && echo "Frontend OK"
+```
+
+**Deployment checklist:**
+- [ ] Backend health check returns `true`
+- [ ] Frontend serves index.html
+- [ ] All containers show `Up` status
+- [ ] Celery beat and worker running
 
 ### Database
 
