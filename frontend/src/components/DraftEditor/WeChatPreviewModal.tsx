@@ -10,19 +10,21 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 interface WeChatPreviewModalProps {
   open: boolean
   onClose: () => void
+  title: string
   htmlContent: string
 }
 
 export function WeChatPreviewModal({
   open,
   onClose,
+  title,
   htmlContent,
 }: WeChatPreviewModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle>微信公众号预览</DialogTitle>
+          <DialogTitle>微信公众号预览: {title}</DialogTitle>
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-120px)]">
           <div className="px-6 pb-6">

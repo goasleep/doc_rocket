@@ -22,7 +22,8 @@ type WechatMPConfig = {
   enabled: boolean
 }
 
-interface ExtendedSystemConfigPublic extends SystemConfigPublic {
+interface ExtendedSystemConfigPublic
+  extends Omit<SystemConfigPublic, "word_cloud_filter" | "wechat_mp"> {
   word_cloud_filter?: WordCloudFilterConfig
   wechat_mp?: WechatMPConfig
 }
@@ -349,7 +350,11 @@ export function SystemSettings() {
                         ? "输入新的 AppSecret 以替换..."
                         : "输入 AppSecret..."
                     }
-                    {...field}
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
                   />
                 )}
               />
