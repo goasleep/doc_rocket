@@ -161,6 +161,11 @@ from app.models.insight_snapshot import (
     SuggestionDimensionItem,
     WordCloudItem,
 )
+from app.models.publish_history import (
+    PublishHistory,
+    PublishHistoriesPublic,
+    PublishHistoryPublic,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -229,6 +234,8 @@ __all__ = [
     "InsightSnapshotMeta", "InsightSnapshotOverview",
     "WordCloudItem", "DistributionItem", "SuggestionDimensionItem",
     "QualityScoreBucket", "RefreshSnapshotResponse",
+    # Publish History
+    "PublishHistory", "PublishHistoryPublic", "PublishHistoriesPublic",
     # Generic
     "Message",
 ]
