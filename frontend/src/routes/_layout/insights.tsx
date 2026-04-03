@@ -21,7 +21,8 @@ import {
 } from "@/client"
 
 // Extended type for AI flavor distribution (not yet in generated client)
-interface ExtendedInsightSnapshotPublic extends InsightSnapshotPublic {
+interface ExtendedInsightSnapshotPublic
+  extends Omit<InsightSnapshotPublic, "ai_flavor_distribution"> {
   ai_flavor_distribution?: QualityScoreBucket[]
 }
 

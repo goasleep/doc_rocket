@@ -5,13 +5,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import CurrentUser, SuperuserDep
 from app.models import (
+    LLMProviderPublic,
+    LLMProvidersPublic,
+    OrchestratorConfig,
+    SearchConfig,
     SystemConfig,
     SystemConfigPublic,
     SystemConfigUpdate,
-    LLMProviderPublic,
-    LLMProvidersPublic,
-    SearchConfig,
-    OrchestratorConfig,
+    WechatMPConfigPublic,
     WordCloudFilterConfig,
 )
 
@@ -51,6 +52,11 @@ def _to_public(config: SystemConfig) -> SystemConfigPublic:
         search=SearchConfig(tavily_api_key=config.search.tavily_api_key if config.search else ""),
         orchestrator=config.orchestrator if config.orchestrator else OrchestratorConfig(),
         word_cloud_filter=config.word_cloud_filter if config.word_cloud_filter else WordCloudFilterConfig(),
+        wechat_mp=WechatMPConfigPublic(
+            app_id=config.wechat_mp.app_id if config.wechat_mp else "",
+            app_secret_masked=_mask_key(config.wechat_mp.app_secret_encrypted) if config.wechat_mp else None,
+            enabled=config.wechat_mp.enabled if config.wechat_mp else False,
+        ),
     )
 
 
@@ -88,6 +94,13 @@ async def update_system_config(current_user: SuperuserDep, body: SystemConfigUpd
         config.orchestrator = body.orchestrator
     if body.word_cloud_filter is not None:
         config.word_cloud_filter = body.word_cloud_filter
+    if body.wechat_mp is not None:
+        if body.wechat_mp.app_id is not None:
+            config.wechat_mp.app_id = body.wechat_mp.app_id
+        if body.wechat_mp.app_secret_encrypted:
+            config.wechat_mp.app_secret_encrypted = encrypt_value(body.wechat_mp.app_secret_encrypted)
+        if body.wechat_mp.enabled is not None:
+            config.wechat_mp.enabled = body.wechat_mp.enabled
 
     await config.save()
     return _to_public(config)

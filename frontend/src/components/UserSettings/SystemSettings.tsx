@@ -16,8 +16,16 @@ type WordCloudFilterConfig = {
   max_keyword_count: number
 }
 
-interface ExtendedSystemConfigPublic extends SystemConfigPublic {
+type WechatMPConfig = {
+  app_id: string
+  app_secret_masked: string | null
+  enabled: boolean
+}
+
+interface ExtendedSystemConfigPublic
+  extends Omit<SystemConfigPublic, "word_cloud_filter" | "wechat_mp"> {
   word_cloud_filter?: WordCloudFilterConfig
+  wechat_mp?: WechatMPConfig
 }
 
 interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
@@ -25,10 +33,12 @@ interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
   excluded_keywords?: string[]
   min_keyword_length?: number
   max_keyword_count?: number
+  wechat_mp?: WechatMPConfig
 }
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 
@@ -116,6 +126,25 @@ export function SystemSettings() {
         100,
     }
     payload.word_cloud_filter = wordCloudFilter
+
+    // Include WeChat MP config if any field is provided
+    const wechatMpConfig: Partial<WechatMPConfig> = {}
+    if (values.wechat_mp?.app_id) {
+      wechatMpConfig.app_id = values.wechat_mp.app_id
+    }
+    if (values.wechat_mp?.app_secret_masked) {
+      wechatMpConfig.app_secret_masked = values.wechat_mp.app_secret_masked
+    }
+    // Always include enabled if it's explicitly set, otherwise use current config
+    if (values.wechat_mp?.enabled !== undefined) {
+      wechatMpConfig.enabled = values.wechat_mp.enabled
+    } else if (config?.wechat_mp?.enabled !== undefined) {
+      wechatMpConfig.enabled = config.wechat_mp.enabled
+    }
+
+    if (Object.keys(wechatMpConfig).length > 0) {
+      payload.wechat_mp = wechatMpConfig as WechatMPConfig
+    }
 
     updateMutation.mutate(payload as SystemConfigUpdate)
   }
@@ -281,6 +310,69 @@ export function SystemSettings() {
               <p className="text-xs text-muted-foreground">
                 词云中显示的最大关键词数量（10-500）
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">微信公众号配置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AppID</label>
+              <Controller
+                name="wechat_mp.app_id"
+                control={control}
+                defaultValue={config?.wechat_mp?.app_id || ""}
+                render={({ field }) => (
+                  <Input placeholder="输入微信公众号 AppID..." {...field} />
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AppSecret</label>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-mono">
+                  {config?.wechat_mp?.app_secret_masked || "未配置"}
+                </span>
+              </div>
+              <Controller
+                name="wechat_mp.app_secret_masked"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <Input
+                    type="password"
+                    placeholder={
+                      config?.wechat_mp?.app_secret_masked
+                        ? "输入新的 AppSecret 以替换..."
+                        : "输入 AppSecret..."
+                    }
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Controller
+                name="wechat_mp.enabled"
+                control={control}
+                defaultValue={config?.wechat_mp?.enabled || false}
+                render={({ field }) => (
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+              <label className="text-sm font-medium">启用微信公众号发布</label>
             </div>
           </CardContent>
         </Card>

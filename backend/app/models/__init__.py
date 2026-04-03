@@ -98,6 +98,7 @@ from app.models.system_config import (
     SystemConfigPublic,
     SystemConfigUpdate,
     WordCloudFilterConfig,
+    WechatMPConfigPublic,
 )
 from app.models.workflow import (
     AgentStep,
@@ -161,6 +162,11 @@ from app.models.insight_snapshot import (
     SuggestionDimensionItem,
     WordCloudItem,
 )
+from app.models.publish_history import (
+    PublishHistory,
+    PublishHistoriesPublic,
+    PublishHistoryPublic,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -202,7 +208,7 @@ __all__ = [
     "SystemConfig", "SystemConfigPublic", "SystemConfigUpdate",
     "LLMProviderConfig", "LLMProviderPublic", "LLMProvidersConfig", "LLMProvidersPublic",
     "SchedulerConfig", "ModelDefaults", "SearchConfig", "OrchestratorConfig",
-    "WordCloudFilterConfig",
+    "WordCloudFilterConfig", "WechatMPConfigPublic",
     # Skill
     "Skill", "SkillCreate", "SkillUpdate", "SkillPublic", "SkillsPublic", "SkillScript",
     # Tool
@@ -229,6 +235,8 @@ __all__ = [
     "InsightSnapshotMeta", "InsightSnapshotOverview",
     "WordCloudItem", "DistributionItem", "SuggestionDimensionItem",
     "QualityScoreBucket", "RefreshSnapshotResponse",
+    # Publish History
+    "PublishHistory", "PublishHistoryPublic", "PublishHistoriesPublic",
     # Generic
     "Message",
 ]

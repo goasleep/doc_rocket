@@ -1521,6 +1521,23 @@ export const DistributionItemSchema = {
     description: '分布图数据项'
 } as const;
 
+export const DraftPreviewResponseSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        html_content: {
+            type: 'string',
+            title: 'Html Content'
+        }
+    },
+    type: 'object',
+    required: ['title', 'html_content'],
+    title: 'DraftPreviewResponse',
+    description: 'Response schema for draft preview.'
+} as const;
+
 export const DraftPublicSchema = {
     properties: {
         id: {
@@ -2546,6 +2563,192 @@ export const PrivateUserCreateSchema = {
     title: 'PrivateUserCreate'
 } as const;
 
+export const PublishHistoriesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PublishHistoryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PublishHistoriesPublic'
+} as const;
+
+export const PublishHistoryPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        draft_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Draft Id'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        target_platform: {
+            type: 'string',
+            const: 'wechat_mp',
+            title: 'Target Platform'
+        },
+        target_name: {
+            type: 'string',
+            title: 'Target Name'
+        },
+        status: {
+            type: 'string',
+            enum: ['pending', 'success', 'failed'],
+            title: 'Status'
+        },
+        publish_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Publish Id'
+        },
+        published_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Published Url'
+        },
+        error_message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error Message'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'draft_id', 'title', 'target_platform', 'target_name', 'status', 'publish_id', 'published_url', 'error_message', 'created_at', 'updated_at'],
+    title: 'PublishHistoryPublic'
+} as const;
+
+export const PublishRequestSchema = {
+    properties: {
+        confirmed: {
+            type: 'boolean',
+            title: 'Confirmed',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'PublishRequest',
+    description: 'Request schema for publishing a draft.'
+} as const;
+
+export const PublishResponseSchema = {
+    properties: {
+        success: {
+            type: 'boolean',
+            title: 'Success'
+        },
+        publish_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Publish Id'
+        },
+        article_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Article Url'
+        },
+        message: {
+            type: 'string',
+            title: 'Message'
+        }
+    },
+    type: 'object',
+    required: ['success', 'message'],
+    title: 'PublishResponse',
+    description: 'Response schema for publish operation.'
+} as const;
+
+export const PublishStatusResponseSchema = {
+    properties: {
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        article_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Article Url'
+        },
+        raw_data: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Data'
+        }
+    },
+    type: 'object',
+    required: ['status'],
+    title: 'PublishStatusResponse',
+    description: 'Response schema for publish status check.'
+} as const;
+
 export const QualityBreakdownSchema = {
     properties: {
         content_depth: {
@@ -2576,6 +2779,39 @@ export const QualityBreakdownSchema = {
     },
     type: 'object',
     title: 'QualityBreakdown'
+} as const;
+
+export const QualityRubricCreateSchema = {
+    properties: {
+        version: {
+            type: 'string',
+            title: 'Version'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            type: 'string',
+            title: 'Description',
+            default: ''
+        },
+        dimensions: {
+            items: {
+                '$ref': '#/components/schemas/RubricDimension'
+            },
+            type: 'array',
+            title: 'Dimensions'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['version', 'name', 'dimensions'],
+    title: 'QualityRubricCreate'
 } as const;
 
 export const QualityRubricPublicSchema = {
@@ -2624,6 +2860,71 @@ export const QualityRubricPublicSchema = {
     title: 'QualityRubricPublic'
 } as const;
 
+export const QualityRubricUpdateSchema = {
+    properties: {
+        version: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Version'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        dimensions: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/RubricDimension'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Dimensions'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'QualityRubricUpdate'
+} as const;
+
 export const QualityRubricsPublicSchema = {
     properties: {
         data: {
@@ -2640,8 +2941,7 @@ export const QualityRubricsPublicSchema = {
     },
     type: 'object',
     required: ['data', 'count'],
-    title: 'QualityRubricsPublic',
-    description: '列表响应 - 现在只返回一个默认评分标准'
+    title: 'QualityRubricsPublic'
 } as const;
 
 export const QualityScoreBucketSchema = {
@@ -2852,7 +3152,7 @@ export const RubricDimensionSchema = {
         name: {
             type: 'string',
             title: 'Name',
-            description: '维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)'
+            description: '维度名称 (content_depth, readability, originality, virality_potential)'
         },
         description: {
             type: 'string',
@@ -3499,10 +3799,13 @@ export const SystemConfigPublicSchema = {
         },
         word_cloud_filter: {
             '$ref': '#/components/schemas/WordCloudFilterConfig'
+        },
+        wechat_mp: {
+            '$ref': '#/components/schemas/WechatMPConfigPublic'
         }
     },
     type: 'object',
-    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator', 'word_cloud_filter'],
+    required: ['llm_providers', 'scheduler', 'analysis', 'writing', 'search', 'orchestrator', 'word_cloud_filter', 'wechat_mp'],
     title: 'SystemConfigPublic'
 } as const;
 
@@ -3595,6 +3898,16 @@ export const SystemConfigUpdateSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/WordCloudFilterConfig'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        wechat_mp: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/WechatMPConfig'
                 },
                 {
                     type: 'null'
@@ -4282,6 +4595,63 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const WechatMPConfigSchema = {
+    properties: {
+        app_id: {
+            type: 'string',
+            title: 'App Id',
+            default: ''
+        },
+        app_secret_encrypted: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'App Secret Encrypted'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'WechatMPConfig',
+    description: '微信公众号配置'
+} as const;
+
+export const WechatMPConfigPublicSchema = {
+    properties: {
+        app_id: {
+            type: 'string',
+            title: 'App Id'
+        },
+        app_secret_masked: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'App Secret Masked'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled'
+        }
+    },
+    type: 'object',
+    required: ['app_id', 'enabled'],
+    title: 'WechatMPConfigPublic',
+    description: '微信公众号公开配置（app_secret 脱敏）'
 } as const;
 
 export const WordCloudFilterConfigSchema = {

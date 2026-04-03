@@ -407,6 +407,14 @@ export type DistributionItem = {
     value: number;
 };
 
+/**
+ * Response schema for draft preview.
+ */
+export type DraftPreviewResponse = {
+    title: string;
+    html_content: string;
+};
+
 export type DraftPublic = {
     id: string;
     source_article_ids: Array<(string)>;
@@ -656,12 +664,69 @@ export type PrivateUserCreate = {
     is_verified?: boolean;
 };
 
+export type PublishHistoriesPublic = {
+    data: Array<PublishHistoryPublic>;
+    count: number;
+};
+
+export type PublishHistoryPublic = {
+    id: string;
+    draft_id: string;
+    title: string;
+    target_platform: "wechat_mp";
+    target_name: string;
+    status: 'pending' | 'success' | 'failed';
+    publish_id: (string | null);
+    published_url: (string | null);
+    error_message: (string | null);
+    created_at: string;
+    updated_at: string;
+};
+
+export type status = 'pending' | 'success' | 'failed';
+
+/**
+ * Request schema for publishing a draft.
+ */
+export type PublishRequest = {
+    confirmed?: boolean;
+};
+
+/**
+ * Response schema for publish operation.
+ */
+export type PublishResponse = {
+    success: boolean;
+    publish_id?: (string | null);
+    article_url?: (string | null);
+    message: string;
+};
+
+/**
+ * Response schema for publish status check.
+ */
+export type PublishStatusResponse = {
+    status: string;
+    article_url?: (string | null);
+    raw_data?: ({
+    [key: string]: unknown;
+} | null);
+};
+
 export type QualityBreakdown = {
     content_depth?: number;
     readability?: number;
     originality?: number;
     ai_flavor?: number;
     virality_potential?: number;
+};
+
+export type QualityRubricCreate = {
+    version: string;
+    name: string;
+    description?: string;
+    dimensions: Array<RubricDimension>;
+    is_active?: boolean;
 };
 
 export type QualityRubricPublic = {
@@ -675,12 +740,17 @@ export type QualityRubricPublic = {
     updated_at: string;
 };
 
-/**
- * 列表响应 - 现在只返回一个默认评分标准
- */
 export type QualityRubricsPublic = {
     data: Array<QualityRubricPublic>;
     count: number;
+};
+
+export type QualityRubricUpdate = {
+    version?: (string | null);
+    name?: (string | null);
+    description?: (string | null);
+    dimensions?: (Array<RubricDimension> | null);
+    is_active?: (boolean | null);
 };
 
 /**
@@ -788,7 +858,7 @@ export type RubricCriterion = {
  */
 export type RubricDimension = {
     /**
-     * 维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)
+     * 维度名称 (content_depth, readability, originality, virality_potential)
      */
     name: string;
     /**
@@ -953,6 +1023,7 @@ export type SystemConfigPublic = {
     search: SearchConfig;
     orchestrator: OrchestratorConfig;
     word_cloud_filter: WordCloudFilterConfig;
+    wechat_mp: WechatMPConfigPublic;
 };
 
 export type SystemConfigUpdate = {
@@ -965,6 +1036,7 @@ export type SystemConfigUpdate = {
     search?: (SearchConfig | null);
     orchestrator?: (OrchestratorConfig | null);
     word_cloud_filter?: (WordCloudFilterConfig | null);
+    wechat_mp?: (WechatMPConfig | null);
 };
 
 export type TaskRunPublic = {
@@ -988,7 +1060,7 @@ export type task_type = 'analyze' | 'fetch' | 'refine' | 'workflow' | 'insight_s
 
 export type triggered_by = 'manual' | 'scheduler' | 'agent';
 
-export type status = 'pending' | 'running' | 'done' | 'failed';
+export type status2 = 'pending' | 'running' | 'done' | 'failed';
 
 export type TaskRunsPublic = {
     data: Array<TaskRunPublic>;
@@ -1110,6 +1182,24 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * 微信公众号配置
+ */
+export type WechatMPConfig = {
+    app_id?: string;
+    app_secret_encrypted?: (string | null);
+    enabled?: boolean;
+};
+
+/**
+ * 微信公众号公开配置（app_secret 脱敏）
+ */
+export type WechatMPConfigPublic = {
+    app_id: string;
+    app_secret_masked?: (string | null);
+    enabled: boolean;
 };
 
 /**
@@ -1375,6 +1465,19 @@ export type DraftsRewriteSectionData = {
 
 export type DraftsRewriteSectionResponse = (RewriteSectionResponse);
 
+export type DraftsPreviewDraftData = {
+    id: string;
+};
+
+export type DraftsPreviewDraftResponse = (DraftPreviewResponse);
+
+export type DraftsPublishDraftData = {
+    id: string;
+    requestBody: PublishRequest;
+};
+
+export type DraftsPublishDraftResponse = (PublishResponse);
+
 export type ExternalReferencesListExternalReferencesData = {
     limit?: number;
     search?: string;
@@ -1485,7 +1588,32 @@ export type PrivateCreateUserData = {
 
 export type PrivateCreateUserResponse = (UserRead);
 
+export type PublishHistoryListPublishHistoryData = {
+    limit?: number;
+    skip?: number;
+    status?: (string | null);
+};
+
+export type PublishHistoryListPublishHistoryResponse = (PublishHistoriesPublic);
+
+export type PublishHistoryCheckPublishStatusData = {
+    id: string;
+};
+
+export type PublishHistoryCheckPublishStatusResponse = (PublishStatusResponse);
+
+export type RubricsListRubricsData = {
+    limit?: number;
+    skip?: number;
+};
+
 export type RubricsListRubricsResponse = (QualityRubricsPublic);
+
+export type RubricsCreateRubricData = {
+    requestBody: QualityRubricCreate;
+};
+
+export type RubricsCreateRubricResponse = (QualityRubricPublic);
 
 export type RubricsGetActiveRubricResponse = (QualityRubricPublic);
 
@@ -1494,6 +1622,25 @@ export type RubricsGetRubricData = {
 };
 
 export type RubricsGetRubricResponse = (QualityRubricPublic);
+
+export type RubricsUpdateRubricData = {
+    requestBody: QualityRubricUpdate;
+    rubricId: string;
+};
+
+export type RubricsUpdateRubricResponse = (QualityRubricPublic);
+
+export type RubricsDeleteRubricData = {
+    rubricId: string;
+};
+
+export type RubricsDeleteRubricResponse = (Message);
+
+export type RubricsActivateRubricData = {
+    rubricId: string;
+};
+
+export type RubricsActivateRubricResponse = (QualityRubricPublic);
 
 export type SkillsListSkillsData = {
     limit?: number;

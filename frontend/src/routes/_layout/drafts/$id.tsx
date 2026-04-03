@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
@@ -17,7 +18,13 @@ import {
 import { marked } from "marked"
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 
-import { DraftsService, type EditHistoryEntry } from "@/client"
+import {
+  DraftsService,
+  type EditHistoryEntry,
+  SystemConfigService,
+} from "@/client"
+import { PublishConfirmDialog } from "@/components/DraftEditor/PublishConfirmDialog"
+import { WeChatPreviewModal } from "@/components/DraftEditor/WeChatPreviewModal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -97,6 +104,11 @@ function DraftEditorContent() {
     queryFn: () => DraftsService.getDraft({ id }),
   })
 
+  const { data: systemConfig } = useQuery({
+    queryKey: ["system-config"],
+    queryFn: () => SystemConfigService.getSystemConfig(),
+  })
+
   const [title, setTitle] = useState(draft.title)
   const [content, setContent] = useState(draft.content)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -108,6 +120,13 @@ function DraftEditorContent() {
   } | null>(null)
   const [pendingSelection, setPendingSelection] = useState("")
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewData, setPreviewData] = useState<{
+    title: string
+    html_content: string
+  } | null>(null)
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
@@ -269,6 +288,42 @@ img{max-width:100%}
     showSuccessToast("已恢复历史版本")
   }
 
+  const handlePreview = async () => {
+    if (!draft) return
+    try {
+      const response = await DraftsService.previewDraft({ id })
+      setPreviewData(response)
+      setPreviewOpen(true)
+    } catch (_error) {
+      showErrorToast("预览生成失败")
+    }
+  }
+
+  const handlePublishClick = () => {
+    if (!systemConfig?.wechat_mp?.enabled) {
+      showErrorToast("请先配置微信公众号")
+      return
+    }
+    setPublishOpen(true)
+  }
+
+  const handlePublish = async () => {
+    if (!draft) return
+    setIsPublishing(true)
+    try {
+      const response = await DraftsService.publishDraft({
+        id,
+        requestBody: { confirmed: true },
+      })
+      showSuccessToast(response.message || "发布成功")
+      setPublishOpen(false)
+    } catch (error: any) {
+      showErrorToast(error.body?.detail || "发布失败")
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)]">
       {/* Header */}
@@ -321,6 +376,22 @@ img{max-width:100%}
             标记为已发布
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePreview}
+          disabled={!draft?.content}
+        >
+          预览
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handlePublishClick}
+          disabled={!draft?.content || draft?.status !== "approved"}
+        >
+          发布到公众号
+        </Button>
         {draft.edit_history.length > 0 && (
           <Button
             size="sm"
@@ -443,6 +514,26 @@ img{max-width:100%}
           </button>
         </div>
       )}
+
+      {/* WeChat Preview Modal */}
+      {previewData && (
+        <WeChatPreviewModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          title={previewData.title}
+          htmlContent={previewData.html_content}
+        />
+      )}
+
+      {/* Publish Confirm Dialog */}
+      <PublishConfirmDialog
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        onConfirm={handlePublish}
+        title={draft?.title || ""}
+        targetName={systemConfig?.wechat_mp?.app_id || "微信公众号"}
+        isLoading={isPublishing}
+      />
     </div>
   )
 }

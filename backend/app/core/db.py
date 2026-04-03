@@ -11,6 +11,7 @@ from app.models import (
     InsightSnapshot,
     Item,
     LLMModelConfig,
+    PublishHistory,
     Skill,
     Source,
     SystemConfig,
@@ -51,6 +52,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             TokenUsage,
             TokenUsageDaily,
             InsightSnapshot,
+            PublishHistory,
         ],
     )
 
