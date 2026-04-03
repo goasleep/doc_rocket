@@ -19,7 +19,7 @@ class TaskRun(Document):
         ]
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    task_type: Literal["analyze", "fetch", "refine", "workflow"]
+    task_type: Literal["analyze", "fetch", "refine", "workflow", "insight_snapshot"]
     celery_task_id: str | None = None
 
     # Trigger source
@@ -48,7 +48,7 @@ class TaskRunPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    task_type: Literal["analyze", "fetch", "refine", "workflow"]
+    task_type: Literal["analyze", "fetch", "refine", "workflow", "insight_snapshot"]
     celery_task_id: str | None
     triggered_by: Literal["manual", "scheduler", "agent"]
     triggered_by_label: str | None

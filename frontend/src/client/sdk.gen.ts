@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesAnalyzeContentData, AnalysesAnalyzeContentResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, AnalysesGetAnalysisTraceData, AnalysesGetAnalysisTraceResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, ArticlesUpdateArticleTitleData, ArticlesUpdateArticleTitleResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, ExternalReferencesListExternalReferencesData, ExternalReferencesListExternalReferencesResponse, ExternalReferencesCreateExternalReferenceData, ExternalReferencesCreateExternalReferenceResponse, ExternalReferencesGetExternalReferenceData, ExternalReferencesGetExternalReferenceResponse, ExternalReferencesUpdateExternalReferenceData, ExternalReferencesUpdateExternalReferenceResponse, ExternalReferencesDeleteExternalReferenceData, ExternalReferencesDeleteExternalReferenceResponse, ExternalReferencesRefetchExternalReferenceData, ExternalReferencesRefetchExternalReferenceResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, RubricsListRubricsData, RubricsListRubricsResponse, RubricsCreateRubricData, RubricsCreateRubricResponse, RubricsGetActiveRubricResponse, RubricsGetRubricData, RubricsGetRubricResponse, RubricsUpdateRubricData, RubricsUpdateRubricResponse, RubricsDeleteRubricData, RubricsDeleteRubricResponse, RubricsActivateRubricData, RubricsActivateRubricResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, TokenUsageGetTodayStatsResponse, TokenUsageGetYesterdayStatsResponse, TokenUsageGetTrendDataData, TokenUsageGetTrendDataResponse, TokenUsageGetAgentStatsData, TokenUsageGetAgentStatsResponse, TokenUsageGetSingleAgentStatsData, TokenUsageGetSingleAgentStatsResponse, TokenUsageGetArticleTokenUsageData, TokenUsageGetArticleTokenUsageResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse, WorkflowsRetryWorkflowData, WorkflowsRetryWorkflowResponse } from './types.gen';
+import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesAnalyzeContentData, AnalysesAnalyzeContentResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, AnalysesGetAnalysisTraceData, AnalysesGetAnalysisTraceResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, ArticlesUpdateArticleTitleData, ArticlesUpdateArticleTitleResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, ExternalReferencesListExternalReferencesData, ExternalReferencesListExternalReferencesResponse, ExternalReferencesCreateExternalReferenceData, ExternalReferencesCreateExternalReferenceResponse, ExternalReferencesGetExternalReferenceData, ExternalReferencesGetExternalReferenceResponse, ExternalReferencesUpdateExternalReferenceData, ExternalReferencesUpdateExternalReferenceResponse, ExternalReferencesDeleteExternalReferenceData, ExternalReferencesDeleteExternalReferenceResponse, ExternalReferencesRefetchExternalReferenceData, ExternalReferencesRefetchExternalReferenceResponse, InsightsGetLatestSnapshotResponse, InsightsListSnapshotsData, InsightsListSnapshotsResponse, InsightsRefreshSnapshotResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, RubricsListRubricsData, RubricsListRubricsResponse, RubricsCreateRubricData, RubricsCreateRubricResponse, RubricsGetActiveRubricResponse, RubricsGetRubricData, RubricsGetRubricResponse, RubricsUpdateRubricData, RubricsUpdateRubricResponse, RubricsDeleteRubricData, RubricsDeleteRubricResponse, RubricsActivateRubricData, RubricsActivateRubricResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, TokenUsageGetTodayStatsResponse, TokenUsageGetYesterdayStatsResponse, TokenUsageGetTrendDataData, TokenUsageGetTrendDataResponse, TokenUsageGetAgentStatsData, TokenUsageGetAgentStatsResponse, TokenUsageGetSingleAgentStatsData, TokenUsageGetSingleAgentStatsResponse, TokenUsageGetArticleTokenUsageData, TokenUsageGetArticleTokenUsageResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse, WorkflowsRetryWorkflowData, WorkflowsRetryWorkflowResponse } from './types.gen';
 
 export class AgentsService {
     /**
@@ -765,6 +765,59 @@ export class ExternalReferencesService {
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+}
+
+export class InsightsService {
+    /**
+     * Get Latest Snapshot
+     * Get the most recent insight snapshot.
+     * @returns InsightSnapshotPublic Successful Response
+     * @throws ApiError
+     */
+    public static getLatestSnapshot(): CancelablePromise<InsightsGetLatestSnapshotResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/insights/snapshot/latest'
+        });
+    }
+    
+    /**
+     * List Snapshots
+     * List snapshot history with metadata only.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns InsightSnapshotsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listSnapshots(data: InsightsListSnapshotsData = {}): CancelablePromise<InsightsListSnapshotsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/insights/snapshot',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Refresh Snapshot
+     * Trigger manual snapshot generation.
+     *
+     * Returns 429 Too Many Requests if a snapshot task is already running.
+     * @returns RefreshSnapshotResponse Successful Response
+     * @throws ApiError
+     */
+    public static refreshSnapshot(): CancelablePromise<InsightsRefreshSnapshotResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/insights/snapshot/refresh'
         });
     }
 }

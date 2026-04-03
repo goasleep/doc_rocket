@@ -15,6 +15,7 @@ celery_app = Celery(
         "app.tasks.workflow",
         "app.tasks.rewrite",
         "app.tasks.background",
+        "app.tasks.insight_snapshot",
     ],
 )
 

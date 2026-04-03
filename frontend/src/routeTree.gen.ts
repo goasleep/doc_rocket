@@ -25,6 +25,7 @@ import { Route as LayoutRubricsRouteImport } from './routes/_layout/rubrics'
 import { Route as LayoutPromptsRouteImport } from './routes/_layout/prompts'
 import { Route as LayoutLlmModelsRouteImport } from './routes/_layout/llm-models'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutInsightsRouteImport } from './routes/_layout/insights'
 import { Route as LayoutAgentsRouteImport } from './routes/_layout/agents'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutExternalReferencesIndexRouteImport } from './routes/_layout/external-references/index'
@@ -113,6 +114,11 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutInsightsRoute = LayoutInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAgentsRoute = LayoutAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
+  '/insights': typeof LayoutInsightsRoute
   '/items': typeof LayoutItemsRoute
   '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/agents': typeof LayoutAgentsRoute
+  '/insights': typeof LayoutInsightsRoute
   '/items': typeof LayoutItemsRoute
   '/llm-models': typeof LayoutLlmModelsRoute
   '/prompts': typeof LayoutPromptsRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/agents': typeof LayoutAgentsRoute
+  '/_layout/insights': typeof LayoutInsightsRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/llm-models': typeof LayoutLlmModelsRoute
   '/_layout/prompts': typeof LayoutPromptsRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/agents'
+    | '/insights'
     | '/items'
     | '/llm-models'
     | '/prompts'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/agents'
+    | '/insights'
     | '/items'
     | '/llm-models'
     | '/prompts'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/agents'
+    | '/_layout/insights'
     | '/_layout/items'
     | '/_layout/llm-models'
     | '/_layout/prompts'
@@ -434,6 +446,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/insights': {
+      id: '/_layout/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof LayoutInsightsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/agents': {
       id: '/_layout/agents'
       path: '/agents'
@@ -496,6 +515,7 @@ declare module '@tanstack/react-router' {
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutAgentsRoute: typeof LayoutAgentsRoute
+  LayoutInsightsRoute: typeof LayoutInsightsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutLlmModelsRoute: typeof LayoutLlmModelsRoute
   LayoutPromptsRoute: typeof LayoutPromptsRoute
@@ -518,6 +538,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutAgentsRoute: LayoutAgentsRoute,
+  LayoutInsightsRoute: LayoutInsightsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutLlmModelsRoute: LayoutLlmModelsRoute,
   LayoutPromptsRoute: LayoutPromptsRoute,

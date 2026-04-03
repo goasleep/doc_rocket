@@ -148,6 +148,18 @@ from app.models.token_usage import (
     TokenUsageDailyPublic,
     TokenUsagePublic,
 )
+from app.models.insight_snapshot import (
+    DistributionItem,
+    InsightSnapshot,
+    InsightSnapshotMeta,
+    InsightSnapshotOverview,
+    InsightSnapshotPublic,
+    InsightSnapshotsPublic,
+    QualityScoreBucket,
+    RefreshSnapshotResponse,
+    SuggestionDimensionItem,
+    WordCloudItem,
+)
 
 # Generic
 from pydantic import BaseModel
@@ -210,6 +222,11 @@ __all__ = [
     "TokenUsage", "TokenUsageCreate", "TokenUsagePublic",
     "TokenUsageDaily", "TokenUsageDailyPublic",
     "AgentTokenStats", "ArticleTokenUsage", "ArticleTokenUsageSummary",
+    # Insight Snapshot
+    "InsightSnapshot", "InsightSnapshotPublic", "InsightSnapshotsPublic",
+    "InsightSnapshotMeta", "InsightSnapshotOverview",
+    "WordCloudItem", "DistributionItem", "SuggestionDimensionItem",
+    "QualityScoreBucket", "RefreshSnapshotResponse",
     # Generic
     "Message",
 ]

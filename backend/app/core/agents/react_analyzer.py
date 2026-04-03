@@ -748,4 +748,6 @@ class ReactAnalyzerAgent(BaseAgent):
                 "avg_sentence_length": style_data.get("avg_sentence_length", 0) if isinstance(style_data, dict) else 0,
             },
             "target_audience": understanding.get("target_audience", ""),
+            "topic": understanding.get("topic", ""),
+            "article_type": understanding.get("article_type", ""),
         }

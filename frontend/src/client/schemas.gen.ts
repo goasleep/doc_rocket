@@ -936,6 +936,14 @@ export const ArticleAnalysisPublicSchema = {
             type: 'string',
             title: 'Target Audience'
         },
+        topic: {
+            type: 'string',
+            title: 'Topic'
+        },
+        article_type: {
+            type: 'string',
+            title: 'Article Type'
+        },
         trace: {
             items: {
                 '$ref': '#/components/schemas/AnalysisTraceStep'
@@ -950,7 +958,7 @@ export const ArticleAnalysisPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'article_id', 'quality_score', 'quality_breakdown', 'quality_score_details', 'comparison_references', 'analysis_summary', 'improvement_suggestions', 'rubric_version', 'analysis_duration_ms', 'hook_type', 'framework', 'emotional_triggers', 'key_phrases', 'keywords', 'structure', 'style', 'target_audience', 'trace', 'created_at'],
+    required: ['id', 'article_id', 'quality_score', 'quality_breakdown', 'quality_score_details', 'comparison_references', 'analysis_summary', 'improvement_suggestions', 'rubric_version', 'analysis_duration_ms', 'hook_type', 'framework', 'emotional_triggers', 'key_phrases', 'keywords', 'structure', 'style', 'target_audience', 'topic', 'article_type', 'trace', 'created_at'],
     title: 'ArticleAnalysisPublic'
 } as const;
 
@@ -1496,6 +1504,23 @@ export const ComparisonReferenceEmbeddedSchema = {
     description: '嵌入的对比参考'
 } as const;
 
+export const DistributionItemSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        value: {
+            type: 'integer',
+            title: 'Value'
+        }
+    },
+    type: 'object',
+    required: ['name', 'value'],
+    title: 'DistributionItem',
+    description: '分布图数据项'
+} as const;
+
 export const DraftPublicSchema = {
     properties: {
         id: {
@@ -1930,6 +1955,159 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const InsightSnapshotMetaSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        scope: {
+            type: 'string',
+            const: 'global',
+            title: 'Scope'
+        },
+        article_count: {
+            type: 'integer',
+            title: 'Article Count'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'scope', 'article_count', 'created_at'],
+    title: 'InsightSnapshotMeta',
+    description: '快照元信息（用于历史列表）'
+} as const;
+
+export const InsightSnapshotOverviewSchema = {
+    properties: {
+        total_articles: {
+            type: 'integer',
+            title: 'Total Articles'
+        },
+        analyzed_count: {
+            type: 'integer',
+            title: 'Analyzed Count'
+        },
+        avg_quality_score: {
+            type: 'number',
+            title: 'Avg Quality Score'
+        },
+        coverage_rate: {
+            type: 'number',
+            title: 'Coverage Rate'
+        }
+    },
+    type: 'object',
+    required: ['total_articles', 'analyzed_count', 'avg_quality_score', 'coverage_rate'],
+    title: 'InsightSnapshotOverview',
+    description: '概览指标'
+} as const;
+
+export const InsightSnapshotPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        scope: {
+            type: 'string',
+            const: 'global',
+            title: 'Scope'
+        },
+        overview: {
+            '$ref': '#/components/schemas/InsightSnapshotOverview'
+        },
+        keyword_cloud: {
+            items: {
+                '$ref': '#/components/schemas/WordCloudItem'
+            },
+            type: 'array',
+            title: 'Keyword Cloud'
+        },
+        emotional_trigger_cloud: {
+            items: {
+                '$ref': '#/components/schemas/WordCloudItem'
+            },
+            type: 'array',
+            title: 'Emotional Trigger Cloud'
+        },
+        framework_distribution: {
+            items: {
+                '$ref': '#/components/schemas/DistributionItem'
+            },
+            type: 'array',
+            title: 'Framework Distribution'
+        },
+        hook_type_distribution: {
+            items: {
+                '$ref': '#/components/schemas/DistributionItem'
+            },
+            type: 'array',
+            title: 'Hook Type Distribution'
+        },
+        topic_distribution: {
+            items: {
+                '$ref': '#/components/schemas/DistributionItem'
+            },
+            type: 'array',
+            title: 'Topic Distribution'
+        },
+        suggestion_aggregation: {
+            items: {
+                '$ref': '#/components/schemas/SuggestionDimensionItem'
+            },
+            type: 'array',
+            title: 'Suggestion Aggregation'
+        },
+        quality_score_distribution: {
+            items: {
+                '$ref': '#/components/schemas/QualityScoreBucket'
+            },
+            type: 'array',
+            title: 'Quality Score Distribution'
+        },
+        article_count: {
+            type: 'integer',
+            title: 'Article Count'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'scope', 'overview', 'keyword_cloud', 'emotional_trigger_cloud', 'framework_distribution', 'hook_type_distribution', 'topic_distribution', 'suggestion_aggregation', 'quality_score_distribution', 'article_count', 'created_at'],
+    title: 'InsightSnapshotPublic',
+    description: '快照公开模型'
+} as const;
+
+export const InsightSnapshotsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/InsightSnapshotMeta'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'InsightSnapshotsPublic',
+    description: '快照列表响应'
 } as const;
 
 export const ItemCreateSchema = {
@@ -2551,6 +2729,23 @@ export const QualityRubricsPublicSchema = {
     title: 'QualityRubricsPublic'
 } as const;
 
+export const QualityScoreBucketSchema = {
+    properties: {
+        range: {
+            type: 'string',
+            title: 'Range'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['range', 'count'],
+    title: 'QualityScoreBucket',
+    description: '质量分数分布桶'
+} as const;
+
 export const QualityScoreDetailSchema = {
     properties: {
         dimension: {
@@ -2636,6 +2831,24 @@ export const ReactConfigSchema = {
     type: 'object',
     title: 'ReactConfig',
     description: 'React Agent 配置'
+} as const;
+
+export const RefreshSnapshotResponseSchema = {
+    properties: {
+        task_run_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Task Run Id'
+        },
+        message: {
+            type: 'string',
+            title: 'Message'
+        }
+    },
+    type: 'object',
+    required: ['task_run_id', 'message'],
+    title: 'RefreshSnapshotResponse',
+    description: '手动刷新响应'
 } as const;
 
 export const RewriteSectionRequestSchema = {
@@ -3329,6 +3542,26 @@ export const SubmitTextSchema = {
     title: 'SubmitText'
 } as const;
 
+export const SuggestionDimensionItemSchema = {
+    properties: {
+        dimension: {
+            type: 'string',
+            title: 'Dimension'
+        },
+        keywords: {
+            items: {
+                '$ref': '#/components/schemas/WordCloudItem'
+            },
+            type: 'array',
+            title: 'Keywords'
+        }
+    },
+    type: 'object',
+    required: ['dimension', 'keywords'],
+    title: 'SuggestionDimensionItem',
+    description: '改进建议按维度分组的数据'
+} as const;
+
 export const SystemConfigPublicSchema = {
     properties: {
         llm_providers: {
@@ -3454,7 +3687,7 @@ export const TaskRunPublicSchema = {
         },
         task_type: {
             type: 'string',
-            enum: ['analyze', 'fetch', 'refine', 'workflow'],
+            enum: ['analyze', 'fetch', 'refine', 'workflow', 'insight_snapshot'],
             title: 'Task Type'
         },
         celery_task_id: {
@@ -4123,6 +4356,27 @@ export const ValidationErrorSchema = {
     title: 'ValidationError'
 } as const;
 
+export const WordCloudItemSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        value: {
+            type: 'integer',
+            title: 'Value'
+        },
+        avg_score: {
+            type: 'number',
+            title: 'Avg Score'
+        }
+    },
+    type: 'object',
+    required: ['name', 'value', 'avg_score'],
+    title: 'WordCloudItem',
+    description: '词云数据项'
+} as const;
+
 export const WorkflowApproveSchema = {
     properties: {
         selected_title: {
@@ -4224,7 +4478,7 @@ export const WorkflowRunCreateSchema = {
         use_orchestrator: {
             type: 'boolean',
             title: 'Use Orchestrator',
-            default: false
+            default: true
         }
     },
     type: 'object',

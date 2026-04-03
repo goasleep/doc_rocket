@@ -116,6 +116,8 @@ class ArticleAnalysis(Document):
     structure: ArticleStructure = Field(default_factory=ArticleStructure)
     style: ArticleStyle = Field(default_factory=ArticleStyle)
     target_audience: str = ""
+    topic: str = ""  # 文章主题
+    article_type: str = ""  # 文章类型 (news/opinion/tutorial/story/review/other)
     trace: list[AnalysisTraceStep] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
@@ -145,6 +147,8 @@ class ArticleAnalysisPublic(BaseModel):
     structure: ArticleStructure
     style: ArticleStyle
     target_audience: str
+    topic: str
+    article_type: str
     trace: list[AnalysisTraceStep]
     created_at: datetime
 

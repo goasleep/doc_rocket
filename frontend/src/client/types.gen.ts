@@ -249,6 +249,8 @@ export type ArticleAnalysisPublic = {
     structure: ArticleStructure;
     style: ArticleStyle;
     target_audience: string;
+    topic: string;
+    article_type: string;
     trace: Array<AnalysisTraceStep>;
     created_at: string;
 };
@@ -397,6 +399,14 @@ export type ComparisonReferenceEmbedded = {
     advantages?: Array<(string)>;
 };
 
+/**
+ * 分布图数据项
+ */
+export type DistributionItem = {
+    name: string;
+    value: number;
+};
+
 export type DraftPublic = {
     id: string;
     source_article_ids: Array<(string)>;
@@ -498,6 +508,52 @@ export type FetchConfig = {
 
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
+};
+
+/**
+ * 快照元信息（用于历史列表）
+ */
+export type InsightSnapshotMeta = {
+    id: string;
+    scope: "global";
+    article_count: number;
+    created_at: string;
+};
+
+/**
+ * 概览指标
+ */
+export type InsightSnapshotOverview = {
+    total_articles: number;
+    analyzed_count: number;
+    avg_quality_score: number;
+    coverage_rate: number;
+};
+
+/**
+ * 快照公开模型
+ */
+export type InsightSnapshotPublic = {
+    id: string;
+    scope: "global";
+    overview: InsightSnapshotOverview;
+    keyword_cloud: Array<WordCloudItem>;
+    emotional_trigger_cloud: Array<WordCloudItem>;
+    framework_distribution: Array<DistributionItem>;
+    hook_type_distribution: Array<DistributionItem>;
+    topic_distribution: Array<DistributionItem>;
+    suggestion_aggregation: Array<SuggestionDimensionItem>;
+    quality_score_distribution: Array<QualityScoreBucket>;
+    article_count: number;
+    created_at: string;
+};
+
+/**
+ * 快照列表响应
+ */
+export type InsightSnapshotsPublic = {
+    data: Array<InsightSnapshotMeta>;
+    count: number;
 };
 
 export type ItemCreate = {
@@ -639,6 +695,14 @@ export type QualityRubricUpdate = {
 };
 
 /**
+ * 质量分数分布桶
+ */
+export type QualityScoreBucket = {
+    range: string;
+    count: number;
+};
+
+/**
  * 维度评分详情
  */
 export type QualityScoreDetail = {
@@ -692,6 +756,14 @@ export type ReactConfig = {
      * 是否并行执行维度分析
      */
     parallel_analysis?: boolean;
+};
+
+/**
+ * 手动刷新响应
+ */
+export type RefreshSnapshotResponse = {
+    task_run_id: string;
+    message: string;
 };
 
 export type RewriteSectionRequest = {
@@ -876,6 +948,14 @@ export type SubmitText = {
     url?: string;
 };
 
+/**
+ * 改进建议按维度分组的数据
+ */
+export type SuggestionDimensionItem = {
+    dimension: string;
+    keywords: Array<WordCloudItem>;
+};
+
 export type SystemConfigPublic = {
     llm_providers: LLMProvidersPublic;
     scheduler: SchedulerConfig;
@@ -898,7 +978,7 @@ export type SystemConfigUpdate = {
 
 export type TaskRunPublic = {
     id: string;
-    task_type: 'analyze' | 'fetch' | 'refine' | 'workflow';
+    task_type: 'analyze' | 'fetch' | 'refine' | 'workflow' | 'insight_snapshot';
     celery_task_id: (string | null);
     triggered_by: 'manual' | 'scheduler' | 'agent';
     triggered_by_label: (string | null);
@@ -913,7 +993,7 @@ export type TaskRunPublic = {
     ended_at: (string | null);
 };
 
-export type task_type = 'analyze' | 'fetch' | 'refine' | 'workflow';
+export type task_type = 'analyze' | 'fetch' | 'refine' | 'workflow' | 'insight_snapshot';
 
 export type triggered_by = 'manual' | 'scheduler' | 'agent';
 
@@ -1039,6 +1119,15 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * 词云数据项
+ */
+export type WordCloudItem = {
+    name: string;
+    value: number;
+    avg_score: number;
 };
 
 export type WorkflowApprove = {
@@ -1316,6 +1405,17 @@ export type ExternalReferencesRefetchExternalReferenceData = {
 };
 
 export type ExternalReferencesRefetchExternalReferenceResponse = (ExternalReferencePublic);
+
+export type InsightsGetLatestSnapshotResponse = (InsightSnapshotPublic);
+
+export type InsightsListSnapshotsData = {
+    limit?: number;
+    skip?: number;
+};
+
+export type InsightsListSnapshotsResponse = (InsightSnapshotsPublic);
+
+export type InsightsRefreshSnapshotResponse = (RefreshSnapshotResponse);
 
 export type ItemsReadItemsData = {
     limit?: number;

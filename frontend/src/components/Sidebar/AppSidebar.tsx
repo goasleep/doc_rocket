@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Bot,
   FileText,
@@ -34,6 +35,7 @@ const contentItems: Item[] = [
   { icon: UploadCloud, title: "手动投稿", path: "/submit" },
   { icon: BookOpen, title: "文章库", path: "/articles" },
   { icon: Globe, title: "外部参考", path: "/external-references" },
+  { icon: BarChart3, title: "知识洞察", path: "/insights" },
   { icon: KeyRound, title: "模型配置", path: "/llm-models" },
   { icon: Bot, title: "Agent 配置", path: "/agents" },
   { icon: Zap, title: "技能库", path: "/skills" },

@@ -9,6 +9,7 @@ from app.models import (
     DEFAULT_RUBRIC_V1,
     Draft,
     ExternalReference,
+    InsightSnapshot,
     Item,
     LLMModelConfig,
     QualityRubric,
@@ -51,6 +52,7 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
             TaskNode,
             TokenUsage,
             TokenUsageDaily,
+            InsightSnapshot,
         ],
     )
 
@@ -145,4 +147,37 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
         )
         await default_rubric.insert()
 
+    # Register redbeat schedule for insight snapshot (daily at 2 AM)
+    _register_insight_snapshot_schedule()
+
     return client
+
+
+def _register_insight_snapshot_schedule() -> None:
+    """Register the daily insight snapshot schedule with redbeat."""
+    try:
+        from redbeat import RedBeatSchedulerEntry
+        from celery.schedules import crontab
+        from app.celery_app import celery_app
+
+        entry_name = "insight_snapshot_global"
+
+        # Check if entry already exists
+        try:
+            key = RedBeatSchedulerEntry.create_key(entry_name, celery_app)
+            existing = RedBeatSchedulerEntry.from_key(key, app=celery_app)
+            if existing:
+                return  # Already registered
+        except Exception:
+            pass  # Entry doesn't exist, create it
+
+        entry = RedBeatSchedulerEntry(
+            name=entry_name,
+            task="scheduled_insight_snapshot_task",
+            schedule=crontab(hour=2, minute=0),  # Daily at 2:00 AM
+            enabled=True,
+            app=celery_app,
+        )
+        entry.save()
+    except Exception:
+        pass  # Don't fail startup if redbeat isn't available

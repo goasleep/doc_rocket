@@ -7,6 +7,7 @@ from app.api.routes import (
     articles,
     drafts,
     external_references,
+    insights,
     llm_model_configs,
     rubrics,
     skills,
@@ -75,6 +76,7 @@ api_router.include_router(task_runs.router)
 api_router.include_router(rubrics.router)
 api_router.include_router(external_references.router)
 api_router.include_router(token_usage.router)
+api_router.include_router(insights.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
