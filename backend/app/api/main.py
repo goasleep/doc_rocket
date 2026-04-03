@@ -9,6 +9,7 @@ from app.api.routes import (
     external_references,
     insights,
     llm_model_configs,
+    publish_history,
     rubrics,
     skills,
     sources,
@@ -68,6 +69,7 @@ api_router.include_router(analyses.router)
 api_router.include_router(agents.router)
 api_router.include_router(workflows.router)
 api_router.include_router(drafts.router)
+api_router.include_router(publish_history.router)
 api_router.include_router(system_config.router)
 api_router.include_router(llm_model_configs.router)
 api_router.include_router(skills.router)
