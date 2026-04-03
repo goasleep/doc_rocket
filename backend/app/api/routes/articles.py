@@ -12,6 +12,10 @@ from app.models import Article, ArticleAnalysis, ArticleDetail, ArticlePublic, A
 class ArticleTitleUpdate(BaseModel):
     title: str
 
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[uuid.UUID]
+
 router = APIRouter(prefix="/articles", tags=["articles"])
 
 
@@ -148,3 +152,13 @@ async def archive_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
         created_at=article.created_at,
         quality_score=None,
     )
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_articles(current_user: CurrentUser, body: BulkDeleteRequest) -> dict[str, Any]:
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="ids cannot be empty")
+    from beanie.operators import In
+    await ArticleAnalysis.find(In(ArticleAnalysis.article_id, body.ids)).delete_many()
+    delete_result = await Article.find(In(Article.id, body.ids)).delete_many()
+    return {"deleted_count": delete_result.deleted_count}
