@@ -10,11 +10,11 @@ from app.core.tools.registry import dispatch_tool
 from app.models import (
     AnalysisTraceStep,
     ComparisonReferenceEmbedded,
-    QualityRubric,
     QualityScoreDetail,
     ScoreEvidence,
     ToolCallDetail,
 )
+from app.models.quality_rubric import QualityRubric, get_default_rubric
 
 # Max chars to send to LLM
 MAX_CONTENT_CHARS = 12000
@@ -85,9 +85,9 @@ class ReactAnalyzerAgent(BaseAgent):
 
         raise RuntimeError("No LLM model config found.")
 
-    async def _get_active_rubric(self) -> QualityRubric | None:
-        """Get the active quality rubric."""
-        return await QualityRubric.find_one(QualityRubric.is_active == True)  # noqa: E712
+    def _get_active_rubric(self) -> QualityRubric:
+        """Get the active quality rubric - now code-defined."""
+        return get_default_rubric()
 
     async def _call_llm(
         self,
@@ -434,27 +434,18 @@ class ReactAnalyzerAgent(BaseAgent):
         kb_articles: list[dict[str, Any]],
         external_refs: list[dict[str, Any]],
         understanding: dict[str, Any],
-        rubric: QualityRubric | None,
+        rubric: QualityRubric,
     ) -> list[dict[str, Any]]:
         """Step 4: Parallel multidimensional analysis."""
         t_start = datetime.now(timezone.utc)
 
-        if not rubric:
-            # Use default dimensions
-            dimensions = [
-                {"name": "content_depth", "description": "内容深度", "weight": 0.30, "criteria": []},
-                {"name": "readability", "description": "可读性", "weight": 0.25, "criteria": []},
-                {"name": "originality", "description": "原创性", "weight": 0.25, "criteria": []},
-                {"name": "virality_potential", "description": "传播潜力", "weight": 0.20, "criteria": []},
-            ]
-        else:
-            dimensions = [
-                {"name": d.name, "description": d.description, "weight": d.weight, "criteria": [
-                    {"min_score": c.min_score, "max_score": c.max_score, "description": c.description}
-                    for c in d.criteria
-                ]}
-                for d in rubric.dimensions
-            ]
+        dimensions = [
+            {"name": d.name, "description": d.description, "weight": d.weight, "criteria": [
+                {"min_score": c.min_score, "max_score": c.max_score, "description": c.description}
+                for c in d.criteria
+            ]}
+            for d in rubric.dimensions
+        ]
 
         # Check if parallel analysis is enabled
         react_config = getattr(self.agent_config, "react_config", None)
@@ -498,7 +489,7 @@ class ReactAnalyzerAgent(BaseAgent):
     async def _step_scoring_with_reasoning(
         self,
         dimension_results: list[dict[str, Any]],
-        rubric: QualityRubric | None,
+        rubric: QualityRubric,
     ) -> tuple[list[QualityScoreDetail], dict[str, float]]:
         """Step 5: Calculate final scores with detailed reasoning."""
         t_start = datetime.now(timezone.utc)
@@ -509,13 +500,12 @@ class ReactAnalyzerAgent(BaseAgent):
         for result in dimension_results:
             dim_name = result.get("dimension", "")
             score = float(result.get("score", 0))
-            weight = 0.25  # Default weight
+            weight = 0.20  # Default weight
 
             # Get weight from rubric
-            if rubric:
-                dim = rubric.get_dimension(dim_name)
-                if dim:
-                    weight = dim.weight
+            dim = rubric.get_dimension(dim_name)
+            if dim:
+                weight = dim.weight
 
             weighted_score = score * weight
             scores[dim_name] = score
@@ -660,8 +650,8 @@ class ReactAnalyzerAgent(BaseAgent):
         self.trace = []
         self.step_index = 0
 
-        # Get active rubric
-        rubric = await self._get_active_rubric()
+        # Get active rubric (code-defined)
+        rubric = self._get_active_rubric()
 
         # Step 1: Understand
         understanding = await self._step_understand(article_content, article_id)
