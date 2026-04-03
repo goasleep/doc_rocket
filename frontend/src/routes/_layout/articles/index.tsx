@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { BookOpen, FlaskConical, Trash2 } from "lucide-react"
-import { Suspense, useState } from "react"
+import { Fragment, Suspense, useEffect, useState } from "react"
 
 import {
   AnalysesService,
@@ -18,6 +18,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
   Select,
@@ -51,11 +60,21 @@ function ArticlesTableContent() {
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterSource, setFilterSource] = useState<string>("all")
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
   const { data } = useSuspenseQuery({
-    queryKey: ["articles"],
-    queryFn: () => ArticlesService.listArticles({ skip: 0, limit: 200 }),
+    queryKey: ["articles", page],
+    queryFn: () =>
+      ArticlesService.listArticles({
+        skip: (page - 1) * pageSize,
+        limit: pageSize,
+      }),
   })
+
+  useEffect(() => {
+    setSelected(new Set())
+  }, [page])
 
   const { data: sourcesData } = useQuery({
     queryKey: ["sources"],
@@ -83,6 +102,17 @@ function ArticlesTableContent() {
       showSuccessToast("文章已归档")
     },
     onError: () => showErrorToast("操作失败"),
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      ArticlesService.bulkDeleteArticles({ requestBody: { ids } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      setSelected(new Set())
+      showSuccessToast("批量删除成功")
+    },
+    onError: () => showErrorToast("批量删除失败"),
   })
 
   const triggerWorkflowMutation = useMutation({
@@ -207,6 +237,22 @@ function ArticlesTableContent() {
           </Button>
           <Button
             size="sm"
+            variant="destructive"
+            onClick={() => {
+              if (
+                confirm(
+                  `确认删除选中的 ${selected.size} 篇文章？此操作不可恢复。`
+                )
+              ) {
+                bulkDeleteMutation.mutate(Array.from(selected))
+              }
+            }}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            批量删除
+          </Button>
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => setSelected(new Set())}
           >
@@ -322,6 +368,63 @@ function ArticlesTableContent() {
           )}
         </TableBody>
       </Table>
+
+      {data.count > pageSize && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (page > 1) setPage(page - 1)
+                }}
+                className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+              />
+            </PaginationItem>
+            {Array.from({ length: Math.ceil(data.count / pageSize) }, (_, i) => i + 1)
+              .filter((p) => {
+                const total = Math.ceil(data.count / pageSize)
+                return p === 1 || p === total || Math.abs(p - page) <= 1
+              })
+              .map((p, idx, arr) => (
+                <Fragment key={p}>
+                  {idx > 0 && p - arr[idx - 1] > 1 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  <PaginationItem>
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setPage(p)
+                      }}
+                      isActive={p === page}
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                </Fragment>
+              ))}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (page < Math.ceil(data.count / pageSize)) setPage(page + 1)
+                }}
+                className={
+                  page >= Math.ceil(data.count / pageSize)
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   )
 }
