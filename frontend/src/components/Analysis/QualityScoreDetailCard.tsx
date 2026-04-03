@@ -51,7 +51,6 @@ export function QualityScoreDetailCard({
         <Progress
           value={detail.score}
           className="h-2"
-          // @ts-expect-error - className override for indicator
           indicatorClassName={getProgressColor(detail.score)}
         />
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">

@@ -577,7 +577,11 @@ function ArticleDetailContent() {
   const triggerWorkflowMutation = useMutation({
     mutationFn: () =>
       WorkflowsService.triggerWorkflow({
-        requestBody: { type: "writing", article_ids: [id] },
+        requestBody: {
+          type: "writing",
+          topic: article?.title || "基于参考素材仿写",
+          article_ids: [id],
+        },
       }),
     onSuccess: (run) => {
       showSuccessToast("仿写工作流已触发")

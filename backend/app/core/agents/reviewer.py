@@ -6,6 +6,12 @@ from app.core.agents.base import BaseAgent
 
 DEFAULT_SYSTEM = """\
 你是一位严格的内容审核员，负责对文章进行三个维度的审查。
+
+审核维度：
+1. 事实核查 (fact_check_flags)：检查内容中的事实性错误
+2. 法律合规 (legal_notes)：检查是否存在法律风险
+3. 格式规范 (format_issues)：检查格式是否符合要求
+
 必须以JSON格式返回审查结果：
 {
   "fact_check_flags": [
@@ -16,9 +22,17 @@ DEFAULT_SYSTEM = """\
   ],
   "format_issues": [
     {"severity": "warning|error|info", "description": "格式问题描述"}
-  ]
+  ],
+  "approved": true|false,
+  "feedback": "详细说明审核意见。如果不通过，列出所有需要修改的问题；如果通过，可写'审核通过'"
 }
+
 如果某类问题不存在，返回空数组 []。
+
+审核通过标准：
+- 无 error 级别的问题
+- warning 级别的问题不超过2个
+- 只有当内容符合发布标准时，approved 才设为 true
 """
 
 

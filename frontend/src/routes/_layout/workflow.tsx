@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import {
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ChevronsUpDown,
   ChevronUp,
   Clock,
@@ -13,7 +14,7 @@ import {
   X,
   XCircle,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 
 import {
@@ -209,6 +210,7 @@ function StepBubble({ step }: { step: AgentStep }) {
   const [expanded, setExpanded] = useState(false)
   const isDone = step.status === "done"
   const isRunning = step.status === "running"
+  const isFailed = step.status === "failed"
 
   return (
     <div className="flex gap-3">
@@ -217,24 +219,38 @@ function StepBubble({ step }: { step: AgentStep }) {
           <CheckCircle2 className="h-5 w-5 text-green-500" />
         ) : isRunning ? (
           <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+        ) : isFailed ? (
+          <XCircle className="h-5 w-5 text-destructive" />
         ) : (
           <Clock className="h-5 w-5 text-muted-foreground" />
         )}
       </div>
-      <div className="flex-1 rounded-lg border bg-card p-3 space-y-1">
+      <div
+        className={`flex-1 rounded-lg border bg-card p-3 space-y-1 ${
+          isFailed ? "border-destructive bg-destructive/5" : ""
+        }`}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{step.agent_name}</span>
-            <Badge variant="outline" className="text-xs capitalize">
+            <Badge
+              variant={isFailed ? "destructive" : "outline"}
+              className="text-xs capitalize"
+            >
               {step.role}
             </Badge>
-            {step.iteration_count > 0 && (
+            {isFailed && (
+              <Badge variant="destructive" className="text-xs">
+                失败
+              </Badge>
+            )}
+            {step.iteration_count && step.iteration_count > 0 && (
               <Badge variant="secondary" className="text-xs">
                 修订 #{step.iteration_count}
               </Badge>
             )}
           </div>
-          {step.output && (
+          {(step.output || isFailed) && (
             <Button
               variant="ghost"
               size="sm"
@@ -250,13 +266,38 @@ function StepBubble({ step }: { step: AgentStep }) {
           )}
         </div>
         {step.thinking && (
-          <p className="text-xs text-muted-foreground italic">
+          <p
+            className={`text-xs italic ${
+              isFailed ? "text-destructive" : "text-muted-foreground"
+            }`}
+          >
             {step.thinking}
           </p>
         )}
-        {expanded && step.output && (
-          <div className="text-sm whitespace-pre-wrap max-h-96 overflow-y-auto border rounded p-2 bg-muted/50 mt-2">
-            {step.output}
+        {/* Input display */}
+        {step.input && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1">
+              <ChevronRight className="h-3 w-3" />
+              查看输入 ({step.input.length} 字符)
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 p-2 bg-muted rounded text-xs font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {step.input}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {expanded && (step.output || isFailed) && (
+          <div
+            className={`text-sm whitespace-pre-wrap max-h-96 overflow-y-auto border rounded p-2 mt-2 ${
+              isFailed
+                ? "bg-destructive/10 border-destructive/30 text-destructive"
+                : "bg-muted/50"
+            }`}
+          >
+            {step.output || "(无输出信息)"}
           </div>
         )}
         {step.title_candidates &&
@@ -323,9 +364,26 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
   const [customTitle, setCustomTitle] = useState("")
   const [feedback, setFeedback] = useState("")
 
-  // Find title candidates from editor step or orchestrator step
-  const editorStep = run.steps.find((s) => s.role === "editor")
-  const orchestratorStep = run.steps.find((s) => s.role === "orchestrator")
+  // Find title candidates from editor step or orchestrator step (prefer done steps with candidates)
+  const doneEditorStep = run.steps.find(
+    (s) =>
+      s.role === "editor" &&
+      s.status === "done" &&
+      s.title_candidates &&
+      s.title_candidates.length > 0,
+  )
+  const doneOrchestratorStep = run.steps.find(
+    (s) =>
+      s.role === "orchestrator" &&
+      s.status === "done" &&
+      s.title_candidates &&
+      s.title_candidates.length > 0,
+  )
+  // Fallback to any editor/orchestrator step if no done step has candidates
+  const editorStep =
+    doneEditorStep ?? run.steps.find((s) => s.role === "editor")
+  const orchestratorStep =
+    doneOrchestratorStep ?? run.steps.find((s) => s.role === "orchestrator")
   const titleCandidates =
     editorStep?.title_candidates ?? orchestratorStep?.title_candidates ?? []
 
@@ -391,12 +449,14 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
         {run.final_output && (
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1">
-              最终草稿预览
+              AI 生成内容预览（批准后将保存为草稿）
             </p>
-            <div className="max-h-48 overflow-y-auto text-sm whitespace-pre-wrap bg-background border rounded p-2">
-              {run.final_output.slice(0, 800)}
-              {run.final_output.length > 800 && "\n...（截断）"}
+            <div className="max-h-[600px] overflow-y-auto text-sm whitespace-pre-wrap bg-background border rounded p-3">
+              {run.final_output}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              字数：{run.final_output.length} 字
+            </p>
           </div>
         )}
 
@@ -459,6 +519,29 @@ function HumanReviewPanel({ run }: { run: WorkflowRunPublic }) {
             <p className="text-xs font-medium text-muted-foreground mb-2">
               审核清单
             </p>
+
+            {/* Approved status badge */}
+            {reviewerData.approved !== undefined && (
+              <div className="flex items-center gap-2 mb-3">
+                <Badge
+                  variant={reviewerData.approved ? "default" : "destructive"}
+                  className="text-xs"
+                >
+                  {reviewerData.approved ? "✓ 审核通过" : "✗ 审核未通过"}
+                </Badge>
+              </div>
+            )}
+
+            {/* Reviewer feedback */}
+            {reviewerData.feedback && (
+              <div className="mb-3 p-2 bg-background rounded border text-sm">
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  审核意见
+                </p>
+                <p className="whitespace-pre-wrap">{reviewerData.feedback}</p>
+              </div>
+            )}
+
             {["fact_check_flags", "legal_notes", "format_issues"].map((key) => {
               const items = reviewerData[key] ?? []
               if (!items.length) return null
@@ -567,29 +650,66 @@ function WorkflowRunView({ runId }: { runId: string }) {
     run?.status === "failed" ||
     run?.status === "waiting_human"
 
+  // Local state for optimistic step updates from SSE
+  const [localSteps, setLocalSteps] = useState<AgentStep[]>([])
+
   useSSE(
     sseActive && !isTerminal ? `/api/v1/workflows/${runId}/stream` : null,
     {
-      onEvent: (type, _data: any) => {
-        if (
-          type === "agent_start" ||
-          type === "agent_output" ||
-          type === "subagent_start" ||
-          type === "subagent_output"
-        ) {
-          queryClient.invalidateQueries({ queryKey: ["workflow", runId] })
+      onEvent: (type, data: any) => {
+        // Build local step state from events for immediate UI feedback
+        if (type === "subagent_start" || type === "agent_start") {
+          setLocalSteps((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              agent_name: data.agent || data.role,
+              role: data.role,
+              status: "running",
+              input: data.input || "",
+              output: "",
+              started_at: new Date().toISOString(),
+              ended_at: null,
+              iteration_count: data.iteration || 0,
+            },
+          ])
         }
-        if (type === "workflow_paused" || type === "workflow_done") {
-          queryClient.invalidateQueries({ queryKey: ["workflow", runId] })
+        if (type === "subagent_output" || type === "agent_output") {
+          setLocalSteps((prev) =>
+            prev.map((step) =>
+              step.agent_name === (data.agent || data.role) &&
+              step.status === "running"
+                ? {
+                    ...step,
+                    status: "done",
+                    output: data.output || data.output_preview || "",
+                    ended_at: new Date().toISOString(),
+                  }
+                : step,
+            ),
+          )
+        }
+        if (type === "workflow_running") {
+          // Clear local steps when workflow actually starts running
+          setLocalSteps([])
+        }
+        // Always invalidate to sync with server state
+        queryClient.invalidateQueries({ queryKey: ["workflow", runId] })
+        if (
+          type === "workflow_paused" ||
+          type === "workflow_done" ||
+          type === "workflow_failed"
+        ) {
           setSseActive(false)
+          setLocalSteps([])
         }
       },
       onError: () => setSseActive(false),
     },
   )
 
-  // Polling fallback
-  useWorkflowPolling(sseActive ? null : runId)
+  // Polling always runs as backup, even with SSE active
+  useWorkflowPolling(runId)
 
   if (isLoading) {
     return (
@@ -605,7 +725,13 @@ function WorkflowRunView({ runId }: { runId: string }) {
     )
   }
 
-  const displaySteps = run.steps
+  // Merge server steps with local optimistic steps
+  const displaySteps = useMemo(() => {
+    const serverSteps = run.steps || []
+    // If server has steps, use them (they're authoritative)
+    // Otherwise use local steps built from SSE events
+    return serverSteps.length > 0 ? serverSteps : localSteps
+  }, [run.steps, localSteps])
 
   return (
     <div className="space-y-4">
@@ -660,16 +786,61 @@ function WorkflowRunView({ runId }: { runId: string }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {run.error_message && (
+            {/* Workflow-level error message */}
+            {run.error_message ? (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">
                   错误原因
                 </p>
-                <div className="text-sm bg-background border rounded p-2 text-destructive">
+                <div className="text-sm bg-background border border-destructive/50 rounded p-3 text-destructive font-mono whitespace-pre-wrap">
                   {run.error_message}
                 </div>
               </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                未记录详细错误信息，请查看失败步骤的详情
+              </div>
             )}
+
+            {/* Show failed steps if any */}
+            {run.steps.some((s) => s.status === "failed") && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  失败的步骤
+                </p>
+                <div className="space-y-2">
+                  {run.steps
+                    .filter((s) => s.status === "failed")
+                    .map((step) => (
+                      <div
+                        key={step.id ?? step.agent_name}
+                        className="text-sm bg-background border border-destructive/30 rounded p-2"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="destructive" className="text-xs">
+                            {step.agent_name}
+                          </Badge>
+                          <span className="text-muted-foreground text-xs">
+                            {step.role}
+                          </span>
+                        </div>
+                        {step.thinking && (
+                          <p className="text-xs text-muted-foreground italic mb-1">
+                            {step.thinking}
+                          </p>
+                        )}
+                        {step.output && (
+                          <div className="text-xs bg-muted/50 rounded p-2 max-h-32 overflow-y-auto">
+                            {step.output.slice(0, 500)}
+                            {step.output.length > 500 && "\n...（截断）"}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -753,7 +924,7 @@ function NewWorkflowPanel() {
   const [topic, setTopic] = useState("")
   const [styleHints, setStyleHints] = useState<string[]>([])
   const [autoMatchStyles, setAutoMatchStyles] = useState(true)
-  const [useOrchestrator, setUseOrchestrator] = useState(false)
+  const [useOrchestrator, setUseOrchestrator] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const { data: articles } = useQuery({
@@ -769,10 +940,10 @@ function NewWorkflowPanel() {
         requestBody: {
           type: "writing",
           topic: topic.trim(),
-          style_hints: styleHints,
           article_ids: Array.from(selectedIds),
-          auto_match_styles: autoMatchStyles,
           use_orchestrator: useOrchestrator,
+          style_hints: styleHints,
+          auto_match_styles: autoMatchStyles,
         },
       }),
     onSuccess: (run) => {
@@ -822,11 +993,14 @@ function NewWorkflowPanel() {
         </div>
 
         {/* Orchestrator Mode */}
-        <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="flex items-center justify-between rounded-lg border border-primary/50 bg-primary/5 p-3">
           <div className="space-y-0.5">
-            <p className="text-sm font-medium">使用 Orchestrator 模式</p>
+            <p className="text-sm font-medium">
+              🤖 Orchestrator 团队领导模式（推荐）
+            </p>
             <p className="text-xs text-muted-foreground">
-              启用后由 Orchestrator 智能协调多 Agent 协作，而非线性流水线
+              Orchestrator 作为团队领导者智能协调 Writer、Editor、Reviewer 等
+              agent 协作，而非机械的线性流水线
             </p>
           </div>
           <Switch
@@ -933,6 +1107,29 @@ function workflowLabel(run: WorkflowRunPublic): string {
   return "无素材"
 }
 
+// Helper to get current stage from workflow run
+function getCurrentStage(run: WorkflowRunPublic): string {
+  const runningStep = run.steps?.find((s) => s.status === "running")
+  if (runningStep) return `${runningStep.agent_name} 执行中`
+  if (run.status === "waiting_human") return "等待人工审核"
+  if (run.status === "pending") return "排队中"
+  if (run.status === "done") return "已完成"
+  if (run.status === "failed") return "失败"
+  return run.status
+}
+
+// Helper to calculate duration
+function getDuration(run: WorkflowRunPublic): string {
+  const start = new Date(run.created_at)
+  const end = new Date() // WorkflowRunPublic may not have ended_at
+  const mins = Math.floor((end.getTime() - start.getTime()) / 60000)
+  if (mins < 1) return "<1分钟"
+  if (mins < 60) return `${mins}分钟`
+  const hours = Math.floor(mins / 60)
+  const remainingMins = mins % 60
+  return remainingMins > 0 ? `${hours}小时${remainingMins}分钟` : `${hours}小时`
+}
+
 function WorkflowList({ currentRunId }: { currentRunId?: string }) {
   const navigate = useNavigate()
   const [searchTopic, setSearchTopic] = useState("")
@@ -1007,9 +1204,32 @@ function WorkflowList({ currentRunId }: { currentRunId?: string }) {
                 <div className="text-sm font-medium truncate">
                   {workflowLabel(run)}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatDate(run.created_at)}
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span>{formatDate(run.created_at)}</span>
+                  <span>·</span>
+                  <span>{getCurrentStage(run)}</span>
+                  {(run.status === "running" ||
+                    run.status === "done" ||
+                    run.status === "failed") && (
+                    <>
+                      <span>·</span>
+                      <span>耗时 {getDuration(run)}</span>
+                    </>
+                  )}
                 </div>
+                {/* Article count badge */}
+                {(run.input.article_ids?.length ?? 0) > 0 && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Badge variant="outline" className="text-[10px] h-4 px-1">
+                      {run.input.article_ids?.length} 篇参考
+                    </Badge>
+                    {run.use_orchestrator && (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1">
+                        Orchestrator
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
               {run.parent_run_id && (
                 <span className="text-xs text-muted-foreground shrink-0">

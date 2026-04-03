@@ -662,6 +662,143 @@ export const AnalysisTraceStepSchema = {
     description: '分析追溯步骤'
 } as const;
 
+export const AnalyzeContentRequestSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            title: 'Title',
+            description: '文章标题'
+        },
+        content: {
+            type: 'string',
+            title: 'Content',
+            description: '文章内容（支持 Markdown 或纯文本）'
+        },
+        enable_kb_comparison: {
+            type: 'boolean',
+            title: 'Enable Kb Comparison',
+            description: '是否对比知识库文章',
+            default: true
+        },
+        enable_web_search: {
+            type: 'boolean',
+            title: 'Enable Web Search',
+            description: '是否进行外部网络搜索',
+            default: true
+        }
+    },
+    type: 'object',
+    required: ['title', 'content'],
+    title: 'AnalyzeContentRequest',
+    description: 'Request to analyze content without persisting to database.'
+} as const;
+
+export const AnalyzeContentResponseSchema = {
+    properties: {
+        quality_score: {
+            type: 'number',
+            title: 'Quality Score'
+        },
+        quality_breakdown: {
+            additionalProperties: {
+                type: 'number'
+            },
+            type: 'object',
+            title: 'Quality Breakdown'
+        },
+        quality_score_details: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Quality Score Details'
+        },
+        comparison_references: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Comparison References'
+        },
+        analysis_summary: {
+            type: 'string',
+            title: 'Analysis Summary'
+        },
+        improvement_suggestions: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Improvement Suggestions'
+        },
+        rubric_version: {
+            type: 'string',
+            title: 'Rubric Version'
+        },
+        analysis_duration_ms: {
+            type: 'integer',
+            title: 'Analysis Duration Ms'
+        },
+        hook_type: {
+            type: 'string',
+            title: 'Hook Type'
+        },
+        framework: {
+            type: 'string',
+            title: 'Framework'
+        },
+        emotional_triggers: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Emotional Triggers'
+        },
+        key_phrases: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Key Phrases'
+        },
+        keywords: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Keywords'
+        },
+        structure: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Structure'
+        },
+        style: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Style'
+        },
+        target_audience: {
+            type: 'string',
+            title: 'Target Audience'
+        },
+        trace: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Trace'
+        }
+    },
+    type: 'object',
+    required: ['quality_score', 'quality_breakdown', 'quality_score_details', 'comparison_references', 'analysis_summary', 'improvement_suggestions', 'rubric_version', 'analysis_duration_ms', 'hook_type', 'framework', 'emotional_triggers', 'key_phrases', 'keywords', 'structure', 'style', 'target_audience', 'trace'],
+    title: 'AnalyzeContentResponse',
+    description: 'Response containing analysis results for content.'
+} as const;
+
 export const ApiConfigSchema = {
     properties: {
         items_path: {
@@ -4000,6 +4137,18 @@ export const WorkflowApproveSchema = {
 
 export const WorkflowInputSchema = {
     properties: {
+        topic: {
+            type: 'string',
+            title: 'Topic',
+            default: '未命名主题'
+        },
+        style_hints: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Style Hints'
+        },
         article_ids: {
             items: {
                 type: 'string',
@@ -4008,16 +4157,10 @@ export const WorkflowInputSchema = {
             type: 'array',
             title: 'Article Ids'
         },
-        topic: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Topic'
+        auto_match_styles: {
+            type: 'boolean',
+            title: 'Auto Match Styles',
+            default: true
         },
         content: {
             anyOf: [
@@ -4054,6 +4197,17 @@ export const WorkflowRunCreateSchema = {
             title: 'Type',
             default: 'writing'
         },
+        topic: {
+            type: 'string',
+            title: 'Topic'
+        },
+        style_hints: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Style Hints'
+        },
         article_ids: {
             items: {
                 type: 'string',
@@ -4062,16 +4216,10 @@ export const WorkflowRunCreateSchema = {
             type: 'array',
             title: 'Article Ids'
         },
-        topic: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Topic'
+        auto_match_styles: {
+            type: 'boolean',
+            title: 'Auto Match Styles',
+            default: true
         },
         use_orchestrator: {
             type: 'boolean',
@@ -4080,6 +4228,7 @@ export const WorkflowRunCreateSchema = {
         }
     },
     type: 'object',
+    required: ['topic'],
     title: 'WorkflowRunCreate'
 } as const;
 

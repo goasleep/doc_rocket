@@ -164,6 +164,63 @@ export type AnalysisTraceStep = {
     parallel_index?: (number | null);
 };
 
+/**
+ * Request to analyze content without persisting to database.
+ */
+export type AnalyzeContentRequest = {
+    /**
+     * 文章标题
+     */
+    title: string;
+    /**
+     * 文章内容（支持 Markdown 或纯文本）
+     */
+    content: string;
+    /**
+     * 是否对比知识库文章
+     */
+    enable_kb_comparison?: boolean;
+    /**
+     * 是否进行外部网络搜索
+     */
+    enable_web_search?: boolean;
+};
+
+/**
+ * Response containing analysis results for content.
+ */
+export type AnalyzeContentResponse = {
+    quality_score: number;
+    quality_breakdown: {
+        [key: string]: (number);
+    };
+    quality_score_details: Array<{
+        [key: string]: unknown;
+    }>;
+    comparison_references: Array<{
+        [key: string]: unknown;
+    }>;
+    analysis_summary: string;
+    improvement_suggestions: Array<(string)>;
+    rubric_version: string;
+    analysis_duration_ms: number;
+    hook_type: string;
+    framework: string;
+    emotional_triggers: Array<(string)>;
+    key_phrases: Array<(string)>;
+    keywords: Array<(string)>;
+    structure: {
+        [key: string]: unknown;
+    };
+    style: {
+        [key: string]: unknown;
+    };
+    target_audience: string;
+    trace: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
 export type ApiConfig = {
     items_path: string;
     title_field: string;
@@ -989,8 +1046,10 @@ export type WorkflowApprove = {
 };
 
 export type WorkflowInput = {
+    topic?: string;
+    style_hints?: Array<(string)>;
     article_ids?: Array<(string)>;
-    topic?: (string | null);
+    auto_match_styles?: boolean;
     content?: (string | null);
 };
 
@@ -1000,8 +1059,10 @@ export type WorkflowReject = {
 
 export type WorkflowRunCreate = {
     type?: string;
+    topic: string;
+    style_hints?: Array<(string)>;
     article_ids?: Array<(string)>;
-    topic?: (string | null);
+    auto_match_styles?: boolean;
     use_orchestrator?: boolean;
 };
 
@@ -1076,6 +1137,12 @@ export type AnalysesTriggerAnalysisData = {
 };
 
 export type AnalysesTriggerAnalysisResponse = (TriggerAnalysisResponse);
+
+export type AnalysesAnalyzeContentData = {
+    requestBody: AnalyzeContentRequest;
+};
+
+export type AnalysesAnalyzeContentResponse = (AnalyzeContentResponse);
 
 export type AnalysesGetAnalysisData = {
     articleId: string;

@@ -133,8 +133,14 @@ function DraftEditorContent() {
         id,
         requestBody: { selected_text: text, context: content.slice(0, 2000) },
       }),
-    onSuccess: (result) => setRewriteResult(result.rewritten_text),
-    onError: () => showErrorToast("改写失败"),
+    onMutate: () => {
+      // Loading state is handled by button disabled state
+    },
+    onSuccess: (result) => {
+      setRewriteResult(result.rewritten_text)
+      showSuccessToast("改写完成，请查看右侧结果")
+    },
+    onError: () => showErrorToast("改写失败，请重试"),
   })
 
   // Debounced auto-save (1s)

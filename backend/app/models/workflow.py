@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from beanie import Document
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 def get_datetime_utc() -> datetime:
@@ -37,11 +37,18 @@ class AgentStep(BaseModel):
 
 
 class WorkflowInput(BaseModel):
-    topic: str  # 必填：写什么主题
+    topic: str = "未命名主题"  # 必填：写什么主题（带默认值兼容旧数据）
     style_hints: list[str] = Field(default_factory=list)  # 可选：风格偏好提示
     article_ids: list[uuid.UUID] = Field(default_factory=list)  # 可选：手动指定参考文章
     auto_match_styles: bool = True  # 是否启用自动风格匹配
     content: str | None = None  # 保留向后兼容
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def validate_topic(cls, v):
+        if v is None or v == "":
+            return "未命名主题"
+        return v
 
 
 class WorkflowRun(Document):
@@ -58,7 +65,7 @@ class WorkflowRun(Document):
     created_by: uuid.UUID | None = None
     created_at: datetime = Field(default_factory=get_datetime_utc)
     # Orchestrator fields (all with defaults for backward compat)
-    use_orchestrator: bool = False
+    use_orchestrator: bool = True  # Default to orchestrator mode - team leader coordinating agents
     orchestrator_messages: list[dict[str, Any]] = Field(default_factory=list)
     routing_log: list[RoutingEvent] = Field(default_factory=list)
     iteration_count: int = 0
@@ -73,7 +80,7 @@ class WorkflowRunCreate(BaseModel):
     style_hints: list[str] = Field(default_factory=list)  # 可选：风格偏好提示
     article_ids: list[uuid.UUID] = Field(default_factory=list)  # 可选：手动指定参考文章
     auto_match_styles: bool = True  # 是否启用自动风格匹配
-    use_orchestrator: bool = False
+    use_orchestrator: bool = True  # Default to orchestrator mode - team leader coordinating agents
 
 
 class WorkflowRunPublic(BaseModel):

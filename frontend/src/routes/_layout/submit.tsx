@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/submit")({
@@ -80,10 +81,14 @@ function TextSubmitForm() {
             <FormItem>
               <FormLabel>正文内容</FormLabel>
               <FormControl>
-                <textarea
-                  className="flex min-h-[240px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                <Textarea
+                  className="min-h-[240px] resize-y"
                   placeholder="粘贴文章正文..."
-                  {...field}
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
                 />
               </FormControl>
               <FormMessage />

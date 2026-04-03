@@ -356,8 +356,11 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
         AgentConfig.is_active == True  # noqa: E712
     ).sort("+workflow_order").to_list()
 
+    # Filter out orchestrator - it should only be used in orchestrator mode
+    agents_configs = [ac for ac in agents_configs if ac.role != "orchestrator"]
+
     if not agents_configs:
-        raise ValueError("No active agent configs found")
+        raise ValueError("No active agent configs found (excluding orchestrator)")
 
     analyses_context, style_guide = await _build_analyses_context(run)
     feedback_context = ""
@@ -698,6 +701,17 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
         run.celery_task_id = current_task.request.id
     await run.save()
 
+    # Publish workflow started event immediately
+    from app.core.redis_client import sync_redis
+    sync_redis.publish(
+        f"workflow:{workflow_run_id}",
+        json.dumps({
+            "type": "workflow_running",
+            "message": "Workflow started processing",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }),
+    )
+
     # Update TaskRun to running
     task_run = await TaskRun.find_one(TaskRun.workflow_run_id == uuid.UUID(workflow_run_id))
     if task_run:
@@ -727,14 +741,16 @@ async def _writing_workflow_async(workflow_run_id: str) -> None:
             await task_run.save()
 
     except Exception as exc:
+        error_msg = str(exc)
         run.status = "failed"
+        run.error_message = error_msg[:500]
         await run.save()
-        publish("workflow_failed", {"error": str(exc)})
+        publish("workflow_failed", {"error": error_msg})
 
         # Mark TaskRun as failed
         if task_run:
             task_run.status = "failed"
-            task_run.error_message = str(exc)[:500]
+            task_run.error_message = error_msg[:500]
             await task_run.save()
 
         raise

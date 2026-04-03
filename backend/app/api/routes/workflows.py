@@ -156,6 +156,7 @@ async def reject_workflow(
         raise HTTPException(status_code=400, detail="Workflow is not awaiting human review")
 
     run.status = "failed"
+    run.error_message = f"用户驳回：{body.feedback}"
     await run.save()
 
     # Create child WorkflowRun for revision
@@ -166,6 +167,7 @@ async def reject_workflow(
         parent_run_id=run.id,
         user_feedback=body.feedback,
         created_by=current_user.id,
+        use_orchestrator=run.use_orchestrator,
     )
     await child.insert()
 
@@ -187,6 +189,7 @@ async def abort_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
         celery_app.control.revoke(run.celery_task_id, terminate=True)
 
     run.status = "failed"
+    run.error_message = "用户手动终止工作流"
     await run.save()
 
     return Message(message="Workflow aborted")

@@ -53,15 +53,17 @@ async def workflow_event_stream(run_id: str) -> AsyncGenerator[str, None]:
 
             data = message.get("data", "")
             if isinstance(data, str):
-                yield f"data: {data}\n\n"
-
-                # Close stream when workflow is terminal
+                # Include explicit event type field for proper SSE handling
                 try:
                     parsed = json.loads(data)
-                    if parsed.get("type") in ("workflow_paused", "workflow_done", "workflow_failed"):
+                    event_type = parsed.get("type", "message")
+                    yield f"event: {event_type}\ndata: {data}\n\n"
+
+                    # Close stream when workflow is terminal
+                    if event_type in ("workflow_paused", "workflow_done", "workflow_failed"):
                         break
                 except (json.JSONDecodeError, AttributeError):
-                    pass
+                    yield f"data: {data}\n\n"
 
     finally:
         await pubsub.unsubscribe(f"workflow:{run_id}")
