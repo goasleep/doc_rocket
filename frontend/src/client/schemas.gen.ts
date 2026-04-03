@@ -1386,6 +1386,22 @@ export const Body_auth_verify_verifySchema = {
     title: 'Body_auth-verify:verify'
 } as const;
 
+export const BulkDeleteRequestSchema = {
+    properties: {
+        ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Ids'
+        }
+    },
+    type: 'object',
+    required: ['ids'],
+    title: 'BulkDeleteRequest'
+} as const;
+
 export const ComparisonReferenceEmbeddedSchema = {
     properties: {
         source: {
@@ -2781,39 +2797,6 @@ export const QualityBreakdownSchema = {
     title: 'QualityBreakdown'
 } as const;
 
-export const QualityRubricCreateSchema = {
-    properties: {
-        version: {
-            type: 'string',
-            title: 'Version'
-        },
-        name: {
-            type: 'string',
-            title: 'Name'
-        },
-        description: {
-            type: 'string',
-            title: 'Description',
-            default: ''
-        },
-        dimensions: {
-            items: {
-                '$ref': '#/components/schemas/RubricDimension'
-            },
-            type: 'array',
-            title: 'Dimensions'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: false
-        }
-    },
-    type: 'object',
-    required: ['version', 'name', 'dimensions'],
-    title: 'QualityRubricCreate'
-} as const;
-
 export const QualityRubricPublicSchema = {
     properties: {
         id: {
@@ -2860,71 +2843,6 @@ export const QualityRubricPublicSchema = {
     title: 'QualityRubricPublic'
 } as const;
 
-export const QualityRubricUpdateSchema = {
-    properties: {
-        version: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Version'
-        },
-        name: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Name'
-        },
-        description: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Description'
-        },
-        dimensions: {
-            anyOf: [
-                {
-                    items: {
-                        '$ref': '#/components/schemas/RubricDimension'
-                    },
-                    type: 'array'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Dimensions'
-        },
-        is_active: {
-            anyOf: [
-                {
-                    type: 'boolean'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Is Active'
-        }
-    },
-    type: 'object',
-    title: 'QualityRubricUpdate'
-} as const;
-
 export const QualityRubricsPublicSchema = {
     properties: {
         data: {
@@ -2941,7 +2859,8 @@ export const QualityRubricsPublicSchema = {
     },
     type: 'object',
     required: ['data', 'count'],
-    title: 'QualityRubricsPublic'
+    title: 'QualityRubricsPublic',
+    description: '列表响应 - 现在只返回一个默认评分标准'
 } as const;
 
 export const QualityScoreBucketSchema = {
@@ -3152,7 +3071,7 @@ export const RubricDimensionSchema = {
         name: {
             type: 'string',
             title: 'Name',
-            description: '维度名称 (content_depth, readability, originality, virality_potential)'
+            description: '维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)'
         },
         description: {
             type: 'string',

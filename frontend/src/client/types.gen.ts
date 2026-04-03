@@ -349,6 +349,10 @@ export type Body_auth_verify_verify = {
     token: string;
 };
 
+export type BulkDeleteRequest = {
+    ids: Array<(string)>;
+};
+
 /**
  * 嵌入的对比参考
  */
@@ -721,14 +725,6 @@ export type QualityBreakdown = {
     virality_potential?: number;
 };
 
-export type QualityRubricCreate = {
-    version: string;
-    name: string;
-    description?: string;
-    dimensions: Array<RubricDimension>;
-    is_active?: boolean;
-};
-
 export type QualityRubricPublic = {
     id: string;
     version: string;
@@ -740,17 +736,12 @@ export type QualityRubricPublic = {
     updated_at: string;
 };
 
+/**
+ * 列表响应 - 现在只返回一个默认评分标准
+ */
 export type QualityRubricsPublic = {
     data: Array<QualityRubricPublic>;
     count: number;
-};
-
-export type QualityRubricUpdate = {
-    version?: (string | null);
-    name?: (string | null);
-    description?: (string | null);
-    dimensions?: (Array<RubricDimension> | null);
-    is_active?: (boolean | null);
 };
 
 /**
@@ -858,7 +849,7 @@ export type RubricCriterion = {
  */
 export type RubricDimension = {
     /**
-     * 维度名称 (content_depth, readability, originality, virality_potential)
+     * 维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)
      */
     name: string;
     /**
@@ -1380,6 +1371,14 @@ export type ArticlesUpdateArticleTitleData = {
 
 export type ArticlesUpdateArticleTitleResponse = (ArticlePublic);
 
+export type ArticlesBulkDeleteArticlesData = {
+    requestBody: BulkDeleteRequest;
+};
+
+export type ArticlesBulkDeleteArticlesResponse = ({
+    [key: string]: unknown;
+});
+
 export type AuthAuthJwtLoginData = {
     formData: login;
 };
@@ -1602,18 +1601,7 @@ export type PublishHistoryCheckPublishStatusData = {
 
 export type PublishHistoryCheckPublishStatusResponse = (PublishStatusResponse);
 
-export type RubricsListRubricsData = {
-    limit?: number;
-    skip?: number;
-};
-
 export type RubricsListRubricsResponse = (QualityRubricsPublic);
-
-export type RubricsCreateRubricData = {
-    requestBody: QualityRubricCreate;
-};
-
-export type RubricsCreateRubricResponse = (QualityRubricPublic);
 
 export type RubricsGetActiveRubricResponse = (QualityRubricPublic);
 
@@ -1622,25 +1610,6 @@ export type RubricsGetRubricData = {
 };
 
 export type RubricsGetRubricResponse = (QualityRubricPublic);
-
-export type RubricsUpdateRubricData = {
-    requestBody: QualityRubricUpdate;
-    rubricId: string;
-};
-
-export type RubricsUpdateRubricResponse = (QualityRubricPublic);
-
-export type RubricsDeleteRubricData = {
-    rubricId: string;
-};
-
-export type RubricsDeleteRubricResponse = (Message);
-
-export type RubricsActivateRubricData = {
-    rubricId: string;
-};
-
-export type RubricsActivateRubricResponse = (QualityRubricPublic);
 
 export type SkillsListSkillsData = {
     limit?: number;
