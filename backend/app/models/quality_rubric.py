@@ -180,21 +180,25 @@ DEFAULT_RUBRIC_V1 = {
 
 def get_default_rubric() -> QualityRubric:
     """获取默认评分标准实例"""
+    from typing import Any, cast
+
+    data = cast(dict[str, Any], DEFAULT_RUBRIC_V1)
     dimensions = []
-    for dim_data in DEFAULT_RUBRIC_V1["dimensions"]:
-        criteria = [RubricCriterion(**c) for c in dim_data["criteria"]]
+    for dim_data in data["dimensions"]:
+        dim = cast(dict[str, Any], dim_data)
+        criteria = [RubricCriterion(**c) for c in dim["criteria"]]
         dimensions.append(RubricDimension(
-            name=dim_data["name"],
-            description=dim_data["description"],
-            weight=dim_data["weight"],
+            name=dim["name"],
+            description=dim["description"],
+            weight=dim["weight"],
             criteria=criteria,
         ))
 
     return QualityRubric(
         id=uuid.UUID("12345678-1234-1234-1234-123456789abc"),  # 固定ID
-        version=DEFAULT_RUBRIC_V1["version"],
-        name=DEFAULT_RUBRIC_V1["name"],
-        description=DEFAULT_RUBRIC_V1["description"],
+        version=data["version"],
+        name=data["name"],
+        description=data["description"],
         dimensions=dimensions,
         is_active=True,
     )

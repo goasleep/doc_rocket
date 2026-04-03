@@ -24,6 +24,7 @@ import {
 interface ExtendedInsightSnapshotPublic extends InsightSnapshotPublic {
   ai_flavor_distribution?: QualityScoreBucket[]
 }
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -633,19 +634,20 @@ function InsightsPage() {
   const queryClient = useQueryClient()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { data: snapshot, isLoading } = useQuery<ExtendedInsightSnapshotPublic | null>({
-    queryKey: ["insights", "latest"],
-    queryFn: async () => {
-      try {
-        return await InsightsService.getLatestSnapshot()
-      } catch (error: any) {
-        if (error.status === 404) {
-          return null
+  const { data: snapshot, isLoading } =
+    useQuery<ExtendedInsightSnapshotPublic | null>({
+      queryKey: ["insights", "latest"],
+      queryFn: async () => {
+        try {
+          return await InsightsService.getLatestSnapshot()
+        } catch (error: any) {
+          if (error.status === 404) {
+            return null
+          }
+          throw error
         }
-        throw error
-      }
-    },
-  })
+      },
+    })
 
   const refreshMutation = useMutation({
     mutationFn: () => InsightsService.refreshSnapshot(),

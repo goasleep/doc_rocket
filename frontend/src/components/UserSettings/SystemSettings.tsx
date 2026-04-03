@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useForm, Controller } from "react-hook-form"
 import { useState } from "react"
+import { Controller, useForm } from "react-hook-form"
 
-import { SystemConfigService, type SystemConfigUpdate, type SystemConfigPublic } from "@/client"
+import {
+  type SystemConfigPublic,
+  SystemConfigService,
+  type SystemConfigUpdate,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 
 // Extended types for word cloud filter (not yet in generated client)
@@ -22,9 +26,10 @@ interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
   min_keyword_length?: number
   max_keyword_count?: number
 }
+
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import useCustomToast from "@/hooks/useCustomToast"
 
 function ProviderKeyField({
@@ -64,13 +69,18 @@ export function SystemSettings() {
 
   const { data: config, isLoading } = useQuery<ExtendedSystemConfigPublic>({
     queryKey: ["system-config"],
-    queryFn: () => SystemConfigService.getSystemConfig() as Promise<ExtendedSystemConfigPublic>,
+    queryFn: () =>
+      SystemConfigService.getSystemConfig() as Promise<ExtendedSystemConfigPublic>,
   })
 
-  const { register, handleSubmit, reset, control, watch, setValue } = useForm<ExtendedSystemConfigUpdate>()
+  const { register, handleSubmit, reset, control, watch, setValue } =
+    useForm<ExtendedSystemConfigUpdate>()
 
   // Watch excluded keywords for UI updates
-  const excludedKeywords = watch("excluded_keywords") || config?.word_cloud_filter?.excluded_keywords || []
+  const excludedKeywords =
+    watch("excluded_keywords") ||
+    config?.word_cloud_filter?.excluded_keywords ||
+    []
 
   const updateMutation = useMutation({
     mutationFn: (data: SystemConfigUpdate) =>
@@ -92,9 +102,18 @@ export function SystemSettings() {
 
     // Include word cloud filter config
     const wordCloudFilter = {
-      excluded_keywords: values.excluded_keywords || config?.word_cloud_filter?.excluded_keywords || [],
-      min_keyword_length: values.min_keyword_length ?? config?.word_cloud_filter?.min_keyword_length ?? 2,
-      max_keyword_count: values.max_keyword_count ?? config?.word_cloud_filter?.max_keyword_count ?? 100,
+      excluded_keywords:
+        values.excluded_keywords ||
+        config?.word_cloud_filter?.excluded_keywords ||
+        [],
+      min_keyword_length:
+        values.min_keyword_length ??
+        config?.word_cloud_filter?.min_keyword_length ??
+        2,
+      max_keyword_count:
+        values.max_keyword_count ??
+        config?.word_cloud_filter?.max_keyword_count ??
+        100,
     }
     payload.word_cloud_filter = wordCloudFilter
 
@@ -112,7 +131,10 @@ export function SystemSettings() {
 
   const removeExcludedKeyword = (keyword: string) => {
     const current = excludedKeywords || []
-    setValue("excluded_keywords", current.filter((k: string) => k !== keyword))
+    setValue(
+      "excluded_keywords",
+      current.filter((k: string) => k !== keyword),
+    )
   }
 
   if (isLoading) {
@@ -241,14 +263,18 @@ export function SystemSettings() {
               <Controller
                 name="max_keyword_count"
                 control={control}
-                defaultValue={config?.word_cloud_filter?.max_keyword_count || 100}
+                defaultValue={
+                  config?.word_cloud_filter?.max_keyword_count || 100
+                }
                 render={({ field }) => (
                   <Input
                     type="number"
                     min={10}
                     max={500}
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    onChange={(e) =>
+                      field.onChange(parseInt(e.target.value, 10))
+                    }
                   />
                 )}
               />
