@@ -61,6 +61,9 @@ class InsightSnapshot(Document):
     hook_type_distribution: list[DistributionItem] = Field(default_factory=list)
     topic_distribution: list[DistributionItem] = Field(default_factory=list)
 
+    # AI味道分布
+    ai_flavor_distribution: list[QualityScoreBucket] = Field(default_factory=list, description="AI味道分数分布")
+
     # 改进建议聚合
     suggestion_aggregation: list[SuggestionDimensionItem] = Field(default_factory=list)
 
@@ -87,6 +90,7 @@ class InsightSnapshotPublic(BaseModel):
     framework_distribution: list[DistributionItem]
     hook_type_distribution: list[DistributionItem]
     topic_distribution: list[DistributionItem]
+    ai_flavor_distribution: list[QualityScoreBucket]
     suggestion_aggregation: list[SuggestionDimensionItem]
     quality_score_distribution: list[QualityScoreBucket]
     article_count: int

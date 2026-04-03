@@ -76,6 +76,7 @@ class QualityBreakdown(BaseModel):
     content_depth: float = 0.0
     readability: float = 0.0
     originality: float = 0.0
+    ai_flavor: float = 0.0
     virality_potential: float = 0.0
 
 

@@ -714,6 +714,7 @@ class ReactAnalyzerAgent(BaseAgent):
             "content_depth": scores.get("content_depth", 0),
             "readability": scores.get("readability", 0),
             "originality": scores.get("originality", 0),
+            "ai_flavor": scores.get("ai_flavor", 0),
             "virality_potential": scores.get("virality_potential", 0),
         }
 

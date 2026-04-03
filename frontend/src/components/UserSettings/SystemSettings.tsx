@@ -1,10 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
+import { useState } from "react"
 
-import { SystemConfigService, type SystemConfigUpdate } from "@/client"
+import { SystemConfigService, type SystemConfigUpdate, type SystemConfigPublic } from "@/client"
 import { Button } from "@/components/ui/button"
+
+// Extended types for word cloud filter (not yet in generated client)
+type WordCloudFilterConfig = {
+  excluded_keywords: string[]
+  min_keyword_length: number
+  max_keyword_count: number
+}
+
+interface ExtendedSystemConfigPublic extends SystemConfigPublic {
+  word_cloud_filter?: WordCloudFilterConfig
+}
+
+interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
+  word_cloud_filter?: WordCloudFilterConfig
+  excluded_keywords?: string[]
+  min_keyword_length?: number
+  max_keyword_count?: number
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import useCustomToast from "@/hooks/useCustomToast"
 
 function ProviderKeyField({
@@ -40,13 +60,17 @@ function ProviderKeyField({
 export function SystemSettings() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const [newKeyword, setNewKeyword] = useState("")
 
-  const { data: config, isLoading } = useQuery({
+  const { data: config, isLoading } = useQuery<ExtendedSystemConfigPublic>({
     queryKey: ["system-config"],
-    queryFn: () => SystemConfigService.getSystemConfig(),
+    queryFn: () => SystemConfigService.getSystemConfig() as Promise<ExtendedSystemConfigPublic>,
   })
 
-  const { register, handleSubmit, reset } = useForm<SystemConfigUpdate>()
+  const { register, handleSubmit, reset, control, watch, setValue } = useForm<ExtendedSystemConfigUpdate>()
+
+  // Watch excluded keywords for UI updates
+  const excludedKeywords = watch("excluded_keywords") || config?.word_cloud_filter?.excluded_keywords || []
 
   const updateMutation = useMutation({
     mutationFn: (data: SystemConfigUpdate) =>
@@ -59,13 +83,36 @@ export function SystemSettings() {
     onError: () => showErrorToast("保存失败"),
   })
 
-  function onSubmit(values: SystemConfigUpdate) {
+  function onSubmit(values: ExtendedSystemConfigUpdate) {
     // Only send non-empty values
-    const payload: SystemConfigUpdate = {}
+    const payload: ExtendedSystemConfigUpdate = {}
     if (values.kimi_api_key) payload.kimi_api_key = values.kimi_api_key
     if (values.claude_api_key) payload.claude_api_key = values.claude_api_key
     if (values.openai_api_key) payload.openai_api_key = values.openai_api_key
-    updateMutation.mutate(payload)
+
+    // Include word cloud filter config
+    const wordCloudFilter = {
+      excluded_keywords: values.excluded_keywords || config?.word_cloud_filter?.excluded_keywords || [],
+      min_keyword_length: values.min_keyword_length ?? config?.word_cloud_filter?.min_keyword_length ?? 2,
+      max_keyword_count: values.max_keyword_count ?? config?.word_cloud_filter?.max_keyword_count ?? 100,
+    }
+    payload.word_cloud_filter = wordCloudFilter
+
+    updateMutation.mutate(payload as SystemConfigUpdate)
+  }
+
+  const addExcludedKeyword = () => {
+    if (!newKeyword.trim()) return
+    const current = excludedKeywords || []
+    if (!current.includes(newKeyword.trim())) {
+      setValue("excluded_keywords", [...current, newKeyword.trim()])
+    }
+    setNewKeyword("")
+  }
+
+  const removeExcludedKeyword = (keyword: string) => {
+    const current = excludedKeywords || []
+    setValue("excluded_keywords", current.filter((k: string) => k !== keyword))
   }
 
   if (isLoading) {
@@ -141,6 +188,73 @@ export function SystemSettings() {
               <span className="text-muted-foreground">写作模型：</span>
               {config.writing.default_model_provider} /{" "}
               {config.writing.default_model_id}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">词云过滤配置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">过滤关键词</label>
+              <p className="text-xs text-muted-foreground">
+                这些关键词将不会出现在词云中
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(excludedKeywords || []).map((keyword: string) => (
+                  <Badge
+                    key={keyword}
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeExcludedKeyword(keyword)}
+                  >
+                    {keyword} ×
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="输入关键词..."
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      addExcludedKeyword()
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addExcludedKeyword}
+                >
+                  添加
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">最大关键词数量</label>
+              <Controller
+                name="max_keyword_count"
+                control={control}
+                defaultValue={config?.word_cloud_filter?.max_keyword_count || 100}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={10}
+                    max={500}
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                  />
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                词云中显示的最大关键词数量（10-500）
+              </p>
             </div>
           </CardContent>
         </Card>

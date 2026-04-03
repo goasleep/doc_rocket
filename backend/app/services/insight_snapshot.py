@@ -12,6 +12,7 @@ from app.models import (
     InsightSnapshotOverview,
     QualityScoreBucket,
     SuggestionDimensionItem,
+    SystemConfig,
     WordCloudItem,
 )
 
@@ -44,6 +45,12 @@ class InsightSnapshotService:
         # 获取文章统计
         total_articles = await Article.count()
 
+        # 获取词云过滤配置
+        config = await SystemConfig.find_one()
+        word_filter = config.word_cloud_filter if config else None
+        excluded_keywords = set(word_filter.excluded_keywords) if word_filter else set()
+        max_keyword_count = word_filter.max_keyword_count if word_filter else 100
+
         # 收集所有分析数据
         keyword_counter: Counter = Counter()
         keyword_score_sum: dict[str, float] = defaultdict(float)
@@ -56,6 +63,7 @@ class InsightSnapshotService:
         suggestions_by_dimension: dict[str, Counter] = defaultdict(Counter)
 
         analyzed_count = 0
+        ai_flavor_scores: list[float] = []
         skip = 0
 
         while True:
@@ -70,17 +78,23 @@ class InsightSnapshotService:
                 quality_score = analysis.quality_score
                 quality_scores.append(quality_score)
 
-                # 聚合关键词
+                # 聚合AI味道分数
+                ai_flavor_score = analysis.quality_breakdown.ai_flavor if analysis.quality_breakdown else 0
+                ai_flavor_scores.append(ai_flavor_score)
+
+                # 聚合关键词（应用过滤）
                 for keyword in analysis.keywords:
                     if keyword and len(keyword) > 1:  # 过滤单字符
-                        keyword_counter[keyword] += 1
-                        keyword_score_sum[keyword] += quality_score
+                        if keyword not in excluded_keywords:
+                            keyword_counter[keyword] += 1
+                            keyword_score_sum[keyword] += quality_score
 
-                # 聚合情绪触发词
+                # 聚合情绪触发词（应用过滤）
                 for trigger in analysis.emotional_triggers:
                     if trigger and len(trigger) > 1:
-                        emotional_trigger_counter[trigger] += 1
-                        emotional_trigger_score_sum[trigger] += quality_score
+                        if trigger not in excluded_keywords:
+                            emotional_trigger_counter[trigger] += 1
+                            emotional_trigger_score_sum[trigger] += quality_score
 
                 # 聚合框架
                 if analysis.framework:
@@ -116,10 +130,10 @@ class InsightSnapshotService:
             coverage_rate=round(coverage_rate, 4),
         )
 
-        # 构建词云数据
-        keyword_cloud = cls._build_word_cloud(keyword_counter, keyword_score_sum)
+        # 构建词云数据（应用过滤配置）
+        keyword_cloud = cls._build_word_cloud(keyword_counter, keyword_score_sum, max_keyword_count)
         emotional_trigger_cloud = cls._build_word_cloud(
-            emotional_trigger_counter, emotional_trigger_score_sum
+            emotional_trigger_counter, emotional_trigger_score_sum, max_keyword_count
         )
 
         # 构建分布数据
@@ -133,6 +147,9 @@ class InsightSnapshotService:
         # 构建质量分数分布
         quality_score_distribution = cls._build_quality_distribution(quality_scores)
 
+        # 构建AI味道分布
+        ai_flavor_distribution = cls._build_quality_distribution(ai_flavor_scores)
+
         # 创建快照
         snapshot = InsightSnapshot(
             scope="global",
@@ -142,6 +159,7 @@ class InsightSnapshotService:
             framework_distribution=framework_distribution,
             hook_type_distribution=hook_type_distribution,
             topic_distribution=topic_distribution,
+            ai_flavor_distribution=ai_flavor_distribution,
             suggestion_aggregation=suggestion_aggregation,
             quality_score_distribution=quality_score_distribution,
             article_count=analyzed_count,
@@ -173,10 +191,10 @@ class InsightSnapshotService:
         return keywords
 
     @staticmethod
-    def _build_word_cloud(counter: Counter, score_sum: dict[str, float]) -> list[WordCloudItem]:
+    def _build_word_cloud(counter: Counter, score_sum: dict[str, float], max_count: int = 100) -> list[WordCloudItem]:
         """构建词云数据，包含平均质量分."""
-        # 取频次前100的词
-        most_common = counter.most_common(100)
+        # 取频次前N的词
+        most_common = counter.most_common(max_count)
         return [
             WordCloudItem(
                 name=word,

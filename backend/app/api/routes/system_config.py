@@ -12,6 +12,7 @@ from app.models import (
     LLMProvidersPublic,
     SearchConfig,
     OrchestratorConfig,
+    WordCloudFilterConfig,
 )
 
 router = APIRouter(prefix="/system-config", tags=["system-config"])
@@ -49,6 +50,7 @@ def _to_public(config: SystemConfig) -> SystemConfigPublic:
         writing=config.writing,
         search=SearchConfig(tavily_api_key=config.search.tavily_api_key if config.search else ""),
         orchestrator=config.orchestrator if config.orchestrator else OrchestratorConfig(),
+        word_cloud_filter=config.word_cloud_filter if config.word_cloud_filter else WordCloudFilterConfig(),
     )
 
 
@@ -84,6 +86,8 @@ async def update_system_config(current_user: SuperuserDep, body: SystemConfigUpd
         config.search = body.search
     if body.orchestrator is not None:
         config.orchestrator = body.orchestrator
+    if body.word_cloud_filter is not None:
+        config.word_cloud_filter = body.word_cloud_filter
 
     await config.save()
     return _to_public(config)

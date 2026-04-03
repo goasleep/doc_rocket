@@ -13,12 +13,17 @@ import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import {
-  InsightsService,
-  type InsightSnapshotPublic,
-  type WordCloudItem,
   type DistributionItem,
+  type InsightSnapshotPublic,
+  InsightsService,
   type QualityScoreBucket,
+  type WordCloudItem,
 } from "@/client"
+
+// Extended type for AI flavor distribution (not yet in generated client)
+interface ExtendedInsightSnapshotPublic extends InsightSnapshotPublic {
+  ai_flavor_distribution?: QualityScoreBucket[]
+}
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -130,7 +135,7 @@ function WordCloudChart({
             textStyle: {
               fontFamily: "sans-serif",
               fontWeight: "bold",
-              color: function () {
+              color: () => {
                 const colors = [
                   "#5470c6",
                   "#91cc75",
@@ -498,8 +503,14 @@ function HistogramChart({
             type: "bar",
             data: data.map((item) => item.count),
             itemStyle: {
-              color: function (params: any) {
-                const colors = ["#ee6666", "#fac858", "#91cc75", "#73c0de", "#5470c6"]
+              color: (params: any) => {
+                const colors = [
+                  "#ee6666",
+                  "#fac858",
+                  "#91cc75",
+                  "#73c0de",
+                  "#5470c6",
+                ]
                 return colors[params.dataIndex] || "#5470c6"
               },
               borderRadius: [4, 4, 0, 0],
@@ -622,7 +633,7 @@ function InsightsPage() {
   const queryClient = useQueryClient()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { data: snapshot, isLoading } = useQuery<InsightSnapshotPublic | null>({
+  const { data: snapshot, isLoading } = useQuery<ExtendedInsightSnapshotPublic | null>({
     queryKey: ["insights", "latest"],
     queryFn: async () => {
       try {
@@ -747,7 +758,10 @@ function InsightsPage() {
             <p className="text-sm text-muted-foreground mb-4">
               还没有生成过洞察快照，点击上方按钮手动刷新或等待定时任务
             </p>
-            <Button onClick={handleRefresh} disabled={refreshMutation.isPending}>
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshMutation.isPending}
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               立即生成
             </Button>
@@ -791,15 +805,24 @@ function InsightsPage() {
             />
           </div>
 
-          {/* Suggestion Cloud & Quality Distribution */}
+          {/* AI Flavor & Quality Distribution */}
           <div className="grid gap-4 md:grid-cols-2">
-            <SuggestionCloud
-              data={snapshot?.suggestion_aggregation ?? []}
+            <HistogramChart
+              data={snapshot?.ai_flavor_distribution ?? []}
+              title="AI味道分布（越高越自然）"
               loading={isLoading}
             />
             <HistogramChart
               data={snapshot?.quality_score_distribution ?? []}
               title="质量分数分布"
+              loading={isLoading}
+            />
+          </div>
+
+          {/* Suggestion Cloud */}
+          <div className="grid gap-4">
+            <SuggestionCloud
+              data={snapshot?.suggestion_aggregation ?? []}
               loading={isLoading}
             />
           </div>

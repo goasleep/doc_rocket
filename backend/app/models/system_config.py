@@ -38,6 +38,13 @@ class OrchestratorConfig(BaseModel):
     enabled: bool = False
 
 
+class WordCloudFilterConfig(BaseModel):
+    """词云关键词过滤配置"""
+    excluded_keywords: list[str] = Field(default_factory=list, description="需要过滤的关键词列表")
+    min_keyword_length: int = Field(default=2, description="最小关键词长度")
+    max_keyword_count: int = Field(default=100, description="词云最大关键词数量")
+
+
 class SystemConfig(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     llm_providers: LLMProvidersConfig = Field(default_factory=LLMProvidersConfig)
@@ -46,6 +53,7 @@ class SystemConfig(Document):
     writing: ModelDefaults = Field(default_factory=ModelDefaults)
     search: SearchConfig = Field(default_factory=SearchConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
+    word_cloud_filter: WordCloudFilterConfig = Field(default_factory=WordCloudFilterConfig)
     created_at: datetime = Field(default_factory=get_datetime_utc)
 
     class Settings:
@@ -73,6 +81,7 @@ class SystemConfigPublic(BaseModel):
     writing: ModelDefaults
     search: SearchConfig
     orchestrator: OrchestratorConfig
+    word_cloud_filter: WordCloudFilterConfig
 
 
 class SystemConfigUpdate(BaseModel):
@@ -84,3 +93,4 @@ class SystemConfigUpdate(BaseModel):
     writing: ModelDefaults | None = None
     search: SearchConfig | None = None
     orchestrator: OrchestratorConfig | None = None
+    word_cloud_filter: WordCloudFilterConfig | None = None

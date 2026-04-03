@@ -97,6 +97,7 @@ from app.models.system_config import (
     SystemConfig,
     SystemConfigPublic,
     SystemConfigUpdate,
+    WordCloudFilterConfig,
 )
 from app.models.workflow import (
     AgentStep,
@@ -201,6 +202,7 @@ __all__ = [
     "SystemConfig", "SystemConfigPublic", "SystemConfigUpdate",
     "LLMProviderConfig", "LLMProviderPublic", "LLMProvidersConfig", "LLMProvidersPublic",
     "SchedulerConfig", "ModelDefaults", "SearchConfig", "OrchestratorConfig",
+    "WordCloudFilterConfig",
     # Skill
     "Skill", "SkillCreate", "SkillUpdate", "SkillPublic", "SkillsPublic", "SkillScript",
     # Tool

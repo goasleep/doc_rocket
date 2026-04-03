@@ -113,12 +113,12 @@ class QualityRubricsPublic(BaseModel):
 DEFAULT_RUBRIC_V1 = {
     "version": "v1",
     "name": "文章质量评分标准 v1",
-    "description": "默认文章质量评分标准，包含内容深度、可读性、原创性和传播潜力四个维度",
+    "description": "默认文章质量评分标准，包含内容深度、可读性、原创性、AI味道和传播潜力五个维度",
     "dimensions": [
         {
             "name": "content_depth",
             "description": "内容深度与信息密度",
-            "weight": 0.30,
+            "weight": 0.25,
             "criteria": [
                 {"min_score": 90, "max_score": 100, "description": "深度洞察，独家观点，数据支撑充分，有专业见解"},
                 {"min_score": 80, "max_score": 89, "description": "内容充实，观点清晰，有一定数据/案例支撑"},
@@ -130,7 +130,7 @@ DEFAULT_RUBRIC_V1 = {
         {
             "name": "readability",
             "description": "可读性与表达流畅度",
-            "weight": 0.25,
+            "weight": 0.20,
             "criteria": [
                 {"min_score": 90, "max_score": 100, "description": "结构清晰，语言精炼，阅读体验极佳"},
                 {"min_score": 80, "max_score": 89, "description": "结构合理，表达流畅，易于理解"},
@@ -142,13 +142,25 @@ DEFAULT_RUBRIC_V1 = {
         {
             "name": "originality",
             "description": "原创性与独特性",
-            "weight": 0.25,
+            "weight": 0.20,
             "criteria": [
                 {"min_score": 90, "max_score": 100, "description": "独特视角，原创研究，行业首发"},
                 {"min_score": 80, "max_score": 89, "description": "观点新颖，有独立思考，非简单整合"},
                 {"min_score": 70, "max_score": 79, "description": "有一定个人见解，但参考痕迹明显"},
                 {"min_score": 60, "max_score": 69, "description": "主要是信息整合，缺乏原创"},
                 {"min_score": 0, "max_score": 59, "description": "大量抄袭或简单搬运"},
+            ],
+        },
+        {
+            "name": "ai_flavor",
+            "description": "AI味道与自然度（高分=自然人类写作，低分=明显的AI生成痕迹）",
+            "weight": 0.15,
+            "criteria": [
+                {"min_score": 90, "max_score": 100, "description": "完全自然的人类写作风格，有个人特色，情感真挚，无AI痕迹"},
+                {"min_score": 80, "max_score": 89, "description": " mostly自然，偶有规范表达，整体有个人风格"},
+                {"min_score": 70, "max_score": 79, "description": "有一定AI辅助痕迹，但经人工润色，基本可读"},
+                {"min_score": 60, "max_score": 69, "description": "明显的AI生成特征，套路化表达，缺乏个性"},
+                {"min_score": 0, "max_score": 59, "description": "典型的AI生成文本，机械、空洞、公式化"},
             ],
         },
         {
