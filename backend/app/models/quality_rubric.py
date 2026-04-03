@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
 
-from beanie import Document
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -22,7 +21,7 @@ class RubricCriterion(BaseModel):
 
 class RubricDimension(BaseModel):
     """评分维度定义"""
-    name: str = Field(..., description="维度名称 (content_depth, readability, originality, virality_potential)")
+    name: str = Field(..., description="维度名称 (content_depth, readability, originality, ai_flavor, virality_potential)")
     description: str = Field(..., description="维度描述")
     weight: float = Field(..., ge=0, le=1, description="权重")
     criteria: list[RubricCriterion] = Field(default_factory=list, description="评分档位")
@@ -35,19 +34,16 @@ class RubricDimension(BaseModel):
         return None
 
 
-class QualityRubric(Document):
-    """质量评分标准"""
+class QualityRubric(BaseModel):
+    """质量评分标准 - 纯代码定义，非数据库模型"""
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     version: str = Field(..., description="版本号 (如 v1, v2)")
     name: str = Field(..., description="标准名称")
     description: str = Field(default="", description="标准描述")
     dimensions: list[RubricDimension] = Field(default_factory=list, description="评分维度")
-    is_active: bool = Field(default=False, description="是否激活")
+    is_active: bool = Field(default=True, description="是否激活 (代码定义始终为True)")
     created_at: datetime = Field(default_factory=get_datetime_utc)
     updated_at: datetime = Field(default_factory=get_datetime_utc)
-
-    class Settings:
-        name = "quality_rubrics"
 
     def get_dimension(self, name: str) -> RubricDimension | None:
         """根据名称获取维度"""
@@ -77,6 +73,7 @@ class QualityRubric(Document):
 
 
 class QualityRubricCreate(BaseModel):
+    """创建请求 - 保留用于API兼容，但不再实际创建"""
     version: str
     name: str
     description: str = ""
@@ -85,6 +82,7 @@ class QualityRubricCreate(BaseModel):
 
 
 class QualityRubricUpdate(BaseModel):
+    """更新请求 - 保留用于API兼容，但不再实际更新"""
     version: str | None = None
     name: str | None = None
     description: str | None = None
@@ -105,11 +103,12 @@ class QualityRubricPublic(BaseModel):
 
 
 class QualityRubricsPublic(BaseModel):
+    """列表响应 - 现在只返回一个默认评分标准"""
     data: list[QualityRubricPublic]
     count: int
 
 
-# 默认评分标准 v1 数据
+# 默认评分标准 v1 - 代码定义，唯一数据源
 DEFAULT_RUBRIC_V1 = {
     "version": "v1",
     "name": "文章质量评分标准 v1",
@@ -177,3 +176,25 @@ DEFAULT_RUBRIC_V1 = {
         },
     ],
 }
+
+
+def get_default_rubric() -> QualityRubric:
+    """获取默认评分标准实例"""
+    dimensions = []
+    for dim_data in DEFAULT_RUBRIC_V1["dimensions"]:
+        criteria = [RubricCriterion(**c) for c in dim_data["criteria"]]
+        dimensions.append(RubricDimension(
+            name=dim_data["name"],
+            description=dim_data["description"],
+            weight=dim_data["weight"],
+            criteria=criteria,
+        ))
+
+    return QualityRubric(
+        id=uuid.UUID("12345678-1234-1234-1234-123456789abc"),  # 固定ID
+        version=DEFAULT_RUBRIC_V1["version"],
+        name=DEFAULT_RUBRIC_V1["name"],
+        description=DEFAULT_RUBRIC_V1["description"],
+        dimensions=dimensions,
+        is_active=True,
+    )
