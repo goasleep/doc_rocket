@@ -1,155 +1,130 @@
+# =============================================================================
+# Docker Compose Override for Development
+# All development operations run inside containers
+# =============================================================================
+
 services:
-
-  # Local services are available on their ports, but also available on:
-  # http://api.localhost.tiangolo.com: backend
-  # http://dashboard.localhost.tiangolo.com: frontend
-  # etc. To enable it, update .env, set:
-  # DOMAIN=localhost.tiangolo.com
-  proxy:
-    image: traefik:3.6
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "80:80"
-      - "8090:8080"
-    # Duplicate the command from compose.yml to add --api.insecure=true
-    command:
-      # Enable Docker in Traefik, so that it reads labels from Docker services
-      - --providers.docker
-      # Add a constraint to only use services with the label for this stack
-      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-public`)
-      # Do not expose all Docker services, only the ones explicitly exposed
-      - --providers.docker.exposedbydefault=false
-      # Create an entrypoint "http" listening on port 80
-      - --entrypoints.http.address=:80
-      # Create an entrypoint "https" listening on port 443
-      - --entrypoints.https.address=:443
-      # Enable the access log, with HTTP requests
-      - --accesslog
-      # Enable the Traefik log, for configurations and errors
-      - --log
-      # Enable debug logging for local development
-      - --log.level=DEBUG
-      # Enable the Dashboard and API
-      - --api
-      # Enable the Dashboard and API in insecure mode for local development
-      - --api.insecure=true
-    labels:
-      # Enable Traefik for this service, to make it available in the public network
-      - traefik.enable=true
-      - traefik.constraint-label=traefik-public
-      # Dummy https-redirect middleware that doesn't really redirect, only to
-      # allow running it locally
-      - traefik.http.middlewares.https-redirect.contenttype.autodetect=false
-    networks:
-      - traefik-public
-      - default
-
-  mongodb:
-    restart: "no"
-    ports:
-      - "27019:27017"
-
+  # Backend development service
   backend:
-    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: builder  # Use builder stage which has dev dependencies
+    volumes:
+      # Mount source code for live reload
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      # Named volume for virtual environment to persist between restarts
+      - backend-venv:/app/.venv
+    command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: runtime
-    command:
-      - fastapi
-      - run
-      - --reload
-      - "app/main.py"
+    environment:
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379/0
+      - BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
     develop:
       watch:
+        # Sync Python source changes
         - path: ./backend/app
-          action: sync
           target: /app/backend/app
-          ignore:
-            - "**/__pycache__"
-            - "**/*.pyc"
+          action: sync
+        # Rebuild on dependency changes
         - path: ./backend/pyproject.toml
           action: rebuild
-    volumes:
-      - ./backend/htmlcov:/app/backend/htmlcov
-    environment:
-      SMTP_HOST: "mailcatcher"
-      SMTP_PORT: "1025"
-      SMTP_TLS: "false"
-      EMAILS_FROM_EMAIL: "noreply@example.com"
+        - path: ./uv.lock
+          action: rebuild
 
-  celery-worker:
-    restart: "no"
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-
-  celery-beat:
-    restart: "no"
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-
-  mailcatcher:
-    image: schickling/mailcatcher
-    ports:
-      - "1081:1080"
-      - "1026:1025"
-
+  # Frontend development service
   frontend:
-    restart: "no"
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app/frontend
+      # Named volume for node_modules to avoid bind mount issues
+      - frontend-node_modules:/app/frontend/node_modules
     ports:
       - "5173:5173"
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-      target: build-stage
-      args:
-        - VITE_API_URL=http://100.121.41.112:8000
-        - NODE_ENV=development
-    command: ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - NODE_ENV=development
     develop:
       watch:
+        # Sync source changes
         - path: ./frontend/src
-          action: sync
           target: /app/frontend/src
+          action: sync
+        - path: ./frontend/index.html
+          target: /app/frontend/index.html
+          action: sync
+        # Rebuild on package changes
         - path: ./frontend/package.json
           action: rebuild
         - path: ./frontend/pnpm-lock.yaml
           action: rebuild
-    working_dir: /app/frontend
-    environment:
-      - VITE_API_URL=http://100.121.41.112:8000
 
-  playwright:
+  # Celery worker for development
+  celery-worker:
     build:
       context: .
-      dockerfile: frontend/Dockerfile.playwright
-      args:
-        - VITE_API_URL=http://backend:8000
-        - NODE_ENV=production
-    ipc: host
-    depends_on:
-      - backend
-      - mailcatcher
-    env_file:
-      - .env
-    environment:
-      - VITE_API_URL=http://backend:8000
-      - MAILCATCHER_HOST=http://mailcatcher:1080
-      # For the reports when run locally
-      - PLAYWRIGHT_HTML_HOST=0.0.0.0
-      - CI=${CI}
+      dockerfile: backend/Dockerfile
+      target: builder
     volumes:
-      - ./frontend/blob-report:/app/frontend/blob-report
-      - ./frontend/test-results:/app/frontend/test-results
-    ports:
-      - 9323:9323
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - backend-venv:/app/.venv
+    command: celery -A app.celery_app worker --loglevel=info
+    environment:
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - mongodb
+      - redis
 
-networks:
-  traefik-public:
-    # For local dev, don't expect an external Traefik network
-    external: false
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: builder
+    volumes:
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - backend-venv:/app/.venv
+    command: celery -A app.celery_app beat --scheduler redbeat.RedBeatScheduler --loglevel=info
+    environment:
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - mongodb
+      - redis
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: builder
+    volumes:
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - backend-venv:/app/.venv
+    command: celery -A app.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis://redis:6379/0
+    depends_on:
+      - redis
+
+volumes:
+  backend-venv:
+  frontend-node_modules:

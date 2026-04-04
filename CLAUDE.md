@@ -10,54 +10,80 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Package managers:** `uv` (Python), `pnpm` (JS)
 - **Infrastructure:** Docker Compose + Traefik reverse proxy
 
-## Development Commands
+## Development Environment
 
-### Start the dev stack
+This project uses **Docker-based development** — all operations run inside containers. You only need Docker and Make installed locally.
+
+### Prerequisites
+
+- Docker (with Compose v2.22+)
+- Make
+
+No need to install Python, Node.js, uv, or pnpm locally!
+
+### Quick Start
 
 ```bash
-docker compose watch    # with live-reload file sync
-# or
-docker compose up -d
+make dev    # Start development environment with hot reload
 ```
 
-### Backend (run from `backend/` using `uv run`)
+Services available at:
+- Backend API: http://localhost:8000
+- Frontend: http://localhost:5173
+- Flower (Celery): http://localhost:5555
+
+### Makefile Commands
 
 ```bash
-uv run fastapi dev app/main.py          # dev server (without Docker)
-uv run pytest tests/                    # all tests
-uv run pytest tests/api/routes/test_users.py                    # single file
-uv run pytest tests/api/routes/test_users.py::test_name -v     # single test
-bash scripts/lint.sh                    # mypy + ruff check + ruff format --check
-bash scripts/format.sh                  # ruff format
+make help                 # Show all available commands
+
+# Development
+make up                   # Start all services (detached)
+make dev                  # Start with live-reload (recommended)
+make down                 # Stop and remove containers
+make logs                 # Show logs from all services
+
+# Testing (all run inside containers)
+make test                 # Run all tests
+make test-backend         # Backend tests
+make test-frontend        # Frontend E2E tests
+
+# Code Quality
+make lint                 # Run all linters
+make format               # Format all code
+make check                # Run all checks (lint + test)
+
+# Code Generation
+make generate-client      # Generate OpenAPI client (backend -> frontend)
+
+# Shell Access
+make shell-backend        # Open shell in backend container
+make shell-frontend       # Open shell in frontend container
+
+# Package Management
+make add-backend PACKAGE=requests       # Add Python package
+make add-frontend PACKAGE=lodash        # Add npm package
 ```
 
-Via running Docker container:
+See [DOCKER_DEV.md](DOCKER_DEV.md) for complete documentation.
+
+### Legacy: Local Development (Not Recommended)
+
+If you must run locally without Docker:
+
+**Backend** (from `backend/`):
 ```bash
-docker compose exec backend bash scripts/tests-start.sh        # all tests
-docker compose exec backend bash scripts/tests-start.sh -- -x  # stop on first failure
+uv run fastapi dev app/main.py
+uv run pytest tests/
+bash scripts/lint.sh
 ```
 
-### Frontend (run from `frontend/` or repo root)
-
+**Frontend** (from `frontend/`):
 ```bash
 pnpm install
-pnpm run dev              # Vite dev server
-pnpm run build            # tsc + vite build
-pnpm run lint             # Biome check with autofix
-pnpm exec playwright test     # all E2E tests
-pnpm exec playwright test tests/login.spec.ts   # single test file
-pnpm exec playwright test --ui                  # interactive UI mode
+pnpm run dev
+pnpm run lint
 ```
-
-### Generate OpenAPI client (after backend changes)
-
-```bash
-bash scripts/generate-client.sh   # from repo root
-# or
-pnpm run generate-client           # from frontend/
-```
-
-The generated client lives in `frontend/src/client/` — do not edit it manually.
 
 ## Architecture
 
@@ -139,11 +165,17 @@ Celery tasks for async processing:
 
 ### Deployment (Docker)
 
-**Build and deploy all services:**
+**Production deployment:**
 ```bash
 docker compose build backend
 docker compose build frontend
 docker compose up -d
+```
+
+**Development deployment (with hot reload):**
+```bash
+make build
+make dev
 ```
 
 **Verify deployment:**
