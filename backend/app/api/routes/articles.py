@@ -1,4 +1,5 @@
 """Article management routes."""
+import re
 import uuid
 from typing import Any
 
@@ -37,7 +38,7 @@ async def list_articles(
     if input_type:
         filters.append(Article.input_type == input_type)
     if search:
-        filters.append(RegEx(Article.title, search, options="i"))
+        filters.append(RegEx(Article.title, re.escape(search), options="i"))
 
     query = Article.find(*filters)
 
