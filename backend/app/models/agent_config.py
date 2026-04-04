@@ -31,12 +31,10 @@ class AgentConfig(Document):
     responsibilities: str = ""
     system_prompt: str = ""
     model_config_name: str = ""
-    workflow_order: int = 1
     is_active: bool = True
     skills: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
     max_iterations: int = 5
-    # 新增配置字段
     analysis_config: AnalysisConfig = Field(default_factory=AnalysisConfig, description="分析配置")
     react_config: ReactConfig = Field(default_factory=ReactConfig, description="React Agent 配置")
     created_at: datetime = Field(default_factory=get_datetime_utc)
@@ -52,7 +50,6 @@ class AgentConfigCreate(BaseModel):
     responsibilities: str = ""
     system_prompt: str = ""
     model_config_name: str = ""
-    workflow_order: int = 1
     is_active: bool = True
     skills: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
@@ -67,7 +64,6 @@ class AgentConfigUpdate(BaseModel):
     responsibilities: str | None = None
     system_prompt: str | None = None
     model_config_name: str | None = None
-    workflow_order: int | None = None
     is_active: bool | None = None
     skills: list[str] | None = None
     tools: list[str] | None = None
@@ -84,7 +80,6 @@ class AgentConfigPublic(BaseModel):
     responsibilities: str
     system_prompt: str
     model_config_name: str
-    workflow_order: int
     is_active: bool
     skills: list[str]
     tools: list[str]

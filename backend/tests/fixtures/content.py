@@ -101,7 +101,6 @@ async def sample_agent_configs(db: None) -> list[AgentConfig]:
             responsibilities="负责仿写创作",
             system_prompt="你是一名专业内容创作者，请根据素材进行仿写。",
             model_config_name="test-model",
-            workflow_order=0,
             is_active=True,
         ),
         AgentConfig(
@@ -110,7 +109,6 @@ async def sample_agent_configs(db: None) -> list[AgentConfig]:
             responsibilities="负责去AI味改写",
             system_prompt="你是一名专业编辑，请对文章进行去AI味改写，并提供3个标题候选。",
             model_config_name="test-model",
-            workflow_order=1,
             is_active=True,
         ),
         AgentConfig(
@@ -119,7 +117,6 @@ async def sample_agent_configs(db: None) -> list[AgentConfig]:
             responsibilities="负责事实核查和格式审核",
             system_prompt="你是一名专业审核员，请对文章进行事实核查和格式审核。",
             model_config_name="test-model",
-            workflow_order=2,
             is_active=True,
         ),
     ]

@@ -8,7 +8,6 @@ import { FileCode } from "lucide-react"
 import { Suspense, useState } from "react"
 
 import { type AgentConfigPublic, AgentsService } from "@/client"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -64,9 +63,6 @@ function PromptCard({ agent }: { agent: AgentConfigPublic }) {
             >
               {ROLE_LABEL[agent.role] ?? agent.role}
             </span>
-            <Badge variant="outline" className="text-xs">
-              #{agent.workflow_order}
-            </Badge>
           </div>
           <Button
             size="sm"
@@ -113,9 +109,17 @@ function PromptsContent() {
     )
   }
 
-  const sorted = [...data.data].sort(
-    (a, b) => a.workflow_order - b.workflow_order,
-  )
+  // Sort by role: writer -> editor -> reviewer -> others
+  const roleOrder: Record<string, number> = {
+    writer: 0,
+    editor: 1,
+    reviewer: 2,
+  }
+  const sorted = [...data.data].sort((a, b) => {
+    const orderA = roleOrder[a.role] ?? 999
+    const orderB = roleOrder[b.role] ?? 999
+    return orderA - orderB
+  })
 
   return (
     <div className="flex flex-col gap-4">

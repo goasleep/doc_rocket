@@ -50,6 +50,7 @@ from app.models.article import (
     Article,
     ArticleCreate,
     ArticleDetail,
+    ArticleImage,
     ArticlePublic,
     ArticlesPublic,
 )
@@ -185,7 +186,7 @@ __all__ = [
     "Source", "SourceCreate", "SourceUpdate", "SourcePublic", "SourcesPublic",
     "ApiConfig", "FetchConfig",
     # Article
-    "Article", "ArticleCreate", "ArticlePublic", "ArticleDetail", "ArticlesPublic",
+    "Article", "ArticleCreate", "ArticlePublic", "ArticleDetail", "ArticlesPublic", "ArticleImage",
     # Analysis
     "ArticleAnalysis", "ArticleAnalysisPublic", "AnalysesPublic",
     "AnalysisTraceStep", "ToolCallDetail",

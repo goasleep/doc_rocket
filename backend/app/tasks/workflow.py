@@ -4,6 +4,8 @@ import json
 import uuid
 from datetime import datetime, timezone
 
+from app.core.agents.base import BaseAgent
+
 
 async def _build_analyses_context(run: object) -> tuple[str, str]:  # type: ignore[return]
     """Build analyses context with optional automatic style matching.
@@ -354,7 +356,7 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
 
     agents_configs = await AgentConfig.find(
         AgentConfig.is_active == True  # noqa: E712
-    ).sort("+workflow_order").to_list()
+    ).to_list()
 
     # Filter out orchestrator - it should only be used in orchestrator mode
     agents_configs = [ac for ac in agents_configs if ac.role != "orchestrator"]
@@ -442,8 +444,6 @@ async def _writing_workflow_linear(run: object, workflow_run_id: str, publish: o
         await run.save()  # type: ignore[union-attr]
 
     # Humanizer step: 去AI味 — use BaseAgent to avoid EditorAgent's JSON output format
-    from app.core.agents.base import BaseAgent
-
     humanizer_config = await AgentConfig.find_one(
         AgentConfig.role == "editor",
         AgentConfig.is_active == True,  # noqa: E712

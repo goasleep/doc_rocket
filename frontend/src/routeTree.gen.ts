@@ -17,6 +17,7 @@ import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutWorkflowRouteImport } from './routes/_layout/workflow'
 import { Route as LayoutTasksRouteImport } from './routes/_layout/tasks'
+import { Route as LayoutSystemSettingsRouteImport } from './routes/_layout/system-settings'
 import { Route as LayoutSubmitRouteImport } from './routes/_layout/submit'
 import { Route as LayoutSourcesRouteImport } from './routes/_layout/sources'
 import { Route as LayoutSkillsRouteImport } from './routes/_layout/skills'
@@ -72,6 +73,11 @@ const LayoutWorkflowRoute = LayoutWorkflowRouteImport.update({
 const LayoutTasksRoute = LayoutTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutSystemSettingsRoute = LayoutSystemSettingsRouteImport.update({
+  id: '/system-settings',
+  path: '/system-settings',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSubmitRoute = LayoutSubmitRouteImport.update({
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
+  '/system-settings': typeof LayoutSystemSettingsRoute
   '/tasks': typeof LayoutTasksRoute
   '/workflow': typeof LayoutWorkflowRoute
   '/articles/$id': typeof LayoutArticlesIdRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/skills': typeof LayoutSkillsRoute
   '/sources': typeof LayoutSourcesRoute
   '/submit': typeof LayoutSubmitRoute
+  '/system-settings': typeof LayoutSystemSettingsRoute
   '/tasks': typeof LayoutTasksRoute
   '/workflow': typeof LayoutWorkflowRoute
   '/': typeof LayoutIndexRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/_layout/skills': typeof LayoutSkillsRoute
   '/_layout/sources': typeof LayoutSourcesRoute
   '/_layout/submit': typeof LayoutSubmitRoute
+  '/_layout/system-settings': typeof LayoutSystemSettingsRoute
   '/_layout/tasks': typeof LayoutTasksRoute
   '/_layout/workflow': typeof LayoutWorkflowRoute
   '/_layout/': typeof LayoutIndexRoute
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/sources'
     | '/submit'
+    | '/system-settings'
     | '/tasks'
     | '/workflow'
     | '/articles/$id'
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/sources'
     | '/submit'
+    | '/system-settings'
     | '/tasks'
     | '/workflow'
     | '/'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/_layout/skills'
     | '/_layout/sources'
     | '/_layout/submit'
+    | '/_layout/system-settings'
     | '/_layout/tasks'
     | '/_layout/workflow'
     | '/_layout/'
@@ -388,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof LayoutTasksRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/system-settings': {
+      id: '/_layout/system-settings'
+      path: '/system-settings'
+      fullPath: '/system-settings'
+      preLoaderRoute: typeof LayoutSystemSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/submit': {
@@ -524,6 +543,7 @@ interface LayoutRouteChildren {
   LayoutSkillsRoute: typeof LayoutSkillsRoute
   LayoutSourcesRoute: typeof LayoutSourcesRoute
   LayoutSubmitRoute: typeof LayoutSubmitRoute
+  LayoutSystemSettingsRoute: typeof LayoutSystemSettingsRoute
   LayoutTasksRoute: typeof LayoutTasksRoute
   LayoutWorkflowRoute: typeof LayoutWorkflowRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -547,6 +567,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutSkillsRoute: LayoutSkillsRoute,
   LayoutSourcesRoute: LayoutSourcesRoute,
   LayoutSubmitRoute: LayoutSubmitRoute,
+  LayoutSystemSettingsRoute: LayoutSystemSettingsRoute,
   LayoutTasksRoute: LayoutTasksRoute,
   LayoutWorkflowRoute: LayoutWorkflowRoute,
   LayoutIndexRoute: LayoutIndexRoute,

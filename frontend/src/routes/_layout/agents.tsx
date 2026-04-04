@@ -68,7 +68,6 @@ const agentSchema = z.object({
   responsibilities: z.string().min(1, "职责描述不能为空"),
   system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
   model_config_name: z.string(),
-  workflow_order: z.number().min(0),
   skills: z.array(z.string()),
 })
 
@@ -97,7 +96,6 @@ function AgentFormSheet({
           responsibilities: initialData.responsibilities,
           system_prompt: initialData.system_prompt,
           model_config_name: initialData.model_config_name || "",
-          workflow_order: initialData.workflow_order,
           skills: initialData.skills || [],
         }
       : {
@@ -106,7 +104,6 @@ function AgentFormSheet({
           responsibilities: "",
           system_prompt: "",
           model_config_name: "",
-          workflow_order: 0,
           skills: [],
         },
   })
@@ -261,65 +258,46 @@ function AgentFormSheet({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control as any}
-                name="model_config_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>模型配置</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || undefined}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择模型配置..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {modelConfigsData?.data
-                          .filter((c) => c.is_active && c.api_key_masked)
-                          .map((c) => (
-                            <SelectItem key={c.id} value={c.name}>
-                              {c.name}
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({c.model_id})
-                              </span>
-                            </SelectItem>
-                          ))}
-                        {(!modelConfigsData ||
-                          modelConfigsData.data.filter(
-                            (c) => c.is_active && c.api_key_masked,
-                          ).length === 0) && (
-                          <SelectItem value="" disabled>
-                            请先在"模型配置"页面添加配置
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control as any}
-                name="workflow_order"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>执行顺序</FormLabel>
+            <FormField
+              control={form.control as any}
+              name="model_config_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>模型配置</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value || undefined}
+                  >
                     <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                      />
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择模型配置..." />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <SelectContent>
+                      {modelConfigsData?.data
+                        .filter((c) => c.is_active && c.api_key_masked)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.name}>
+                            {c.name}
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({c.model_id})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      {(!modelConfigsData ||
+                        modelConfigsData.data.filter(
+                          (c) => c.is_active && c.api_key_masked,
+                        ).length === 0) && (
+                        <SelectItem value="" disabled>
+                          请先在"模型配置"页面添加配置
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Skills selector with search */}
             {skillsData && skillsData.count > 0 && (
@@ -441,7 +419,7 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
                 <StatusBadge status={agent.is_active ? "active" : "inactive"} />
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                #{agent.workflow_order} · {ROLE_LABEL[agent.role] ?? agent.role}
+                {ROLE_LABEL[agent.role] ?? agent.role}
                 {agent.model_config_name && (
                   <>
                     {" "}

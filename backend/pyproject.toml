@@ -31,6 +31,7 @@ dependencies = [
     "markdown>=3.6",
     "qiniu>=7.13.0",
     "pillow>=10.0.0",
+    "readability-lxml>=0.8.1",
 ]
 
 [dependency-groups]

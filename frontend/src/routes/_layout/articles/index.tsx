@@ -91,7 +91,7 @@ function ArticlesTableContent() {
 
   useEffect(() => {
     setSelected(new Set())
-  }, [page])
+  }, [])
 
   const { data: sourcesData } = useQuery({
     queryKey: ["sources"],
@@ -233,7 +233,7 @@ function ArticlesTableContent() {
             onClick={() => {
               if (
                 confirm(
-                  `确认删除选中的 ${selected.size} 篇文章？此操作不可恢复。`
+                  `确认删除选中的 ${selected.size} 篇文章？此操作不可恢复。`,
                 )
               ) {
                 bulkDeleteMutation.mutate(Array.from(selected))
@@ -381,7 +381,7 @@ function ArticlesTableContent() {
             </PaginationItem>
             {Array.from(
               { length: Math.ceil(data.count / pageSize) },
-              (_, i) => i + 1
+              (_, i) => i + 1,
             )
               .filter((p) => {
                 const total = Math.ceil(data.count / pageSize)

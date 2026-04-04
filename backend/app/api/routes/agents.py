@@ -23,7 +23,7 @@ async def list_agents(current_user: CurrentUser) -> Any:
     import asyncio
     count, agents = await asyncio.gather(
         AgentConfig.count(),
-        AgentConfig.find_all().sort("+workflow_order").to_list(),
+        AgentConfig.find_all().to_list(),
     )
     return AgentConfigsPublic(data=agents, count=count)
 

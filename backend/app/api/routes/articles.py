@@ -96,6 +96,8 @@ async def get_article(current_user: CurrentUser, id: uuid.UUID) -> Any:
         created_at=article.created_at,
         quality_score=analysis.quality_score if analysis else None,
         analysis=analysis_dict,
+        images=article.images,
+        raw_html=article.raw_html,
     )
 
 

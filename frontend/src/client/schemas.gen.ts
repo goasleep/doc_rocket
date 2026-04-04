@@ -57,11 +57,6 @@ export const AgentConfigCreateSchema = {
             title: 'Model Config Name',
             default: ''
         },
-        workflow_order: {
-            type: 'integer',
-            title: 'Workflow Order',
-            default: 1
-        },
         is_active: {
             type: 'boolean',
             title: 'Is Active',
@@ -125,10 +120,6 @@ export const AgentConfigPublicSchema = {
             type: 'string',
             title: 'Model Config Name'
         },
-        workflow_order: {
-            type: 'integer',
-            title: 'Workflow Order'
-        },
         is_active: {
             type: 'boolean',
             title: 'Is Active'
@@ -169,7 +160,7 @@ export const AgentConfigPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_config_name', 'workflow_order', 'is_active', 'skills', 'tools', 'max_iterations', 'analysis_config', 'react_config', 'created_at', 'updated_at'],
+    required: ['id', 'name', 'role', 'responsibilities', 'system_prompt', 'model_config_name', 'is_active', 'skills', 'tools', 'max_iterations', 'analysis_config', 'react_config', 'created_at', 'updated_at'],
     title: 'AgentConfigPublic'
 } as const;
 
@@ -229,17 +220,6 @@ export const AgentConfigUpdateSchema = {
                 }
             ],
             title: 'Model Config Name'
-        },
-        workflow_order: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Workflow Order'
         },
         is_active: {
             anyOf: [
@@ -1047,6 +1027,13 @@ export const ArticleDetailSchema = {
             ],
             title: 'Quality Score'
         },
+        images: {
+            items: {
+                '$ref': '#/components/schemas/ArticleImage'
+            },
+            type: 'array',
+            title: 'Images'
+        },
         content: {
             type: 'string',
             title: 'Content'
@@ -1073,11 +1060,44 @@ export const ArticleDetailSchema = {
                 }
             ],
             title: 'Analysis'
+        },
+        raw_html: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Html'
         }
     },
     type: 'object',
     required: ['id', 'source_id', 'title', 'url', 'author', 'published_at', 'status', 'input_type', 'refine_status', 'created_at', 'content'],
     title: 'ArticleDetail'
+} as const;
+
+export const ArticleImageSchema = {
+    properties: {
+        original_url: {
+            type: 'string',
+            title: 'Original Url'
+        },
+        qiniu_url: {
+            type: 'string',
+            title: 'Qiniu Url'
+        },
+        alt: {
+            type: 'string',
+            title: 'Alt',
+            default: ''
+        }
+    },
+    type: 'object',
+    required: ['original_url', 'qiniu_url'],
+    title: 'ArticleImage',
+    description: 'Image extracted from article content.'
 } as const;
 
 export const ArticlePublicSchema = {
@@ -1164,6 +1184,13 @@ export const ArticlePublicSchema = {
                 }
             ],
             title: 'Quality Score'
+        },
+        images: {
+            items: {
+                '$ref': '#/components/schemas/ArticleImage'
+            },
+            type: 'array',
+            title: 'Images'
         }
     },
     type: 'object',
@@ -1386,6 +1413,19 @@ export const Body_auth_verify_verifySchema = {
     title: 'Body_auth-verify:verify'
 } as const;
 
+export const Body_drafts_upload_cover_imageSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_drafts-upload_cover_image'
+} as const;
+
 export const Body_uploads_upload_imageSchema = {
     properties: {
         file: {
@@ -1533,6 +1573,23 @@ export const ComparisonReferenceEmbeddedSchema = {
     description: '嵌入的对比参考'
 } as const;
 
+export const CoverUploadResponseSchema = {
+    properties: {
+        cover_image_url: {
+            type: 'string',
+            title: 'Cover Image Url'
+        },
+        thumb_media_id: {
+            type: 'string',
+            title: 'Thumb Media Id'
+        }
+    },
+    type: 'object',
+    required: ['cover_image_url', 'thumb_media_id'],
+    title: 'CoverUploadResponse',
+    description: 'Response schema for cover image upload.'
+} as const;
+
 export const DistributionItemSchema = {
     properties: {
         name: {
@@ -1624,6 +1681,17 @@ export const DraftPublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Created At'
+        },
+        cover_image_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cover Image Url'
         }
     },
     type: 'object',
@@ -2708,6 +2776,11 @@ export const PublishRequestSchema = {
             type: 'boolean',
             title: 'Confirmed',
             default: false
+        },
+        theme: {
+            type: 'string',
+            title: 'Theme',
+            default: 'qing-mo'
         }
     },
     type: 'object',

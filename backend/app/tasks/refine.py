@@ -11,7 +11,9 @@ async def _refine_article_async(article_id: str, task_run_id: str) -> None:
     """
     from app.models import Article, TaskRun
 
-    task_run = await TaskRun.find_one(TaskRun.id == uuid.UUID(task_run_id))
+    task_run = None
+    if task_run_id:
+        task_run = await TaskRun.find_one(TaskRun.id == uuid.UUID(task_run_id))
     article = await Article.find_one(Article.id == uuid.UUID(article_id))
     if not article:
         return
@@ -46,7 +48,14 @@ async def _refine_article_async(article_id: str, task_run_id: str) -> None:
             operation="refine",
         )
 
-        refined_md = await agent.run(article.content, context=context)
+        # Build content with images for refinement
+        content_with_images = agent.build_content_with_images(
+            article.content, article.images
+        )
+
+        refined_md = await agent.run(
+            content_with_images, context=context, images=article.images
+        )
 
         article.content_md = refined_md
         article.refine_status = "refined"

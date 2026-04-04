@@ -11,6 +11,7 @@ import {
   Rss,
   Scale,
   Settings,
+  Shield,
   Sparkles,
   UploadCloud,
   Users,
@@ -73,7 +74,10 @@ const menuGroups: MenuGroup[] = [
     id: "system",
     title: "系统",
     icon: Settings,
-    items: [{ icon: Settings, title: "系统设置", path: "/settings" }],
+    items: [
+      { icon: Settings, title: "用户设置", path: "/settings" },
+      { icon: Shield, title: "系统设置", path: "/system-settings" },
+    ],
   },
 ]
 

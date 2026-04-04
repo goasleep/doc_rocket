@@ -117,19 +117,22 @@ async def test_linear_pipeline_publishes_sse_events(
             json.dumps({"fact_check_flags": [], "legal_notes": [], "format_issues": []}),
         ]
     )
+    mock_humanizer = AsyncMock()
+    mock_humanizer.run = AsyncMock(return_value="Humanized content.")
 
     with patch("app.core.agents.base.create_agent_for_config", return_value=mock_agent):
-        await _writing_workflow_async(str(sample_workflow_run.id))
+        with patch("app.tasks.workflow.BaseAgent", return_value=mock_humanizer):
+            await _writing_workflow_async(str(sample_workflow_run.id))
 
     event_types = [e["type"] for e in published_events]
 
-    # Three agents → three agent_start events
-    assert event_types.count("agent_start") == 3, (
-        f"Expected 3 agent_start events, found {event_types.count('agent_start')}"
+    # Three agents + humanizer → four agent_start events
+    assert event_types.count("agent_start") == 4, (
+        f"Expected 4 agent_start events, found {event_types.count('agent_start')}"
     )
-    # Three agents → three agent_output events
-    assert event_types.count("agent_output") == 3, (
-        f"Expected 3 agent_output events, found {event_types.count('agent_output')}"
+    # Three agents + humanizer → four agent_output events
+    assert event_types.count("agent_output") == 4, (
+        f"Expected 4 agent_output events, found {event_types.count('agent_output')}"
     )
     # Pipeline ends → one workflow_paused event
     assert "workflow_paused" in event_types, (
@@ -159,18 +162,22 @@ async def test_linear_pipeline_status_is_waiting_human(
             json.dumps({"fact_check_flags": [], "legal_notes": [], "format_issues": []}),
         ]
     )
+    mock_humanizer = AsyncMock()
+    mock_humanizer.run = AsyncMock(return_value="Humanized content.")
 
     with patch("app.core.agents.base.create_agent_for_config", return_value=mock_agent):
-        await _writing_workflow_async(str(sample_workflow_run.id))
+        with patch("app.tasks.workflow.BaseAgent", return_value=mock_humanizer):
+            await _writing_workflow_async(str(sample_workflow_run.id))
 
     run = await WorkflowRun.find_one(WorkflowRun.id == sample_workflow_run.id)
     assert run is not None
     assert run.status == "waiting_human", (
         f"Expected status 'waiting_human', got '{run.status}'"
     )
-    assert len(run.steps) == 3, (
-        f"Expected 3 completed steps, found {len(run.steps)}"
+    assert len(run.steps) == 4, (
+        f"Expected 4 completed steps (writer, editor, reviewer, humanizer), found {len(run.steps)}"
     )
+    step_statuses = [(s.agent_name, s.status) for s in run.steps]
     assert all(s.status == "done" for s in run.steps), (
-        "Not all agent steps have status 'done'"
+        f"Not all agent steps have status 'done'. Steps: {step_statuses}"
     )

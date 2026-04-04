@@ -230,6 +230,45 @@ class WeChatMPClient:
 
         return str(data["url"])
 
+    async def upload_media(self, image_data: bytes, filename: str) -> str:
+        """Upload an image as permanent thumb material to WeChat MP (for thumb_media_id).
+
+        This uses the add_material API with type='thumb' which creates a permanent
+        thumbnail material that can be used in draft articles as thumb_media_id.
+        Note: WeChat draft API requires thumb type material, not image type.
+
+        Args:
+            image_data: Raw image bytes
+            filename: Name of the image file
+
+        Returns:
+            str: Media ID for the uploaded thumb
+
+        Raises:
+            WeChatMPError: If the upload fails
+        """
+        access_token = await self.get_access_token()
+
+        files = {"media": (filename, image_data, "image/jpeg")}
+        response = await self._http_client.post(
+            "/cgi-bin/material/add_material",
+            params={
+                "access_token": access_token,
+                "type": "thumb",  # thumb type for draft cover images
+            },
+            files=files,
+        )
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
+
+        if "errcode" in data and data["errcode"] != 0:
+            raise WeChatMPError(
+                f"Failed to upload media: {data.get('errmsg', 'Unknown error')}",
+                errcode=data["errcode"],
+            )
+
+        return str(data.get("media_id"))
+
     async def add_draft(
         self,
         title: str,
@@ -285,7 +324,7 @@ class WeChatMPClient:
         payload = {"articles": [article]}
 
         response = await self._http_client.post(
-            "/draft/add",
+            "/cgi-bin/draft/add",
             params={"access_token": access_token},
             json=payload,
         )
@@ -317,7 +356,7 @@ class WeChatMPClient:
         payload = {"media_id": media_id}
 
         response = await self._http_client.post(
-            "/freepublish/submit",
+            "/cgi-bin/freepublish/submit",
             params={"access_token": access_token},
             json=payload,
         )
@@ -354,7 +393,7 @@ class WeChatMPClient:
         payload = {"publish_id": publish_id}
 
         response = await self._http_client.post(
-            "/freepublish/get",
+            "/cgi-bin/freepublish/get",
             params={"access_token": access_token},
             json=payload,
         )

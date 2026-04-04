@@ -344,7 +344,13 @@ function RoutingLogPanel({
             </span>
             {event.timestamp && (
               <span className="text-xs text-muted-foreground">
-                {new Date(event.timestamp).toLocaleTimeString()}
+                {new Intl.DateTimeFormat("zh-CN", {
+                  timeZone: "Asia/Shanghai",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                }).format(new Date(event.timestamp))}
               </span>
             )}
           </div>
@@ -711,6 +717,15 @@ function WorkflowRunView({ runId }: { runId: string }) {
   // Polling always runs as backup, even with SSE active
   useWorkflowPolling(runId)
 
+  // Merge server steps with local optimistic steps - must be before early returns
+  const displaySteps = useMemo(() => {
+    if (!run) return []
+    const serverSteps = run.steps || []
+    // If server has steps, use them (they're authoritative)
+    // Otherwise use local steps built from SSE events
+    return serverSteps.length > 0 ? serverSteps : localSteps
+  }, [run?.steps, localSteps, run])
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12 text-muted-foreground">
@@ -725,20 +740,12 @@ function WorkflowRunView({ runId }: { runId: string }) {
     )
   }
 
-  // Merge server steps with local optimistic steps
-  const displaySteps = useMemo(() => {
-    const serverSteps = run.steps || []
-    // If server has steps, use them (they're authoritative)
-    // Otherwise use local steps built from SSE events
-    return serverSteps.length > 0 ? serverSteps : localSteps
-  }, [run.steps, localSteps])
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <StatusBadge status={run.status} />
         <span className="text-sm text-muted-foreground">
-          工作流 {run.type} · {new Date(run.created_at).toLocaleString("zh-CN")}
+          工作流 {run.type} · {formatDateToShanghai(run.created_at)}
         </span>
         {run.parent_run_id && (
           <Badge variant="outline" className="text-xs">
@@ -1091,13 +1098,26 @@ function NewWorkflowPanel() {
 
 // ─── Workflow List ─────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string) {
+// Helper to format date to Asia/Shanghai (UTC+8)
+function formatDateToShanghai(dateStr: string): string {
   const d = new Date(dateStr)
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  const hh = String(d.getHours()).padStart(2, "0")
-  const min = String(d.getMinutes()).padStart(2, "0")
-  return `${mm}-${dd} ${hh}:${min}`
+  // Format to Asia/Shanghai timezone
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+  const parts = formatter.formatToParts(d)
+  const getPart = (type: string) =>
+    parts.find((p) => p.type === type)?.value || "00"
+  return `${getPart("month")}-${getPart("day")} ${getPart("hour")}:${getPart("minute")}`
+}
+
+function formatDate(dateStr: string) {
+  return formatDateToShanghai(dateStr)
 }
 
 function workflowLabel(run: WorkflowRunPublic): string {
@@ -1118,11 +1138,13 @@ function getCurrentStage(run: WorkflowRunPublic): string {
   return run.status
 }
 
-// Helper to calculate duration
+// Helper to calculate duration (both times are in UTC, result is accurate)
 function getDuration(run: WorkflowRunPublic): string {
   const start = new Date(run.created_at)
-  const end = new Date() // WorkflowRunPublic may not have ended_at
-  const mins = Math.floor((end.getTime() - start.getTime()) / 60000)
+  // Use current UTC time for running workflows
+  const end = new Date()
+  const diffMs = end.getTime() - start.getTime()
+  const mins = Math.floor(diffMs / 60000)
   if (mins < 1) return "<1分钟"
   if (mins < 60) return `${mins}分钟`
   const hours = Math.floor(mins / 60)

@@ -13,7 +13,6 @@ export type AgentConfigCreate = {
     responsibilities?: string;
     system_prompt?: string;
     model_config_name?: string;
-    workflow_order?: number;
     is_active?: boolean;
     skills?: Array<(string)>;
     tools?: Array<(string)>;
@@ -29,7 +28,6 @@ export type AgentConfigPublic = {
     responsibilities: string;
     system_prompt: string;
     model_config_name: string;
-    workflow_order: number;
     is_active: boolean;
     skills: Array<(string)>;
     tools: Array<(string)>;
@@ -51,7 +49,6 @@ export type AgentConfigUpdate = {
     responsibilities?: (string | null);
     system_prompt?: (string | null);
     model_config_name?: (string | null);
-    workflow_order?: (number | null);
     is_active?: (boolean | null);
     skills?: (Array<(string)> | null);
     tools?: (Array<(string)> | null);
@@ -267,11 +264,22 @@ export type ArticleDetail = {
     refine_status: string;
     created_at: string;
     quality_score?: (number | null);
+    images?: Array<ArticleImage>;
     content: string;
     content_md?: (string | null);
     analysis?: ({
     [key: string]: unknown;
 } | null);
+    raw_html?: (string | null);
+};
+
+/**
+ * Image extracted from article content.
+ */
+export type ArticleImage = {
+    original_url: string;
+    qiniu_url: string;
+    alt?: string;
 };
 
 export type ArticlePublic = {
@@ -286,6 +294,7 @@ export type ArticlePublic = {
     refine_status: string;
     created_at: string;
     quality_score?: (number | null);
+    images?: Array<ArticleImage>;
 };
 
 export type ArticlesPublic = {
@@ -349,6 +358,10 @@ export type Body_auth_verify_verify = {
     token: string;
 };
 
+export type Body_drafts_upload_cover_image = {
+    file: (Blob | File);
+};
+
 export type Body_uploads_upload_image = {
     file: (Blob | File);
 };
@@ -408,6 +421,14 @@ export type ComparisonReferenceEmbedded = {
 };
 
 /**
+ * Response schema for cover image upload.
+ */
+export type CoverUploadResponse = {
+    cover_image_url: string;
+    thumb_media_id: string;
+};
+
+/**
  * 分布图数据项
  */
 export type DistributionItem = {
@@ -433,6 +454,7 @@ export type DraftPublic = {
     status: string;
     edit_history: Array<EditHistoryEntry>;
     created_at: string;
+    cover_image_url?: (string | null);
 };
 
 export type DraftsPublic = {
@@ -702,6 +724,7 @@ export type status = 'pending' | 'success' | 'failed';
  */
 export type PublishRequest = {
     confirmed?: boolean;
+    theme?: string;
 };
 
 /**
@@ -1346,6 +1369,7 @@ export type AnalysesGetAnalysisTraceResponse = (AnalysisTraceResponse);
 export type ArticlesListArticlesData = {
     inputType?: (string | null);
     limit?: number;
+    search?: (string | null);
     skip?: number;
     sort?: string;
     sourceId?: (string | null);
@@ -1425,6 +1449,17 @@ export type AuthVerifyVerifyData = {
 
 export type AuthVerifyVerifyResponse = (UserRead);
 
+export type DraftsGetThemesResponse = ({
+    [key: string]: (string);
+});
+
+export type DraftsUploadCoverImageData = {
+    formData: Body_drafts_upload_cover_image;
+    id: string;
+};
+
+export type DraftsUploadCoverImageResponse = (CoverUploadResponse);
+
 export type DraftsListDraftsData = {
     limit?: number;
     skip?: number;
@@ -1474,6 +1509,7 @@ export type DraftsRewriteSectionResponse = (RewriteSectionResponse);
 
 export type DraftsPreviewDraftData = {
     id: string;
+    theme?: string;
 };
 
 export type DraftsPreviewDraftResponse = (DraftPreviewResponse);

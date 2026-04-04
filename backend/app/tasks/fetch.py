@@ -61,6 +61,7 @@ async def _fetch_source_async(source_id: str) -> None:
                 published_at=raw.get("published_at"),
                 status="raw",
                 input_type="fetched",
+                images=raw.get("images", []),
             )
             await article.insert()
             new_count += 1
@@ -142,6 +143,8 @@ async def _fetch_url_and_analyze_async(url: str, user_id: str | None = None) -> 
             published_at=raw.get("published_at"),
             status="raw",
             input_type="manual",
+            images=raw.get("images", []),
+            raw_html=raw.get("raw_html"),
         )
         await article.insert()
 
@@ -220,6 +223,12 @@ async def _refetch_article_async(article_id: str) -> str:
         article.status = "raw"
         article.refine_status = "pending"
         article.content_md = None
+        # Update images on refetch
+        if raw.get("images"):
+            article.images = raw["images"]
+        # Update raw_html on refetch
+        if raw.get("raw_html"):
+            article.raw_html = raw["raw_html"]
         await article.save()
 
         fetch_task_run.status = "done"

@@ -786,15 +786,30 @@ function ArticleDetailContent() {
             </TabsContent>
 
             <TabsContent value="raw-content">
-              <Card>
-                <CardContent className="pt-4">
-                  <div
-                    className="text-sm leading-relaxed max-h-[600px] overflow-y-auto prose prose-sm max-w-none dark:prose-invert"
-                    // biome-ignore lint/security/noDangerouslySetInnerHtml: article content is scraped HTML from trusted sources
-                    dangerouslySetInnerHTML={{ __html: article.content ?? "" }}
-                  />
-                </CardContent>
-              </Card>
+              {article.raw_html ? (
+                <Card>
+                  <CardContent className="pt-4">
+                    <iframe
+                      srcDoc={article.raw_html}
+                      className="w-full h-[600px] border-0"
+                      sandbox="allow-same-origin"
+                      title="Original Content"
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-muted-foreground py-8 text-center">
+                      暂无原始HTML内容（可能是旧数据或未通过URL抓取）
+                    </div>
+                    <div
+                      className="text-sm leading-relaxed max-h-[600px] overflow-y-auto prose prose-sm max-w-none dark:prose-invert"
+                      dangerouslySetInnerHTML={{ __html: article.content ?? "" }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </TabsContent>

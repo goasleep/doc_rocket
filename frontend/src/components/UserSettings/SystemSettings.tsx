@@ -33,7 +33,9 @@ interface ExtendedSystemConfigUpdate extends SystemConfigUpdate {
   excluded_keywords?: string[]
   min_keyword_length?: number
   max_keyword_count?: number
-  wechat_mp?: WechatMPConfig
+  wechat_mp?: WechatMPConfig & {
+    app_secret_encrypted?: string
+  }
 }
 
 import { Badge } from "@/components/ui/badge"
@@ -128,12 +130,15 @@ export function SystemSettings() {
     payload.word_cloud_filter = wordCloudFilter
 
     // Include WeChat MP config if any field is provided
-    const wechatMpConfig: Partial<WechatMPConfig> = {}
+    const wechatMpConfig: Partial<WechatMPConfig> & {
+      app_secret_encrypted?: string
+    } = {}
     if (values.wechat_mp?.app_id) {
       wechatMpConfig.app_id = values.wechat_mp.app_id
     }
-    if (values.wechat_mp?.app_secret_masked) {
-      wechatMpConfig.app_secret_masked = values.wechat_mp.app_secret_masked
+    if (values.wechat_mp?.app_secret_encrypted) {
+      wechatMpConfig.app_secret_encrypted =
+        values.wechat_mp.app_secret_encrypted
     }
     // Always include enabled if it's explicitly set, otherwise use current config
     if (values.wechat_mp?.enabled !== undefined) {
@@ -143,7 +148,8 @@ export function SystemSettings() {
     }
 
     if (Object.keys(wechatMpConfig).length > 0) {
-      payload.wechat_mp = wechatMpConfig as WechatMPConfig
+      payload.wechat_mp =
+        wechatMpConfig as ExtendedSystemConfigUpdate["wechat_mp"]
     }
 
     updateMutation.mutate(payload as SystemConfigUpdate)
@@ -339,7 +345,7 @@ export function SystemSettings() {
                 </span>
               </div>
               <Controller
-                name="wechat_mp.app_secret_masked"
+                name="wechat_mp.app_secret_encrypted"
                 control={control}
                 defaultValue=""
                 render={({ field }) => (

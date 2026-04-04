@@ -25,6 +25,9 @@ class Draft(Document):
     status: str = "draft"  # draft | editing | approved
     edit_history: list[EditHistoryEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=get_datetime_utc)
+    # Cover image fields
+    cover_image_url: str | None = None      # Qiniu permanent URL
+    thumb_media_id: str | None = None       # WeChat temporary media_id
 
     class Settings:
         name = "drafts"
@@ -41,6 +44,7 @@ class DraftPublic(BaseModel):
     status: str
     edit_history: list[EditHistoryEntry]
     created_at: datetime
+    cover_image_url: str | None = None
 
 
 class DraftsPublic(BaseModel):

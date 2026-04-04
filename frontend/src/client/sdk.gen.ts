@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesAnalyzeContentData, AnalysesAnalyzeContentResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, AnalysesGetAnalysisTraceData, AnalysesGetAnalysisTraceResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, ArticlesUpdateArticleTitleData, ArticlesUpdateArticleTitleResponse, ArticlesBulkDeleteArticlesData, ArticlesBulkDeleteArticlesResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, DraftsPreviewDraftData, DraftsPreviewDraftResponse, DraftsPublishDraftData, DraftsPublishDraftResponse, ExternalReferencesListExternalReferencesData, ExternalReferencesListExternalReferencesResponse, ExternalReferencesCreateExternalReferenceData, ExternalReferencesCreateExternalReferenceResponse, ExternalReferencesGetExternalReferenceData, ExternalReferencesGetExternalReferenceResponse, ExternalReferencesUpdateExternalReferenceData, ExternalReferencesUpdateExternalReferenceResponse, ExternalReferencesDeleteExternalReferenceData, ExternalReferencesDeleteExternalReferenceResponse, ExternalReferencesRefetchExternalReferenceData, ExternalReferencesRefetchExternalReferenceResponse, InsightsGetLatestSnapshotResponse, InsightsListSnapshotsData, InsightsListSnapshotsResponse, InsightsRefreshSnapshotResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, PublishHistoryListPublishHistoryData, PublishHistoryListPublishHistoryResponse, PublishHistoryCheckPublishStatusData, PublishHistoryCheckPublishStatusResponse, RubricsListRubricsResponse, RubricsGetActiveRubricResponse, RubricsGetRubricData, RubricsGetRubricResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, TokenUsageGetTodayStatsResponse, TokenUsageGetYesterdayStatsResponse, TokenUsageGetTrendDataData, TokenUsageGetTrendDataResponse, TokenUsageGetAgentStatsData, TokenUsageGetAgentStatsResponse, TokenUsageGetSingleAgentStatsData, TokenUsageGetSingleAgentStatsResponse, TokenUsageGetArticleTokenUsageData, TokenUsageGetArticleTokenUsageResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UploadsUploadImageData, UploadsUploadImageResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse, WorkflowsRetryWorkflowData, WorkflowsRetryWorkflowResponse } from './types.gen';
+import type { AgentsListAgentsResponse, AgentsCreateAgentData, AgentsCreateAgentResponse, AgentsGetAgentData, AgentsGetAgentResponse, AgentsUpdateAgentData, AgentsUpdateAgentResponse, AgentsDeleteAgentData, AgentsDeleteAgentResponse, AgentsGetAvailableModelsResponse, AnalysesListAnalysesData, AnalysesListAnalysesResponse, AnalysesTriggerAnalysisData, AnalysesTriggerAnalysisResponse, AnalysesAnalyzeContentData, AnalysesAnalyzeContentResponse, AnalysesGetAnalysisData, AnalysesGetAnalysisResponse, AnalysesGetAnalysisTraceData, AnalysesGetAnalysisTraceResponse, ArticlesListArticlesData, ArticlesListArticlesResponse, ArticlesGetArticleData, ArticlesGetArticleResponse, ArticlesArchiveArticleData, ArticlesArchiveArticleResponse, ArticlesRefetchArticleData, ArticlesRefetchArticleResponse, ArticlesUpdateArticleTitleData, ArticlesUpdateArticleTitleResponse, ArticlesBulkDeleteArticlesData, ArticlesBulkDeleteArticlesResponse, AuthAuthJwtLoginData, AuthAuthJwtLoginResponse, AuthAuthJwtLogoutResponse, AuthRegisterRegisterData, AuthRegisterRegisterResponse, AuthResetForgotPasswordData, AuthResetForgotPasswordResponse, AuthResetResetPasswordData, AuthResetResetPasswordResponse, AuthVerifyRequestTokenData, AuthVerifyRequestTokenResponse, AuthVerifyVerifyData, AuthVerifyVerifyResponse, DraftsGetThemesResponse, DraftsUploadCoverImageData, DraftsUploadCoverImageResponse, DraftsListDraftsData, DraftsListDraftsResponse, DraftsGetDraftData, DraftsGetDraftResponse, DraftsUpdateDraftData, DraftsUpdateDraftResponse, DraftsDeleteDraftData, DraftsDeleteDraftResponse, DraftsApproveDraftData, DraftsApproveDraftResponse, DraftsExportDraftData, DraftsExportDraftResponse, DraftsRewriteSectionData, DraftsRewriteSectionResponse, DraftsPreviewDraftData, DraftsPreviewDraftResponse, DraftsPublishDraftData, DraftsPublishDraftResponse, ExternalReferencesListExternalReferencesData, ExternalReferencesListExternalReferencesResponse, ExternalReferencesCreateExternalReferenceData, ExternalReferencesCreateExternalReferenceResponse, ExternalReferencesGetExternalReferenceData, ExternalReferencesGetExternalReferenceResponse, ExternalReferencesUpdateExternalReferenceData, ExternalReferencesUpdateExternalReferenceResponse, ExternalReferencesDeleteExternalReferenceData, ExternalReferencesDeleteExternalReferenceResponse, ExternalReferencesRefetchExternalReferenceData, ExternalReferencesRefetchExternalReferenceResponse, InsightsGetLatestSnapshotResponse, InsightsListSnapshotsData, InsightsListSnapshotsResponse, InsightsRefreshSnapshotResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LlmModelConfigsListLlmModelConfigsResponse, LlmModelConfigsCreateLlmModelConfigData, LlmModelConfigsCreateLlmModelConfigResponse, LlmModelConfigsUpdateLlmModelConfigData, LlmModelConfigsUpdateLlmModelConfigResponse, LlmModelConfigsDeleteLlmModelConfigData, LlmModelConfigsDeleteLlmModelConfigResponse, PrivateCreateUserData, PrivateCreateUserResponse, PublishHistoryListPublishHistoryData, PublishHistoryListPublishHistoryResponse, PublishHistoryCheckPublishStatusData, PublishHistoryCheckPublishStatusResponse, RubricsListRubricsResponse, RubricsGetActiveRubricResponse, RubricsGetRubricData, RubricsGetRubricResponse, SkillsListSkillsData, SkillsListSkillsResponse, SkillsCreateSkillData, SkillsCreateSkillResponse, SkillsGetSkillData, SkillsGetSkillResponse, SkillsUpdateSkillData, SkillsUpdateSkillResponse, SkillsDeleteSkillData, SkillsDeleteSkillResponse, SkillsImportSkillData, SkillsImportSkillResponse, SourcesListSourcesData, SourcesListSourcesResponse, SourcesCreateSourceData, SourcesCreateSourceResponse, SourcesGetSourceData, SourcesGetSourceResponse, SourcesUpdateSourceData, SourcesUpdateSourceResponse, SourcesDeleteSourceData, SourcesDeleteSourceResponse, SourcesTriggerFetchData, SourcesTriggerFetchResponse, SubmitSubmitArticleData, SubmitSubmitArticleResponse, SystemConfigGetSystemConfigResponse, SystemConfigUpdateSystemConfigData, SystemConfigUpdateSystemConfigResponse, TaskRunsListTaskRunsData, TaskRunsListTaskRunsResponse, TaskRunsGetTaskRunData, TaskRunsGetTaskRunResponse, TokenUsageGetTodayStatsResponse, TokenUsageGetYesterdayStatsResponse, TokenUsageGetTrendDataData, TokenUsageGetTrendDataResponse, TokenUsageGetAgentStatsData, TokenUsageGetAgentStatsResponse, TokenUsageGetSingleAgentStatsData, TokenUsageGetSingleAgentStatsResponse, TokenUsageGetArticleTokenUsageData, TokenUsageGetArticleTokenUsageResponse, ToolsListToolsResponse, ToolsUpdateToolData, ToolsUpdateToolResponse, UploadsUploadImageData, UploadsUploadImageResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersUsersCurrentUserResponse, UsersDeleteUserMeResponse, UsersUsersPatchCurrentUserData, UsersUsersPatchCurrentUserResponse, UsersUsersUserData, UsersUsersUserResponse, UsersUsersPatchUserData, UsersUsersPatchUserResponse, UsersUsersDeleteUserData, UsersUsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, WorkflowsListWorkflowsData, WorkflowsListWorkflowsResponse, WorkflowsTriggerWorkflowData, WorkflowsTriggerWorkflowResponse, WorkflowsGetWorkflowData, WorkflowsGetWorkflowResponse, WorkflowsWorkflowStreamData, WorkflowsWorkflowStreamResponse, WorkflowsApproveWorkflowData, WorkflowsApproveWorkflowResponse, WorkflowsRejectWorkflowData, WorkflowsRejectWorkflowResponse, WorkflowsAbortWorkflowData, WorkflowsAbortWorkflowResponse, WorkflowsRetryWorkflowData, WorkflowsRetryWorkflowResponse } from './types.gen';
 
 export class AgentsService {
     /**
@@ -234,6 +234,7 @@ export class ArticlesService {
      * @param data.sourceId
      * @param data.inputType
      * @param data.sort
+     * @param data.search
      * @returns ArticlesPublic Successful Response
      * @throws ApiError
      */
@@ -247,7 +248,8 @@ export class ArticlesService {
                 status: data.status,
                 source_id: data.sourceId,
                 input_type: data.inputType,
-                sort: data.sort
+                sort: data.sort,
+                search: data.search
             },
             errors: {
                 422: 'Validation Error'
@@ -497,6 +499,63 @@ export class AuthService {
 
 export class DraftsService {
     /**
+     * Get Themes
+     * Get available markdown themes for WeChat MP publishing.
+     *
+     * Returns:
+     * Dictionary mapping theme names to descriptions.
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static getThemes(): CancelablePromise<DraftsGetThemesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/drafts/themes'
+        });
+    }
+    
+    /**
+     * Upload Cover Image
+     * Upload cover image for draft.
+     *
+     * Processes the image (resize to 900x500, compress),
+     * uploads to Qiniu OSS for permanent storage,
+     * uploads to WeChat MP for thumb_media_id,
+     * and saves both to the draft.
+     *
+     * Args:
+     * current_user: Current authenticated user
+     * id: Draft ID
+     * file: Image file to upload
+     *
+     * Returns:
+     * CoverUploadResponse with cover_image_url and thumb_media_id
+     *
+     * Raises:
+     * HTTPException: If draft not found, image processing fails,
+     * or WeChat MP upload fails
+     * @param data The data for the request.
+     * @param data.id
+     * @param data.formData
+     * @returns CoverUploadResponse Successful Response
+     * @throws ApiError
+     */
+    public static uploadCoverImage(data: DraftsUploadCoverImageData): CancelablePromise<DraftsUploadCoverImageResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/drafts/{id}/upload-cover',
+            path: {
+                id: data.id
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * List Drafts
      * @param data The data for the request.
      * @param data.skip
@@ -654,8 +713,14 @@ export class DraftsService {
     /**
      * Preview Draft
      * Preview draft content as WeChat MP compatible HTML.
+     *
+     * Args:
+     * current_user: Current authenticated user
+     * id: Draft ID
+     * theme: Theme to use for styling. Options: qing-mo, github-markdown, github-markdown-light, github-markdown-dark, etc.
      * @param data The data for the request.
      * @param data.id
+     * @param data.theme
      * @returns DraftPreviewResponse Successful Response
      * @throws ApiError
      */
@@ -665,6 +730,9 @@ export class DraftsService {
             url: '/api/v1/drafts/{id}/preview',
             path: {
                 id: data.id
+            },
+            query: {
+                theme: data.theme
             },
             errors: {
                 422: 'Validation Error'

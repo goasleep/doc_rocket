@@ -9,6 +9,13 @@ def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class ArticleImage(BaseModel):
+    """Image extracted from article content."""
+    original_url: str
+    qiniu_url: str
+    alt: str = ""
+
+
 class Article(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     source_id: uuid.UUID | None = None
@@ -22,6 +29,10 @@ class Article(Document):
     content_md: str | None = None
     refine_status: str = "pending"
     created_at: datetime = Field(default_factory=get_datetime_utc)
+    # Images extracted from article content
+    images: list[ArticleImage] = Field(default_factory=list)
+    # Original HTML content (extracted main content only)
+    raw_html: str | None = None
 
     class Settings:
         name = "articles"
@@ -35,6 +46,7 @@ class ArticleCreate(BaseModel):
     published_at: datetime | None = None
     source_id: uuid.UUID | None = None
     input_type: str = "manual"
+    images: list[ArticleImage] = Field(default_factory=list)
 
 
 class ArticlePublic(BaseModel):
@@ -50,6 +62,7 @@ class ArticlePublic(BaseModel):
     refine_status: str
     created_at: datetime
     quality_score: float | None = None  # joined from ArticleAnalysis
+    images: list[ArticleImage] = Field(default_factory=list)
 
 
 class ArticleDetail(ArticlePublic):
@@ -57,6 +70,8 @@ class ArticleDetail(ArticlePublic):
     content_md: str | None = None
     refine_status: str
     analysis: dict | None = None  # embedded ArticleAnalysis data
+    images: list[ArticleImage] = Field(default_factory=list)
+    raw_html: str | None = None
 
 
 class ArticlesPublic(BaseModel):

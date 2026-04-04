@@ -1,7 +1,11 @@
 """FetcherAgent — fetches articles from API sources, RSS feeds, or URLs."""
 import re
+import uuid
 from datetime import datetime
 from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import httpx
 
 
 class FetcherAgent:
@@ -21,10 +25,9 @@ class FetcherAgent:
         1. Try plain HTTP fetch.
         2. Let an LLM agent judge whether the extracted content is valid.
         3. If invalid, fall back to Playwright (headless Chromium).
-        4. Return Playwright result regardless of its validity.
+        4. Extract images from HTML, download and upload to Qiniu OSS.
+        5. Return content with Qiniu image URLs.
         """
-        import httpx
-
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -36,6 +39,8 @@ class FetcherAgent:
         html_text: str = ""
         http_content: str = ""
         http_title: str = "Untitled"
+        http_raw_html: str = ""
+        images: list[dict[str, Any]] = []
 
         try:
             async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
@@ -44,20 +49,184 @@ class FetcherAgent:
                 html_text = response.text
             http_content = self._extract_text(html_text)
             http_title = self._extract_title(html_text)
+            http_raw_html = self._extract_main_html(html_text, url)
+            images = await self._extract_and_upload_images(html_text, url)
         except Exception:
             pass
 
         # Agent validity check
         if http_content and await self._is_content_valid(http_content, url):
-            return {"title": http_title, "content": http_content, "url": url}
+            return {
+                "title": http_title,
+                "content": http_content,
+                "url": url,
+                "images": images,
+                "raw_html": http_raw_html,
+            }
 
         # Fall back to Playwright
         pw_result = await self._fetch_url_with_playwright(url)
         return pw_result
 
+    async def _extract_and_upload_images(
+        self, html: str, base_url: str
+    ) -> list[dict[str, Any]]:
+        """Extract images from HTML, download and upload to Qiniu OSS.
+
+        Returns list of dicts with:
+        - original_url: original image URL
+        - qiniu_url: uploaded Qiniu URL (or original if upload failed)
+        - alt: image alt text
+        """
+        from app.core.qiniu_oss import QiniuOSSClient, QiniuOSError
+
+        # Extract all img tags
+        img_pattern = r'<img[^>]+src=["\']([^"\']+)["\'][^>]*>'
+        img_tags = re.findall(img_pattern, html, re.IGNORECASE)
+
+        # Also extract srcset if present
+        srcset_pattern = r'<img[^>]+srcset=["\']([^"\']+)["\'][^>]*>'
+        srcset_matches = re.findall(srcset_pattern, html, re.IGNORECASE)
+
+        # Parse srcset to get largest image
+        for srcset in srcset_matches:
+            # srcset format: "url1 1x, url2 2x" or "url1 100w, url2 200w"
+            urls = re.findall(r'([^\s,]+)\s+(?:\d+w|\d+x)', srcset)
+            if urls:
+                # Take the last one (usually largest)
+                img_tags.append(urls[-1])
+
+        # Deduplicate and filter
+        seen_urls = set()
+        unique_images = []
+
+        for img_url in img_tags:
+            # Skip data URIs
+            if img_url.startswith("data:"):
+                continue
+
+            # Resolve relative URLs
+            absolute_url = urljoin(base_url, img_url)
+
+            # Skip if already processed
+            if absolute_url in seen_urls:
+                continue
+            seen_urls.add(absolute_url)
+
+            # Skip common non-content images (icons, logos, ads)
+            skip_patterns = [
+                r"favicon",
+                r"logo",
+                r"icon",
+                r"avatar",
+                r"banner",
+                r"ad\.",
+                r"tracking",
+                r"pixel",
+                r"spacer",
+                r"blank",
+                r"\.svg$",
+                r"1x1",
+                r"beacon",
+            ]
+            if any(re.search(p, absolute_url, re.I) for p in skip_patterns):
+                continue
+
+            unique_images.append(absolute_url)
+
+        # Limit to first 10 images to avoid too many uploads
+        unique_images = unique_images[:10]
+
+        # Try to initialize Qiniu client
+        try:
+            qiniu_client = QiniuOSSClient.from_settings()
+        except QiniuOSError:
+            # Qiniu not configured, return original URLs
+            return [
+                {"original_url": url, "qiniu_url": url, "alt": ""}
+                for url in unique_images
+            ]
+
+        # Download and upload images
+        results = []
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            for img_url in unique_images:
+                try:
+                    # Download image
+                    response = await client.get(img_url, headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        ),
+                        "Referer": base_url,
+                    })
+                    response.raise_for_status()
+                    image_data = response.content
+
+                    # Skip if too small (likely icon) or too large
+                    if len(image_data) < 1024 or len(image_data) > 10 * 1024 * 1024:
+                        results.append({
+                            "original_url": img_url,
+                            "qiniu_url": img_url,
+                            "alt": "",
+                        })
+                        continue
+
+                    # Generate unique filename
+                    content_type = response.headers.get("content-type", "")
+                    ext = self._get_image_extension(img_url, content_type)
+                    filename = f"articles/{uuid.uuid4()}{ext}"
+
+                    # Upload to Qiniu
+                    qiniu_url = await qiniu_client.upload_file(image_data, filename)
+
+                    results.append({
+                        "original_url": img_url,
+                        "qiniu_url": qiniu_url,
+                        "alt": "",
+                    })
+
+                except Exception:
+                    # On any error, keep original URL
+                    results.append({
+                        "original_url": img_url,
+                        "qiniu_url": img_url,
+                        "alt": "",
+                    })
+
+        return results
+
+    def _get_image_extension(self, url: str, content_type: str) -> str:
+        """Get file extension from URL or content-type."""
+        # Map content-type to extension
+        mime_map = {
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/png": ".png",
+            "image/gif": ".gif",
+            "image/webp": ".webp",
+        }
+
+        if content_type:
+            for mime, ext in mime_map.items():
+                if mime in content_type:
+                    return ext
+
+        # Try to get from URL
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
+            if path.endswith(ext):
+                return ".jpg" if ext == ".jpeg" else ext
+
+        # Default to .jpg
+        return ".jpg"
+
     async def _is_content_valid(self, content: str, url: str) -> bool:
         """Ask the LLM whether the extracted text looks like real article content."""
-        # Quick heuristic: if content is shorter than 200 chars it's almost certainly invalid
+        # Quick heuristic: if content is shorter than 200 chars
+        # it's almost certainly invalid
         if len(content.strip()) < 200:
             return False
 
@@ -124,11 +293,22 @@ class FetcherAgent:
 
         content = self._extract_text(html_text) if html_text else ""
         title = self._extract_title(html_text) if html_text else "Untitled"
-        return {"title": title, "content": content, "url": final_url}
+        raw_html = self._extract_main_html(html_text, final_url) if html_text else ""
+
+        # Extract and upload images
+        images = []
+        if html_text:
+            images = await self._extract_and_upload_images(html_text, final_url)
+
+        return {
+            "title": title,
+            "content": content,
+            "url": final_url,
+            "images": images,
+            "raw_html": raw_html,
+        }
 
     async def _fetch_api(self, source: Any) -> list[dict[str, Any]]:
-        import httpx
-
         headers: dict[str, str] = source.headers or {}
         if source.api_key:
             headers["Authorization"] = f"Bearer {source.api_key}"
@@ -154,12 +334,15 @@ class FetcherAgent:
                 "content": item.get(cfg.content_field, ""),
                 "url": item.get(cfg.url_field),
                 "author": item.get(cfg.author_field) if cfg.author_field else None,
-                "published_at": self._parse_dt(item.get(cfg.published_at_field)) if cfg.published_at_field else None,
+                "published_at": (
+                    self._parse_dt(item.get(cfg.published_at_field))
+                    if cfg.published_at_field
+                    else None
+                ),
             })
         return results
 
     async def _fetch_rss(self, source: Any) -> list[dict[str, Any]]:
-        import httpx
         import feedparser
 
         async with httpx.AsyncClient(timeout=30) as client:
@@ -179,7 +362,6 @@ class FetcherAgent:
 
             published_at = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
-                import time
                 published_at = datetime(*entry.published_parsed[:6])
 
             results.append({
@@ -213,12 +395,140 @@ class FetcherAgent:
     def _extract_text(self, html: str) -> str:
         """Simple HTML → plain text extraction."""
         # Remove script/style blocks
-        text = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(
+            r"<(script|style)[^>]*>.*?</\1>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
         # Remove HTML tags
         text = re.sub(r"<[^>]+>", " ", text)
         # Collapse whitespace
         text = re.sub(r"\s+", " ", text).strip()
         return text[:50000]  # cap at 50k chars
+
+    def _extract_main_html(self, html: str, base_url: str) -> str:
+        """Extract main content HTML using readability-lxml.
+
+        Returns cleaned HTML with only the article content, removing
+        navigation bars, sidebars, ads, etc.
+        """
+        try:
+            from readability import Document
+
+            doc = Document(html)
+            # Get the main content HTML
+            content_html = doc.summary()
+
+            # Resolve relative URLs in the HTML
+            content_html = self._resolve_relative_urls(content_html, base_url)
+
+            # Wrap with basic styling for better display
+            styled_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{doc.title()}</title>
+<style>
+body {{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.8;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    color: #333;
+}}
+h1, h2, h3, h4, h5, h6 {{
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.3;
+}}
+p {{
+    margin: 1em 0;
+}}
+img {{
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1em auto;
+}}
+pre, code {{
+    background: #f5f5f5;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+}}
+pre {{
+    padding: 1em;
+    overflow-x: auto;
+}}
+blockquote {{
+    border-left: 4px solid #ddd;
+    margin: 1em 0;
+    padding-left: 1em;
+    color: #666;
+}}
+table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}}
+th, td {{
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}}
+th {{
+    background: #f5f5f5;
+}}
+a {{
+    color: #0066cc;
+    text-decoration: none;
+}}
+a:hover {{
+    text-decoration: underline;
+}}
+</style>
+</head>
+<body>
+{content_html}
+</body>
+</html>"""
+            return styled_html
+        except Exception:
+            # Fallback: return original HTML with basic cleanup
+            return self._basic_html_cleanup(html, base_url)
+
+    def _resolve_relative_urls(self, html: str, base_url: str) -> str:
+        """Resolve relative URLs in HTML to absolute URLs."""
+        from urllib.parse import urljoin
+
+        # Resolve src attributes
+        def resolve_src(match: re.Match) -> str:
+            attr = match.group(1)
+            url = match.group(2)
+            if url.startswith(("http://", "https://", "data:")):
+                return match.group(0)
+            absolute = urljoin(base_url, url)
+            return f'{attr}="{absolute}"'
+
+        html = re.sub(r'(src=["\'])([^"\']+)(["\'])', resolve_src, html)
+        html = re.sub(r'(href=["\'])([^"\']+)(["\'])', resolve_src, html)
+        return html
+
+    def _basic_html_cleanup(self, html: str, base_url: str) -> str:
+        """Basic HTML cleanup when readability fails."""
+        # Remove script/style blocks
+        html = re.sub(
+            r"<(script|style|nav|header|footer|aside)[^>]*>.*?</\1>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        # Resolve relative URLs
+        html = self._resolve_relative_urls(html, base_url)
+        return html
 
     def _parse_dt(self, value: Any) -> datetime | None:
         if not value:
@@ -226,7 +536,6 @@ class FetcherAgent:
         if isinstance(value, datetime):
             return value
         try:
-            from datetime import timezone
             # Try ISO format
             return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         except (ValueError, TypeError):

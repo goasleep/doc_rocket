@@ -22,7 +22,6 @@ async def test_create_agent(
             "responsibilities": "自定义职责",
             "system_prompt": "你是一个自定义助手。",
             "model_config_name": "my-model",
-            "workflow_order": 5,
         },
         headers=normal_user_token_headers,
     )
@@ -34,7 +33,7 @@ async def test_create_agent(
 
 
 @pytest.mark.anyio
-async def test_list_agents_sorted_by_workflow_order(
+async def test_list_agents(
     client: AsyncClient,
     normal_user_token_headers: dict,
     db: None,
@@ -44,9 +43,8 @@ async def test_list_agents_sorted_by_workflow_order(
     assert r.status_code == 200
     data = r.json()
     agents = data.get("data", data)
-    if isinstance(agents, list) and len(agents) > 1:
-        orders = [a["workflow_order"] for a in agents]
-        assert orders == sorted(orders)
+    assert isinstance(agents, list)
+    assert len(agents) >= 3
 
 
 @pytest.mark.anyio

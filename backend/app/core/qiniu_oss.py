@@ -1,6 +1,6 @@
 """Qiniu OSS client for async file uploads."""
 import asyncio
-from typing import Self
+from typing_extensions import Self
 
 from qiniu import Auth, put_data
 
