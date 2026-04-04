@@ -1,4 +1,5 @@
 """Article management routes."""
+import re
 import uuid
 from typing import Any
 
@@ -31,8 +32,9 @@ async def list_articles(
     search: str | None = None,
 ) -> Any:
     import asyncio
+    from beanie.operators import RegEx
 
-    filters = [Article.status != "archived"]
+    filters: list[Any] = [Article.status != "archived"]
     if status:
         filters = [Article.status == status]
     if source_id:
@@ -40,7 +42,7 @@ async def list_articles(
     if input_type:
         filters.append(Article.input_type == input_type)
     if search:
-        filters.append({"title": {"$regex": search, "$options": "i"}})
+        filters.append(RegEx(Article.title, re.escape(search), options="i"))
 
     query = Article.find(*filters)
 

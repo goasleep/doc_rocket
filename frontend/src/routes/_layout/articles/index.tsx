@@ -5,7 +5,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { BookOpen, FlaskConical, Trash2 } from "lucide-react"
+import { FlaskConical, Trash2 } from "lucide-react"
 import { Fragment, Suspense, useEffect, useState } from "react"
 import { z } from "zod"
 
@@ -166,20 +166,6 @@ function ArticlesTableContent() {
     }
   }
 
-  if (data.count === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center text-center py-12">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <BookOpen className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-semibold">暂无文章</h3>
-        <p className="text-muted-foreground">
-          通过订阅源抓取或手动投稿添加文章
-        </p>
-      </div>
-    )
-  }
-
   // Build source options for filter
   const sourceOptions = sourcesData?.data ?? []
 
@@ -193,7 +179,10 @@ function ArticlesTableContent() {
           onChange={(e) => updateFilters({ search: e.target.value })}
           className="h-8 w-56"
         />
-        <Select value={status} onValueChange={(v) => updateFilters({ status: v })}>
+        <Select
+          value={status}
+          onValueChange={(v) => updateFilters({ status: v })}
+        >
           <SelectTrigger className="h-8 w-32">
             <SelectValue placeholder="状态" />
           </SelectTrigger>
@@ -204,7 +193,10 @@ function ArticlesTableContent() {
             <SelectItem value="analyzed">已分析</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={source} onValueChange={(v) => updateFilters({ source: v })}>
+        <Select
+          value={source}
+          onValueChange={(v) => updateFilters({ source: v })}
+        >
           <SelectTrigger className="h-8 w-36">
             <SelectValue placeholder="来源" />
           </SelectTrigger>
@@ -387,7 +379,10 @@ function ArticlesTableContent() {
                 className={page <= 1 ? "pointer-events-none opacity-50" : ""}
               />
             </PaginationItem>
-            {Array.from({ length: Math.ceil(data.count / pageSize) }, (_, i) => i + 1)
+            {Array.from(
+              { length: Math.ceil(data.count / pageSize) },
+              (_, i) => i + 1
+            )
               .filter((p) => {
                 const total = Math.ceil(data.count / pageSize)
                 return p === 1 || p === total || Math.abs(p - page) <= 1

@@ -1386,22 +1386,6 @@ export const Body_auth_verify_verifySchema = {
     title: 'Body_auth-verify:verify'
 } as const;
 
-export const BulkDeleteRequestSchema = {
-    properties: {
-        ids: {
-            items: {
-                type: 'string',
-                format: 'uuid'
-            },
-            type: 'array',
-            title: 'Ids'
-        }
-    },
-    type: 'object',
-    required: ['ids'],
-    title: 'BulkDeleteRequest'
-} as const;
-
 export const ComparisonReferenceEmbeddedSchema = {
     properties: {
         source: {

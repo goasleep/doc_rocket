@@ -349,10 +349,6 @@ export type Body_auth_verify_verify = {
     token: string;
 };
 
-export type BulkDeleteRequest = {
-    ids: Array<(string)>;
-};
-
 /**
  * 嵌入的对比参考
  */
@@ -1371,14 +1367,6 @@ export type ArticlesUpdateArticleTitleData = {
 };
 
 export type ArticlesUpdateArticleTitleResponse = (ArticlePublic);
-
-export type ArticlesBulkDeleteArticlesData = {
-    requestBody: BulkDeleteRequest;
-};
-
-export type ArticlesBulkDeleteArticlesResponse = ({
-    [key: string]: unknown;
-});
 
 export type AuthAuthJwtLoginData = {
     formData: login;
