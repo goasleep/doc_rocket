@@ -24,16 +24,20 @@ async def list_articles(
     source_id: uuid.UUID | None = None,
     input_type: str | None = None,
     sort: str = "created_at",
+    search: str | None = None,
 ) -> Any:
     import asyncio
+    from beanie.operators import RegEx
 
-    filters = [Article.status != "archived"]
+    filters: list[Any] = [Article.status != "archived"]
     if status:
         filters = [Article.status == status]
     if source_id:
         filters.append(Article.source_id == source_id)
     if input_type:
         filters.append(Article.input_type == input_type)
+    if search:
+        filters.append(RegEx(Article.title, search, options="i"))
 
     query = Article.find(*filters)
 
