@@ -2,7 +2,7 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.agents.base import BaseAgent
@@ -60,7 +60,7 @@ class ReactAnalyzerAgent(BaseAgent):
             output_summary=output_summary[:1000],
             tool_calls=tool_calls or [],
             duration_ms=duration_ms,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             raw_response=raw_response[:2000],
             parsed_ok=parsed_ok,
             parallel_group=parallel_group,
@@ -118,7 +118,7 @@ class ReactAnalyzerAgent(BaseAgent):
         article_id: uuid.UUID | None = None,
     ) -> dict[str, Any]:
         """Step 1: Understand the article."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         content = article_content[:MAX_CONTENT_CHARS]
         if len(article_content) > MAX_CONTENT_CHARS:
@@ -154,7 +154,7 @@ class ReactAnalyzerAgent(BaseAgent):
         ]
 
         raw_response, success = await self._call_llm(messages, response_format={"type": "json_object"})
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         result = {}
@@ -182,7 +182,7 @@ class ReactAnalyzerAgent(BaseAgent):
         article_id: uuid.UUID | None = None,
     ) -> list[dict[str, Any]]:
         """Step 2: Compare with knowledge base articles."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         # Check if KB comparison is enabled
         analysis_config = getattr(self.agent_config, "analysis_config", None)
@@ -202,7 +202,7 @@ class ReactAnalyzerAgent(BaseAgent):
             {"article_content": article_content, "limit": 3},
         )
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         results = []
@@ -223,7 +223,7 @@ class ReactAnalyzerAgent(BaseAgent):
         self._add_trace_step(
             step_name="知识库对比",
             step_type="tool_call",
-            input_summary=f"搜索相似文章",
+            input_summary="搜索相似文章",
             output_summary=f"找到 {len(results)} 篇相似文章",
             tool_calls=tool_calls,
             duration_ms=duration_ms,
@@ -238,16 +238,15 @@ class ReactAnalyzerAgent(BaseAgent):
         article_id: uuid.UUID | None = None,
     ) -> list[dict[str, Any]]:
         """Step 3: Search external similar articles."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         # Check if web search is enabled
         analysis_config = getattr(self.agent_config, "analysis_config", None)
         enable_web_search = getattr(analysis_config, "enable_web_search", True)
 
         # Also check if Tavily key is configured
-        from app.models import SystemConfig
-        config = await SystemConfig.find_one()
-        has_tavily = config and config.search and config.search.tavily_api_key
+        from app.core.config import settings
+        has_tavily = bool(settings.TAVILY_API_KEY)
 
         if not enable_web_search or not has_tavily:
             self._add_trace_step(
@@ -268,7 +267,7 @@ class ReactAnalyzerAgent(BaseAgent):
             {"query": search_query, "max_results": 5},
         )
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         # Parse and save external references
@@ -344,7 +343,7 @@ class ReactAnalyzerAgent(BaseAgent):
         parallel_index: int,
     ) -> dict[str, Any]:
         """Analyze a single dimension (for parallel execution)."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         content = article_content[:8000]  # Shorter for dimension analysis
 
@@ -393,7 +392,7 @@ class ReactAnalyzerAgent(BaseAgent):
             except json.JSONDecodeError:
                 result = {
                     "score": 50,
-                    "reasoning": f"解析失败: 无效的JSON响应",
+                    "reasoning": "解析失败: 无效的JSON响应",
                     "standard_matched": "",
                     "evidences": [],
                     "improvement_suggestions": [],
@@ -407,7 +406,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 "improvement_suggestions": [],
             }
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         # Add trace step with parallel group
@@ -437,7 +436,7 @@ class ReactAnalyzerAgent(BaseAgent):
         rubric: QualityRubric,
     ) -> list[dict[str, Any]]:
         """Step 4: Parallel multidimensional analysis."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         dimensions = [
             {"name": d.name, "description": d.description, "weight": d.weight, "criteria": [
@@ -481,7 +480,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 )
                 results.append(result)
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         return list(results)
@@ -492,7 +491,7 @@ class ReactAnalyzerAgent(BaseAgent):
         rubric: QualityRubric,
     ) -> tuple[list[QualityScoreDetail], dict[str, float]]:
         """Step 5: Calculate final scores with detailed reasoning."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         score_details = []
         scores = {}
@@ -530,7 +529,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 improvement_suggestions=result.get("improvement_suggestions", []),
             ))
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         self._add_trace_step(
@@ -549,7 +548,7 @@ class ReactAnalyzerAgent(BaseAgent):
         understanding: dict[str, Any],
     ) -> tuple[str, list[str]]:
         """Step 6: Reflection and final summary."""
-        t_start = datetime.now(timezone.utc)
+        t_start = datetime.now(UTC)
 
         # Check if reflection is enabled
         react_config = getattr(self.agent_config, "react_config", None)
@@ -560,7 +559,7 @@ class ReactAnalyzerAgent(BaseAgent):
             for sd in score_details:
                 suggestions.extend(sd.improvement_suggestions)
 
-            t_end = datetime.now(timezone.utc)
+            t_end = datetime.now(UTC)
             duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
             self._add_trace_step(
@@ -615,7 +614,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 suggestions.extend(sd.improvement_suggestions)
             suggestions = suggestions[:5]
 
-        t_end = datetime.now(timezone.utc)
+        t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
         self._add_trace_step(
@@ -644,7 +643,7 @@ class ReactAnalyzerAgent(BaseAgent):
         Returns:
             Dict with analysis results matching ArticleAnalysis fields
         """
-        t_start_total = datetime.now(timezone.utc)
+        t_start_total = datetime.now(UTC)
 
         # Reset trace
         self.trace = []
@@ -696,7 +695,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 similarity_score=50,  # Default for external refs
             ))
 
-        t_end_total = datetime.now(timezone.utc)
+        t_end_total = datetime.now(UTC)
         total_duration_ms = int((t_end_total - t_start_total).total_seconds() * 1000)
 
         # Build quality breakdown

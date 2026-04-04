@@ -1,19 +1,12 @@
 """Unit tests for web_search and fetch_url tools."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 
 async def test_web_search_no_api_key() -> None:
+    from app.core.config import settings
     from app.core.tools.builtin import web_search
 
-    # SystemConfig is imported inside the function body via `from app.models import
-    # SystemConfig`, so we patch the class method on the canonical module location.
-    mock_config = MagicMock()
-    mock_config.search.tavily_api_key = ""
-
-    with patch("app.models.SystemConfig.find_one", new_callable=AsyncMock) as mock_find:
-        mock_find.return_value = mock_config
+    with patch.object(settings, "TAVILY_API_KEY", ""):
         result = await web_search("test query")
 
     assert "not configured" in result or "missing" in result.lower()
@@ -47,8 +40,9 @@ async def test_fetch_url_truncation() -> None:
 
 
 async def test_fetch_url_http_error() -> None:
-    from app.core.tools.builtin import fetch_url
     import httpx
+
+    from app.core.tools.builtin import fetch_url
 
     with patch("httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()

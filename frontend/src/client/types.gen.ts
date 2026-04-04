@@ -917,7 +917,7 @@ export type ScoreEvidence = {
 };
 
 export type SearchConfig = {
-    tavily_api_key?: string;
+    [key: string]: unknown;
 };
 
 export type SkillCreate = {

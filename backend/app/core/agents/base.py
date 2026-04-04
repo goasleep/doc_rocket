@@ -1,6 +1,6 @@
 """Base agent class, AgentRunContext, and factory function."""
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -10,7 +10,7 @@ class AgentRunContext:
     iteration_count: int = 0
     tools_used: set[str] = field(default_factory=set)
     skills_activated: set[str] = field(default_factory=set)
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
     compressed_count: int = 0  # Track how many times compression occurred
 
 
@@ -86,15 +86,17 @@ class BaseAgent:
         if not self.agent_config:
             return None
 
-        tool_names: list[str] = getattr(self.agent_config, "tools", [])
-        if not tool_names:
+        tool_names: list[str] = getattr(self.agent_config, "tools", []) or []
+        # Ensure web_search is available to all agents by default
+        effective_tools = list(dict.fromkeys(list(tool_names) + ["web_search"]))
+        if not effective_tools:
             return None
 
-        from app.models import Tool
         from app.core.tools.registry import TOOL_REGISTRY
+        from app.models import Tool
 
         db_tools = await Tool.find(
-            Tool.name.in_(tool_names),  # type: ignore[attr-defined]
+            Tool.name.in_(effective_tools),  # type: ignore[attr-defined]
             Tool.is_active == True,  # noqa: E712
         ).to_list()
 
@@ -241,7 +243,7 @@ class BaseAgent:
                         task_id = task_id_match.group(1)
                         command = tc.arguments.get("command", "unknown")
                         await self.bg_manager.submit(task_id, command)
-                        result += f"\n[Task registered with agent. You'll be notified when it completes.]"
+                        result += "\n[Task registered with agent. You'll be notified when it completes.]"
                 else:
                     result = await dispatch_tool(tc.name, tc.arguments, context={
                         "messages": messages,

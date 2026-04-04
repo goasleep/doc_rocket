@@ -2,23 +2,20 @@
 import json
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
-
-from datetime import datetime, timezone
 
 
 async def web_search(query: str, max_results: int = 5) -> str:
     """Search the web using Tavily API."""
-    from app.models import SystemConfig
-    config = await SystemConfig.find_one()
-    tavily_key = config.search.tavily_api_key if config and config.search else ""
+    from app.core.config import settings
 
-    if not tavily_key:
+    if not settings.TAVILY_API_KEY:
         return "web_search not configured: missing TAVILY_API_KEY"
 
     try:
         from tavily import AsyncTavilyClient
-        client = AsyncTavilyClient(api_key=tavily_key)
+        client = AsyncTavilyClient(api_key=settings.TAVILY_API_KEY)
         response = await client.search(query, max_results=max_results)
         results = response.get("results", [])
         lines = []
@@ -62,8 +59,8 @@ async def activate_skill(name: str) -> str:
 
 async def run_skill_script(skill_name: str, script: str, args: str = "") -> str:
     """Execute a script bundled with a skill."""
-    from app.models import Skill
     from app.core.executors.local import LocalExecutor
+    from app.models import Skill
 
     skill = await Skill.find_one(Skill.name == skill_name)
     if not skill:
@@ -104,7 +101,7 @@ async def query_articles(keywords: str, limit: int = 5) -> str:
 async def save_draft(content: str, workflow_run_id: str) -> str:
     """Save content as a draft document."""
     import uuid
-    from datetime import datetime, timezone
+
     from app.models.draft import Draft
 
     draft = Draft(
@@ -247,7 +244,7 @@ async def save_external_reference(
         existing.title = title
         existing.content = content
         existing.content_snippet = content_snippet
-        existing.fetched_at = datetime.now(timezone.utc)
+        existing.fetched_at = datetime.now(UTC)
         existing.metadata = metadata or {}
 
         # Add referencer if not already in list
@@ -470,8 +467,8 @@ async def load_skill(name: str) -> str:
     Returns:
         Formatted skill content or error message
     """
-    from app.models import Skill
     from app.core.agents.skill_cache import get_skill_cache
+    from app.models import Skill
 
     cache = get_skill_cache()
 
@@ -529,8 +526,8 @@ async def background_run(
     Returns:
         Task ID for status checking
     """
+
     from app.tasks.background import execute_background_command
-    from celery import current_app
 
     # Submit the task to Celery
     task = execute_background_command.delay(
@@ -557,6 +554,7 @@ async def check_background(task_id: str | None = None) -> str:
         Task status and result if complete
     """
     from celery.result import AsyncResult
+
     from app.core.celery import celery_app
 
     if task_id:

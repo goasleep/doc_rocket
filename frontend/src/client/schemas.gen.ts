@@ -3236,13 +3236,7 @@ export const ScoreEvidenceSchema = {
 } as const;
 
 export const SearchConfigSchema = {
-    properties: {
-        tavily_api_key: {
-            type: 'string',
-            title: 'Tavily Api Key',
-            default: ''
-        }
-    },
+    properties: {},
     type: 'object',
     title: 'SearchConfig'
 } as const;

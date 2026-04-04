@@ -1,12 +1,12 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from beanie import Document
 from pydantic import BaseModel, ConfigDict, Field
 
 
 def get_datetime_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class LLMProviderConfig(BaseModel):
@@ -31,7 +31,7 @@ class ModelDefaults(BaseModel):
 
 
 class SearchConfig(BaseModel):
-    tavily_api_key: str = ""
+    pass
 
 
 class OrchestratorConfig(BaseModel):

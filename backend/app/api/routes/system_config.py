@@ -49,7 +49,7 @@ def _to_public(config: SystemConfig) -> SystemConfigPublic:
         scheduler=config.scheduler,
         analysis=config.analysis,
         writing=config.writing,
-        search=SearchConfig(tavily_api_key=config.search.tavily_api_key if config.search else ""),
+        search=config.search if config.search else SearchConfig(),
         orchestrator=config.orchestrator if config.orchestrator else OrchestratorConfig(),
         word_cloud_filter=config.word_cloud_filter if config.word_cloud_filter else WordCloudFilterConfig(),
         wechat_mp=WechatMPConfigPublic(
@@ -88,8 +88,6 @@ async def update_system_config(current_user: SuperuserDep, body: SystemConfigUpd
         config.analysis = body.analysis
     if body.writing is not None:
         config.writing = body.writing
-    if body.search is not None:
-        config.search = body.search
     if body.orchestrator is not None:
         config.orchestrator = body.orchestrator
     if body.word_cloud_filter is not None:

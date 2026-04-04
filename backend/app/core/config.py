@@ -1,6 +1,6 @@
 import secrets
 import warnings
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
     AnyUrl,
@@ -10,7 +10,6 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing_extensions import Self
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -82,6 +81,8 @@ class Settings(BaseSettings):
     QINIU_SECRET_KEY: str = ""
     QINIU_BUCKET: str = ""
     QINIU_DOMAIN: str = ""  # e.g. https://cdn.example.com
+
+    TAVILY_API_KEY: str = ""
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
