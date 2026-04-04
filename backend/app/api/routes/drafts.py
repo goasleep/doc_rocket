@@ -1,14 +1,17 @@
 """Draft management routes — CRUD, approve, export, rewrite-section, preview, publish."""
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
-from app.core.markdown import markdown_to_wechat_html
+from app.core.config import settings
+from app.core.markdown import extract_images_from_markdown, markdown_to_wechat_html
 from app.core.wechat_mp import WeChatMPClient, WeChatMPError
 from app.models import (
     Draft,
@@ -16,7 +19,6 @@ from app.models import (
     DraftsPublic,
     DraftUpdate,
     EditHistoryEntry,
-    Message,
     PublishHistory,
     RewriteSectionRequest,
     RewriteSectionResponse,
@@ -187,6 +189,9 @@ async def publish_draft(
     )
     await publish_history.insert()
 
+    client: WeChatMPClient | None = None
+    failed_image_urls: list[str] = []
+
     try:
         # Get WeChat MP client from config
         client = await WeChatMPClient.from_config()
@@ -197,6 +202,28 @@ async def publish_draft(
             publish_history.target_name = account_info.get("nick_name", "Unknown")
         except WeChatMPError:
             publish_history.target_name = "WeChat MP"
+
+        # Sync Qiniu images to WeChat MP before publishing
+        qiniu_domain = settings.QINIU_DOMAIN.rstrip("/")
+        if qiniu_domain and draft.content:
+            image_urls = extract_images_from_markdown(draft.content)
+            qiniu_urls = [url for url in image_urls if url.startswith(qiniu_domain)]
+            if qiniu_urls:
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    for raw_url in qiniu_urls:
+                        try:
+                            response = await http_client.get(raw_url)
+                            response.raise_for_status()
+                            image_data = response.content
+                            filename = (raw_url.split("/")[-1] or "image.jpg").split("?")[0]
+                            mp_url = await client.upload_image(image_data, filename)
+                            draft.content = draft.content.replace(raw_url, mp_url)
+                        except Exception as exc:  # noqa: BLE001
+                            logging.warning("Failed to sync Qiniu image %s to WeChat MP: %s", raw_url, exc)
+                            failed_image_urls.append(raw_url)
+
+                # Persist updated content with replaced image URLs
+                await draft.save()
 
         # Convert content to HTML
         html_content = markdown_to_wechat_html(draft.content, draft.title)
@@ -216,13 +243,14 @@ async def publish_draft(
         publish_history.updated_at = datetime.now(timezone.utc)
         await publish_history.save()
 
-        # Close client
-        await client.close()
+        message = "Draft published successfully to WeChat MP"
+        if failed_image_urls:
+            message += f" (failed to sync {len(failed_image_urls)} image(s))"
 
         return PublishResponse(
             success=True,
             publish_id=publish_id,
-            message="Draft published successfully to WeChat MP"
+            message=message
         )
 
     except WeChatMPError as e:
@@ -247,3 +275,6 @@ async def publish_draft(
             status_code=502,
             detail=f"Failed to publish: {str(e)}"
         )
+    finally:
+        if client is not None:
+            await client.close()

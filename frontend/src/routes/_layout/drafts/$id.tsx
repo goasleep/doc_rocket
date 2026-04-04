@@ -162,6 +162,25 @@ function DraftEditorContent() {
     onError: () => showErrorToast("改写失败，请重试"),
   })
 
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch("/api/v1/uploads/image", {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "上传失败" }))
+        throw new Error(errorData.detail || "上传失败")
+      }
+      return response.json() as Promise<{ url: string }>
+    },
+    onError: () => showErrorToast("图片上传失败"),
+  })
+
   // Debounced auto-save (1s)
   const handleContentChange = useCallback(
     (value: string | undefined) => {
@@ -218,6 +237,42 @@ function DraftEditorContent() {
     debounceRef.current = setTimeout(() => {
       saveMutation.mutate({ title: t })
     }, 1000)
+  }
+
+  const insertImageToMarkdown = (url: string) => {
+    const imageMarkdown = `\n![图片](${url})\n`
+    const newContent = content + imageMarkdown
+    setContent(newContent)
+    saveMutation.mutate({ content: newContent })
+  }
+
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) return
+    try {
+      const result = await uploadImageMutation.mutateAsync(file)
+      insertImageToMarkdown(result.url)
+      showSuccessToast("图片上传成功")
+    } catch {
+      // error handled by mutation onError
+    }
+  }
+
+  const handlePaste = (event: React.ClipboardEvent) => {
+    const files = Array.from(event.clipboardData.files)
+    const imageFile = files.find((f) => f.type.startsWith("image/"))
+    if (imageFile) {
+      event.preventDefault()
+      handleImageUpload(imageFile)
+    }
+  }
+
+  const handleDrop = (event: React.DragEvent) => {
+    const files = Array.from(event.dataTransfer.files)
+    const imageFile = files.find((f) => f.type.startsWith("image/"))
+    if (imageFile) {
+      event.preventDefault()
+      handleImageUpload(imageFile)
+    }
   }
 
   const handleExportMd = () => {
@@ -428,6 +483,8 @@ img{max-width:100%}
           className="flex-1 min-w-0"
           data-color-mode="auto"
           onContextMenu={handleContextMenu}
+          onPaste={handlePaste}
+          onDrop={handleDrop}
         >
           <MDEditor
             value={content}

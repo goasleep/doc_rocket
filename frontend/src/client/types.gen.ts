@@ -349,6 +349,14 @@ export type Body_auth_verify_verify = {
     token: string;
 };
 
+export type Body_uploads_upload_image = {
+    file: (Blob | File);
+};
+
+export type BulkDeleteRequest = {
+    ids: Array<(string)>;
+};
+
 /**
  * 嵌入的对比参考
  */
@@ -516,6 +524,10 @@ export type FetchConfig = {
 
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
+};
+
+export type ImageUploadResponse = {
+    url: string;
 };
 
 /**
@@ -1334,7 +1346,6 @@ export type AnalysesGetAnalysisTraceResponse = (AnalysisTraceResponse);
 export type ArticlesListArticlesData = {
     inputType?: (string | null);
     limit?: number;
-    search?: (string | null);
     skip?: number;
     sort?: string;
     sourceId?: (string | null);
@@ -1367,6 +1378,14 @@ export type ArticlesUpdateArticleTitleData = {
 };
 
 export type ArticlesUpdateArticleTitleResponse = (ArticlePublic);
+
+export type ArticlesBulkDeleteArticlesData = {
+    requestBody: BulkDeleteRequest;
+};
+
+export type ArticlesBulkDeleteArticlesResponse = ({
+    [key: string]: unknown;
+});
 
 export type AuthAuthJwtLoginData = {
     formData: login;
@@ -1750,6 +1769,12 @@ export type ToolsUpdateToolData = {
 };
 
 export type ToolsUpdateToolResponse = (ToolPublic);
+
+export type UploadsUploadImageData = {
+    formData: Body_uploads_upload_image;
+};
+
+export type UploadsUploadImageResponse = (ImageUploadResponse);
 
 export type UsersReadUsersData = {
     limit?: number;
