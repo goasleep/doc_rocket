@@ -90,9 +90,6 @@ services:
       - MONGODB_DB=${MONGODB_DB}
       - SENTRY_DSN=${SENTRY_DSN}
       - REDIS_URL=redis://redis:6379/0
-      - KIMI_API_KEY=${KIMI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
@@ -175,9 +172,6 @@ services:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB=${MONGODB_DB}
       - REDIS_URL=redis://redis:6379/0
-      - KIMI_API_KEY=${KIMI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
 
   celery-beat:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'

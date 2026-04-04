@@ -141,8 +141,8 @@ Celery tasks for async processing:
 
 **Build and deploy all services:**
 ```bash
-docker compose build --no-cache backend
-docker compose build --no-cache frontend
+docker compose build backend
+docker compose build frontend
 docker compose up -d
 ```
 

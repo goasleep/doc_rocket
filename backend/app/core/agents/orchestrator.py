@@ -32,7 +32,7 @@ DEFAULT_SYSTEM = """\
 - 每次只能调用一个工具
 - 必须按顺序执行：Writer → Editor → (循环或继续) → Reviewer → (循环或finalize)
 - Editor 和 Reviewer 都批准后，才能调用 finalize
-- 最大修改次数：{max_revisions} 次
+- 最大修改次数：{max_revisions} 次（可根据需要调整，当前配置为20次）
 """
 
 DELEGATION_TOOLS: list[dict[str, Any]] = [
@@ -112,7 +112,7 @@ class OrchestratorAgent(BaseAgent):
     def __init__(
         self,
         agent_config: Any | None = None,
-        max_revisions: int = 3,
+        max_revisions: int = 20,
         event_callback: Callable[[str, dict], None] | None = None,
     ) -> None:
         super().__init__(agent_config=agent_config)
