@@ -360,7 +360,11 @@ def _apply_inline_styles(html: str) -> str:
     return html
 
 
-def markdown_to_wechat_html(markdown_text: str, title: str = "") -> str:
+def markdown_to_wechat_html(
+    markdown_text: str,
+    title: str = "",
+    theme: str = "qing-mo",
+) -> str:
     """Convert Markdown text to WeChat MP compatible HTML.
 
     This function converts Markdown content to HTML with inline CSS styles
@@ -369,13 +373,22 @@ def markdown_to_wechat_html(markdown_text: str, title: str = "") -> str:
     Args:
         markdown_text: The Markdown content to convert.
         title: Optional title to include as an h1 at the top.
+        theme: Theme to use for styling. Options:
+            - "qing-mo": Default Qing Mo theme (青墨)
+            - "github-markdown": GitHub auto light/dark
+            - "github-markdown-light": GitHub light
+            - "github-markdown-dark": GitHub dark
+            - "github-markdown-dark-dimmed": GitHub dark dimmed
+            - "github-markdown-dark-high-contrast": GitHub dark high contrast
+            - "github-markdown-dark-colorblind": GitHub dark colorblind
+            - "github-markdown-light-colorblind": GitHub light colorblind
 
     Returns:
         HTML string with inline styles for WeChat MP compatibility.
 
     Example:
         >>> md = "# Hello\\n\\nThis is **bold** text."
-        >>> html = markdown_to_wechat_html(md, "My Article")
+        >>> html = markdown_to_wechat_html(md, "My Article", theme="github-markdown")
         >>> print(html)
     """
     import re
@@ -410,28 +423,44 @@ def markdown_to_wechat_html(markdown_text: str, title: str = "") -> str:
         flags=re.DOTALL
     )
 
-    # Apply inline styles to any elements that were missed
-    content_html = _apply_inline_styles(content_html)
+    # Apply theme
+    if theme == "qing-mo":
+        # Use legacy Qing Mo theme with inline styles
+        # Apply inline styles to any elements that were missed
+        content_html = _apply_inline_styles(content_html)
 
-    # Wrap in container div with "Qing Mo" theme optimized styles
-    container_style = (
-        "max-width: 100%; "
-        "padding: 24px; "
-        f"background-color: {COLORS['bg']}; "
-        "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; "
-        "-webkit-font-smoothing: antialiased; "
-        "-moz-osx-font-smoothing: grayscale;"
-    )
+        # Wrap in container div with "Qing Mo" theme optimized styles
+        container_style = (
+            "max-width: 100%; "
+            "padding: 24px; "
+            f"background-color: {COLORS['bg']}; "
+            "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; "
+            "-webkit-font-smoothing: antialiased; "
+            "-moz-osx-font-smoothing: grayscale;"
+        )
 
-    # Add title if provided
-    if title:
-        title_style = WECHAT_STYLES["h1"]
-        title_html = f'<h1 style="{title_style}">{title}</h1>'
-        content_html = title_html + content_html
+        # Add title if provided
+        if title:
+            title_style = WECHAT_STYLES["h1"]
+            title_html = f'<h1 style="{title_style}">{title}</h1>'
+            content_html = title_html + content_html
 
-    html_output = f'<div style="{container_style}">{content_html}</div>'
+        html_output = f'<div style="{container_style}">{content_html}</div>'
+        return html_output
+    else:
+        # Use github-markdown-css themes
+        try:
+            from app.core.markdown_themes import apply_markdown_theme
 
-    return html_output
+            # Add title if provided
+            if title:
+                content_html = f'<h1>{title}</h1>' + content_html
+
+            return apply_markdown_theme(content_html, theme_name=theme)
+        except Exception as e:
+            # Fallback to Qing Mo theme if theme application fails
+            print(f"Warning: Failed to apply theme '{theme}': {e}")
+            return markdown_to_wechat_html(markdown_text, title, theme="qing-mo")
 
 
 def extract_images_from_markdown(markdown_text: str) -> list[str]:
