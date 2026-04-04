@@ -1,4 +1,5 @@
 """Manual article submission — text mode and URL mode."""
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
@@ -21,6 +22,17 @@ class SubmitText(BaseModel):
 class SubmitResponse(BaseModel):
     article_id: str
     status: str
+    message: str
+
+
+class SubmitUrlsBatch(BaseModel):
+    urls: str  # 多行文本，换行或分号分隔
+
+
+class SubmitBatchResponse(BaseModel):
+    total: int      # 总共解析出的 URL 数
+    accepted: int   # 新接受的任务数
+    skipped: int    # 跳过的重复数
     message: str
 
 
@@ -94,3 +106,62 @@ async def submit_article(
             status="raw",
             message="Article submitted and analysis enqueued",
         )
+
+
+def parse_urls(text: str) -> list[str]:
+    """从文本中解析 URL，支持换行符、分号、逗号分隔。"""
+    # 按分隔符分割
+    parts = re.split(r'[\n;]+', text)
+
+    urls = []
+    for part in parts:
+        # 清理空白
+        url = part.strip()
+        # 去除可能的逗号后缀
+        url = url.rstrip(',')
+        # 跳过空字符串
+        if not url:
+            continue
+        # 基本 URL 验证（以 http:// 或 https:// 开头）
+        if url.startswith(('http://', 'https://')):
+            urls.append(url)
+
+    return urls
+
+
+@router.post("/batch", response_model=SubmitBatchResponse)
+async def submit_urls_batch(
+    current_user: CurrentUser, body: SubmitUrlsBatch, response: Response
+) -> Any:
+    """批量提交 URL 进行抓取和分析。"""
+    urls = parse_urls(body.urls)
+
+    if not urls:
+        raise HTTPException(status_code=422, detail="未找到有效的 URL")
+
+    # 去重：同一批次内的重复 URL
+    unique_urls = list(dict.fromkeys(urls))
+
+    accepted = 0
+    skipped = 0
+
+    for url in unique_urls:
+        # 检查数据库是否已存在
+        existing = await Article.find_one(Article.url == url)
+        if existing:
+            skipped += 1
+            continue
+
+        # 创建异步任务
+        fetch_url_and_analyze_task.apply_async(
+            args=[url, str(current_user.id)],
+        )
+        accepted += 1
+
+    response.status_code = 202
+    return SubmitBatchResponse(
+        total=len(unique_urls),
+        accepted=accepted,
+        skipped=skipped,
+        message=f"已提交 {accepted} 个 URL 进行抓取，跳过 {skipped} 个重复",
+    )
