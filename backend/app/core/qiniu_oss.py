@@ -8,8 +8,7 @@ from app.core.config import settings
 
 
 class QiniuOSError(Exception):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
+    pass
 
 
 class QiniuOSSClient:
@@ -36,8 +35,10 @@ class QiniuOSSClient:
     def _upload_sync(self, data: bytes, key: str) -> str:
         token = self.auth.upload_token(self.bucket, key)
         ret, info = put_data(token, key, data)
-        if info.status_code != 200 or not ret:
-            raise QiniuOSError(f"Qiniu upload failed: {info}")
+        status_code = getattr(info, "status_code", None)
+        if status_code != 200 or not ret:
+            error_msg = getattr(info, "error", str(info))
+            raise QiniuOSError(f"Qiniu upload failed: {error_msg}")
         return f"{self.domain}/{key}"
 
     async def upload_file(self, data: bytes, filename: str) -> str:
