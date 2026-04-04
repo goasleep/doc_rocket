@@ -57,7 +57,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    # command: sleep infinity  # Infinite loop to keep container alive doing nothing
+      target: runtime
     command:
       - fastapi
       - run
@@ -65,15 +65,14 @@ services:
       - "app/main.py"
     develop:
       watch:
-        - path: ./backend
+        - path: ./backend/app
           action: sync
-          target: /app/backend
+          target: /app/backend/app
           ignore:
-            - ./backend/.venv
-            - .venv
+            - "**/__pycache__"
+            - "**/*.pyc"
         - path: ./backend/pyproject.toml
           action: rebuild
-    # TODO: remove once coverage is done locally
     volumes:
       - ./backend/htmlcov:/app/backend/htmlcov
     environment:
@@ -103,13 +102,27 @@ services:
   frontend:
     restart: "no"
     ports:
-      - "5173:80"
+      - "5173:5173"
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      target: build-stage
       args:
         - VITE_API_URL=http://100.121.41.112:8000
         - NODE_ENV=development
+    command: ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+    develop:
+      watch:
+        - path: ./frontend/src
+          action: sync
+          target: /app/frontend/src
+        - path: ./frontend/package.json
+          action: rebuild
+        - path: ./frontend/pnpm-lock.yaml
+          action: rebuild
+    working_dir: /app/frontend
+    environment:
+      - VITE_API_URL=http://100.121.41.112:8000
 
   playwright:
     build:
