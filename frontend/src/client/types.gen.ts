@@ -1338,6 +1338,7 @@ export type AnalysesGetAnalysisTraceResponse = (AnalysisTraceResponse);
 export type ArticlesListArticlesData = {
     inputType?: (string | null);
     limit?: number;
+    search?: (string | null);
     skip?: number;
     sort?: string;
     sourceId?: (string | null);

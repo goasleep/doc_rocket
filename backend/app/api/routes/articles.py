@@ -28,6 +28,7 @@ async def list_articles(
     source_id: uuid.UUID | None = None,
     input_type: str | None = None,
     sort: str = "created_at",
+    search: str | None = None,
 ) -> Any:
     import asyncio
 
@@ -38,6 +39,8 @@ async def list_articles(
         filters.append(Article.source_id == source_id)
     if input_type:
         filters.append(Article.input_type == input_type)
+    if search:
+        filters.append({"title": {"$regex": search, "$options": "i"}})
 
     query = Article.find(*filters)
 

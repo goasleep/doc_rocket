@@ -4,9 +4,10 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { BookOpen, FlaskConical, Trash2 } from "lucide-react"
 import { Fragment, Suspense, useEffect, useState } from "react"
+import { z } from "zod"
 
 import {
   AnalysesService,
@@ -45,8 +46,16 @@ import {
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 
+const searchSchema = z.object({
+  page: z.number().catch(1),
+  status: z.string().catch("all"),
+  source: z.string().catch("all"),
+  search: z.string().catch(""),
+})
+
 export const Route = createFileRoute("/_layout/articles/")({
   component: Articles,
+  validateSearch: searchSchema,
   head: () => ({
     meta: [{ title: "文章库 - 内容引擎" }],
   }),
@@ -54,21 +63,29 @@ export const Route = createFileRoute("/_layout/articles/")({
 
 function ArticlesTableContent() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [search, setSearch] = useState("")
-  const [filterStatus, setFilterStatus] = useState<string>("all")
-  const [filterSource, setFilterSource] = useState<string>("all")
-  const [page, setPage] = useState(1)
+  const { page, status, source, search } = Route.useSearch()
   const pageSize = 10
 
+  function updateFilters(updates: Partial<z.infer<typeof searchSchema>>) {
+    navigate({
+      search: { page: 1, status, source, search, ...updates },
+      replace: true,
+    })
+  }
+
   const { data } = useSuspenseQuery({
-    queryKey: ["articles", page],
+    queryKey: ["articles", page, status, source, search],
     queryFn: () =>
       ArticlesService.listArticles({
         skip: (page - 1) * pageSize,
         limit: pageSize,
+        status: status === "all" ? null : status,
+        sourceId: source === "all" || source === "manual" ? null : source,
+        inputType: source === "manual" ? "manual" : null,
+        search: search || null,
       }),
   })
 
@@ -140,29 +157,12 @@ function ArticlesTableContent() {
     })
   }
 
-  // Filter articles
-  const filtered = data.data.filter((a) => {
-    if (
-      search.trim() &&
-      !a.title.toLowerCase().includes(search.trim().toLowerCase())
-    )
-      return false
-    if (filterStatus !== "all" && a.status !== filterStatus) return false
-    if (filterSource !== "all") {
-      if (filterSource === "manual") {
-        if (a.input_type !== "manual") return false
-      } else {
-        if (a.source_id !== filterSource) return false
-      }
-    }
-    return true
-  })
-
   const toggleAll = () => {
-    if (selected.size === filtered.length) {
+    const ids = data.data.map((a) => a.id)
+    if (selected.size === ids.length && ids.every((id) => selected.has(id))) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(filtered.map((a) => a.id)))
+      setSelected(new Set(ids))
     }
   }
 
@@ -190,10 +190,10 @@ function ArticlesTableContent() {
         <Input
           placeholder="搜索标题..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => updateFilters({ search: e.target.value })}
           className="h-8 w-56"
         />
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={status} onValueChange={(v) => updateFilters({ status: v })}>
           <SelectTrigger className="h-8 w-32">
             <SelectValue placeholder="状态" />
           </SelectTrigger>
@@ -204,7 +204,7 @@ function ArticlesTableContent() {
             <SelectItem value="analyzed">已分析</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterSource} onValueChange={setFilterSource}>
+        <Select value={source} onValueChange={(v) => updateFilters({ source: v })}>
           <SelectTrigger className="h-8 w-36">
             <SelectValue placeholder="来源" />
           </SelectTrigger>
@@ -218,9 +218,9 @@ function ArticlesTableContent() {
             ))}
           </SelectContent>
         </Select>
-        {(search || filterStatus !== "all" || filterSource !== "all") && (
+        {(search || status !== "all" || source !== "all") && (
           <span className="text-xs text-muted-foreground">
-            共 {filtered.length} 篇
+            共 {data.count} 篇
           </span>
         )}
       </div>
@@ -267,7 +267,7 @@ function ArticlesTableContent() {
             <TableHead className="w-10">
               <Checkbox
                 checked={
-                  filtered.length > 0 && selected.size === filtered.length
+                  data.data.length > 0 && selected.size === data.data.length
                 }
                 onCheckedChange={toggleAll}
               />
@@ -281,7 +281,7 @@ function ArticlesTableContent() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filtered.length === 0 ? (
+          {data.data.length === 0 ? (
             <TableRow>
               <td
                 colSpan={7}
@@ -291,7 +291,7 @@ function ArticlesTableContent() {
               </td>
             </TableRow>
           ) : (
-            filtered.map((article: ArticlePublic) => (
+            data.data.map((article: ArticlePublic) => (
               <TableRow key={article.id}>
                 <TableCell>
                   <Checkbox
@@ -377,7 +377,12 @@ function ArticlesTableContent() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
-                  if (page > 1) setPage(page - 1)
+                  if (page > 1) {
+                    navigate({
+                      search: { page: page - 1, status, source, search },
+                      replace: true,
+                    })
+                  }
                 }}
                 className={page <= 1 ? "pointer-events-none opacity-50" : ""}
               />
@@ -399,7 +404,10 @@ function ArticlesTableContent() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault()
-                        setPage(p)
+                        navigate({
+                          search: { page: p, status, source, search },
+                          replace: true,
+                        })
                       }}
                       isActive={p === page}
                     >
@@ -413,7 +421,12 @@ function ArticlesTableContent() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
-                  if (page < Math.ceil(data.count / pageSize)) setPage(page + 1)
+                  if (page < Math.ceil(data.count / pageSize)) {
+                    navigate({
+                      search: { page: page + 1, status, source, search },
+                      replace: true,
+                    })
+                  }
                 }}
                 className={
                   page >= Math.ceil(data.count / pageSize)

@@ -234,6 +234,7 @@ export class ArticlesService {
      * @param data.sourceId
      * @param data.inputType
      * @param data.sort
+     * @param data.search
      * @returns ArticlesPublic Successful Response
      * @throws ApiError
      */
@@ -247,7 +248,8 @@ export class ArticlesService {
                 status: data.status,
                 source_id: data.sourceId,
                 input_type: data.inputType,
-                sort: data.sort
+                sort: data.sort,
+                search: data.search
             },
             errors: {
                 422: 'Validation Error'
