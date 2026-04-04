@@ -127,9 +127,17 @@ function DraftEditorContent() {
   } | null>(null)
   const [publishOpen, setPublishOpen] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
+  const [coverImageUrl, setCoverImageUrl] = useState(
+    draft.cover_image_url || "",
+  )
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Sync cover image when draft data changes
+  useEffect(() => {
+    setCoverImageUrl(draft.cover_image_url || "")
+  }, [draft.cover_image_url])
 
   const saveMutation = useMutation({
     mutationFn: (data: { title?: string; content?: string }) =>
@@ -362,13 +370,13 @@ img{max-width:100%}
     setPublishOpen(true)
   }
 
-  const handlePublish = async () => {
+  const handlePublish = async (theme: string = "qing-mo") => {
     if (!draft) return
     setIsPublishing(true)
     try {
       const response = await DraftsService.publishDraft({
         id,
-        requestBody: { confirmed: true },
+        requestBody: { confirmed: true, theme },
       })
       showSuccessToast(response.message || "发布成功")
       setPublishOpen(false)
@@ -590,6 +598,9 @@ img{max-width:100%}
         title={draft?.title || ""}
         targetName={systemConfig?.wechat_mp?.app_id || "微信公众号"}
         isLoading={isPublishing}
+        draftId={id}
+        coverImageUrl={coverImageUrl}
+        onCoverUploaded={setCoverImageUrl}
       />
     </div>
   )

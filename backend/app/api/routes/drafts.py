@@ -5,13 +5,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
 from app.core.config import settings
+from app.core.image import ImageProcessError, process_cover_image
 from app.core.markdown import extract_images_from_markdown, markdown_to_wechat_html
+from app.core.qiniu_oss import QiniuOSSClient
 from app.core.wechat_mp import WeChatMPClient, WeChatMPError
 from app.models import (
     Draft,
@@ -34,6 +36,7 @@ class DraftPreviewResponse(BaseModel):
 class PublishRequest(BaseModel):
     """Request schema for publishing a draft."""
     confirmed: bool = False
+    theme: str = "qing-mo"  # Theme to use for styling
 
 
 class PublishResponse(BaseModel):
@@ -43,7 +46,116 @@ class PublishResponse(BaseModel):
     article_url: str | None = None
     message: str
 
+
+class CoverUploadResponse(BaseModel):
+    """Response schema for cover image upload."""
+    cover_image_url: str
+    thumb_media_id: str
+
+
 router = APIRouter(prefix="/drafts", tags=["drafts"])
+
+
+@router.get("/themes")
+async def get_themes(current_user: CurrentUser) -> dict[str, str]:
+    """Get available markdown themes for WeChat MP publishing.
+
+    Returns:
+        Dictionary mapping theme names to descriptions.
+    """
+    from app.core.markdown_themes import get_available_themes
+    return get_available_themes()
+
+
+@router.post("/{id}/upload-cover", response_model=CoverUploadResponse)
+async def upload_cover_image(
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    file: UploadFile,
+) -> Any:
+    """Upload cover image for draft.
+
+    Processes the image (resize to 900x500, compress),
+    uploads to Qiniu OSS for permanent storage,
+    uploads to WeChat MP for thumb_media_id,
+    and saves both to the draft.
+
+    Args:
+        current_user: Current authenticated user
+        id: Draft ID
+        file: Image file to upload
+
+    Returns:
+        CoverUploadResponse with cover_image_url and thumb_media_id
+
+    Raises:
+        HTTPException: If draft not found, image processing fails,
+                      or WeChat MP upload fails
+    """
+    # Get draft
+    draft = await Draft.find_one(Draft.id == id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    # Validate file type
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file.content_type}. "
+                   f"Allowed: {', '.join(allowed_types)}"
+        )
+
+    # Read file
+    image_data = await file.read()
+    if len(image_data) > 10 * 1024 * 1024:  # 10MB max
+        raise HTTPException(
+            status_code=413,
+            detail="File too large. Maximum size is 10MB."
+        )
+
+    # Process image
+    try:
+        processed_data = process_cover_image(image_data)
+    except ImageProcessError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Upload to Qiniu
+    try:
+        qiniu_client = QiniuOSSClient.from_settings()
+        ext = "jpg"  # Output is always JPEG
+        key = f"covers/{uuid.uuid4().hex}.{ext}"
+        cover_image_url = await qiniu_client.upload_file(processed_data, key)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to upload to Qiniu: {exc}"
+        ) from exc
+
+    # Upload to WeChat MP to get thumb_media_id
+    try:
+        wechat_client = await WeChatMPClient.from_config()
+        thumb_media_id = await wechat_client.upload_media(processed_data, "cover.jpg")
+    except WeChatMPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to upload to WeChat MP: {exc}"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"WeChat MP not configured: {exc}"
+        ) from exc
+
+    # Save to draft
+    draft.cover_image_url = cover_image_url
+    draft.thumb_media_id = thumb_media_id
+    await draft.save()
+
+    return CoverUploadResponse(
+        cover_image_url=cover_image_url,
+        thumb_media_id=thumb_media_id,
+    )
 
 
 @router.get("/", response_model=DraftsPublic)
@@ -149,14 +261,20 @@ async def rewrite_section(
 
 @router.post("/{id}/preview", response_model=DraftPreviewResponse)
 async def preview_draft(
-    current_user: CurrentUser, id: uuid.UUID
+    current_user: CurrentUser, id: uuid.UUID, theme: str = "qing-mo"
 ) -> Any:
-    """Preview draft content as WeChat MP compatible HTML."""
+    """Preview draft content as WeChat MP compatible HTML.
+
+    Args:
+        current_user: Current authenticated user
+        id: Draft ID
+        theme: Theme to use for styling. Options: qing-mo, github-markdown, github-markdown-light, github-markdown-dark, etc.
+    """
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
 
-    html_content = markdown_to_wechat_html(draft.content, draft.title)
+    html_content = markdown_to_wechat_html(draft.content, draft.title, theme=theme)
     return DraftPreviewResponse(title=draft.title, html_content=html_content)
 
 
@@ -178,6 +296,13 @@ async def publish_draft(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+
+    # Check cover image is uploaded
+    if not draft.thumb_media_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cover image is required. Please upload a cover image first."
+        )
 
     # Create PublishHistory record with pending status
     publish_history = PublishHistory(
@@ -225,13 +350,14 @@ async def publish_draft(
                 # Persist updated content with replaced image URLs
                 await draft.save()
 
-        # Convert content to HTML
-        html_content = markdown_to_wechat_html(draft.content, draft.title)
+        # Convert content to HTML with selected theme
+        html_content = markdown_to_wechat_html(draft.content, draft.title, theme=body.theme)
 
-        # Create draft on WeChat MP
+        # Create draft on WeChat MP with thumb_media_id
         media_id = await client.add_draft(
             title=draft.title,
             content=html_content,
+            thumb_media_id=draft.thumb_media_id,
         )
 
         # Submit for publishing
@@ -260,9 +386,22 @@ async def publish_draft(
         publish_history.updated_at = datetime.now(timezone.utc)
         await publish_history.save()
 
+        # Provide more helpful error message for common errors
+        error_msg = str(e)
+        if "api unauthorized" in error_msg.lower() or "48001" in error_msg:
+            error_msg = (
+                "微信公众号未认证，无法发布文章。\n"
+                "草稿已成功创建到微信草稿箱，但发布功能需要完成微信认证。\n"
+                "请登录微信公众平台完成认证，或手动在后台发布草稿。"
+            )
+        elif "invalid media_id" in error_msg.lower() or "40007" in error_msg:
+            error_msg = (
+                "封面图片无效。请重新上传封面图片后再试。"
+            )
+
         raise HTTPException(
             status_code=502,
-            detail=f"WeChat MP API error: {str(e)}"
+            detail=f"WeChat MP API error: {error_msg}"
         )
     except Exception as e:
         # Update PublishHistory with failure
