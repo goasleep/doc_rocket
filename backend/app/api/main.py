@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 
-from app.api.routes import items, private, users, utils
 from app.api.routes import (
     agents,
     analyses,
@@ -8,7 +7,9 @@ from app.api.routes import (
     drafts,
     external_references,
     insights,
+    items,
     llm_model_configs,
+    private,
     publish_history,
     rubrics,
     skills,
@@ -18,6 +19,9 @@ from app.api.routes import (
     task_runs,
     token_usage,
     tools,
+    uploads,
+    users,
+    utils,
     workflows,
 )
 from app.core.config import settings
@@ -79,6 +83,7 @@ api_router.include_router(rubrics.router)
 api_router.include_router(external_references.router)
 api_router.include_router(token_usage.router)
 api_router.include_router(insights.router)
+api_router.include_router(uploads.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
