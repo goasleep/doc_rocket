@@ -1386,6 +1386,19 @@ export const Body_auth_verify_verifySchema = {
     title: 'Body_auth-verify:verify'
 } as const;
 
+export const Body_uploads_upload_imageSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_uploads-upload_image'
+} as const;
+
 export const BulkDeleteRequestSchema = {
     properties: {
         ids: {
@@ -1988,6 +2001,18 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const ImageUploadResponseSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            title: 'Url'
+        }
+    },
+    type: 'object',
+    required: ['url'],
+    title: 'ImageUploadResponse'
 } as const;
 
 export const InsightSnapshotMetaSchema = {

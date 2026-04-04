@@ -349,6 +349,10 @@ export type Body_auth_verify_verify = {
     token: string;
 };
 
+export type Body_uploads_upload_image = {
+    file: (Blob | File);
+};
+
 export type BulkDeleteRequest = {
     ids: Array<(string)>;
 };
@@ -520,6 +524,10 @@ export type FetchConfig = {
 
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
+};
+
+export type ImageUploadResponse = {
+    url: string;
 };
 
 /**
@@ -1761,6 +1769,12 @@ export type ToolsUpdateToolData = {
 };
 
 export type ToolsUpdateToolResponse = (ToolPublic);
+
+export type UploadsUploadImageData = {
+    formData: Body_uploads_upload_image;
+};
+
+export type UploadsUploadImageResponse = (ImageUploadResponse);
 
 export type UsersReadUsersData = {
     limit?: number;
