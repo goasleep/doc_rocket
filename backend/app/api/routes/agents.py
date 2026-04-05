@@ -30,7 +30,19 @@ async def list_agents(current_user: CurrentUser) -> Any:
 
 @router.post("/", response_model=AgentConfigPublic, status_code=201)
 async def create_agent(current_user: CurrentUser, body: AgentConfigCreate) -> Any:
-    agent = AgentConfig(**body.model_dump())
+    from app.core.agents.prompts import AGENT_PROMPTS
+
+    data = body.model_dump()
+    # Force code-defined prompts and responsibilities; ignore any client-provided values
+    role = data.get("role", "")
+    if role in AGENT_PROMPTS:
+        data["system_prompt"] = AGENT_PROMPTS[role]["system_prompt"]
+        data["responsibilities"] = AGENT_PROMPTS[role]["responsibilities"]
+    else:
+        data["system_prompt"] = data.get("system_prompt", "")
+        data["responsibilities"] = data.get("responsibilities", "")
+
+    agent = AgentConfig(**data)
     await agent.insert()
     return agent
 
@@ -50,6 +62,11 @@ async def update_agent(current_user: CurrentUser, id: uuid.UUID, body: AgentConf
         raise HTTPException(status_code=404, detail="Agent config not found")
 
     update_data = body.model_dump(exclude_unset=True)
+    # Prompts and responsibilities are code-defined and immutable via API
+    forbidden = {"system_prompt", "responsibilities"}
+    for field in forbidden:
+        update_data.pop(field, None)
+
     for field, value in update_data.items():
         setattr(agent, field, value)
     await agent.save()

@@ -6,6 +6,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.agents.base import BaseAgent
+from app.core.agents.prompts import (
+    ANALYZER_DEFAULT,
+    ANALYZER_DIMENSION_PROMPT_TEMPLATE,
+    ANALYZER_REFLECTION_PROMPT,
+    ANALYZER_UNDERSTAND_PROMPT,
+)
 from app.core.tools.registry import dispatch_tool
 from app.models import (
     AnalysisTraceStep,
@@ -94,6 +100,7 @@ class ReactAnalyzerAgent(BaseAgent):
         messages: list[dict[str, Any]],
         response_format: dict[str, str] | None = None,
         temperature: float = 0.3,
+        images: list[str] | None = None,
     ) -> tuple[str, bool]:
         """Call LLM and return (content, success)."""
         try:
@@ -106,7 +113,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 temperature = 1.0
                 print(f"[DEBUG] Adjusted temperature to 1.0 for model {model_name}")
             print(f"[DEBUG] Calling llm.chat with temperature={temperature}")
-            response = await llm.chat(messages, response_format=response_format, temperature=temperature)
+            response = await llm.chat(messages, response_format=response_format, temperature=temperature, images=images)
             return response.content or "", True
         except Exception as e:
             print(f"[DEBUG] LLM call failed: {e}")
@@ -124,36 +131,22 @@ class ReactAnalyzerAgent(BaseAgent):
         if len(article_content) > MAX_CONTENT_CHARS:
             content += "\n[内容已截断...]"
 
-        system_prompt = """你是一位专业的文章分析专家。请分析以下文章，提取关键信息。
-请以JSON格式返回：
-{
-  "topic": "文章主题",
-  "core_ideas": ["核心观点1", "核心观点2"],
-  "target_audience": "目标受众描述",
-  "article_type": "文章类型 (news/opinion/tutorial/story/review/other)",
-  "key_entities": ["关键实体1", "关键实体2"],
-  "estimated_read_time": "预估阅读时间",
-  "hook_type": "开头钩子类型 (痛点型|好奇型|数字型|故事型|争议型|权威型|其他)",
-  "framework": "文章框架 (AIDA|PAS|故事型|清单型|问答型|倒金字塔|其他)",
-  "emotional_triggers": ["情绪触发词1", "情绪触发词2", "情绪触发词3"],
-  "structure": {
-    "intro": "开头/引言部分的主要内容描述",
-    "body_sections": ["正文段落1主题", "正文段落2主题", "正文段落3主题"],
-    "cta": "结尾/行动号召部分的内容描述"
-  },
-  "style": {
-    "tone": "语气语调 (犀利|温暖|幽默|严肃|客观|口语化|专业|亲切)",
-    "formality": "正式程度 (正式|半正式|口语化)",
-    "avg_sentence_length": 25
-  }
-}"""
+        # Check if we should use vision for images
+        images = getattr(self, '_images', None)
+        use_vision = images and len(images) > 0
+
+        system_prompt = ANALYZER_UNDERSTAND_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"请分析以下文章：\n\n{content}"},
         ]
 
-        raw_response, success = await self._call_llm(messages, response_format={"type": "json_object"})
+        raw_response, success = await self._call_llm(
+            messages,
+            response_format={"type": "json_object"},
+            images=images if use_vision else None
+        )
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
@@ -199,7 +192,7 @@ class ReactAnalyzerAgent(BaseAgent):
         # Call tool
         tool_result = await dispatch_tool(
             "search_similar_articles",
-            {"article_content": article_content, "limit": 3},
+            {"article_content": article_content, "limit": 5},
         )
 
         t_end = datetime.now(UTC)
@@ -208,7 +201,7 @@ class ReactAnalyzerAgent(BaseAgent):
         results = []
         tool_calls = [ToolCallDetail(
             tool_name="search_similar_articles",
-            input_params={"limit": 3},
+            input_params={"limit": 5},
             output_summary=tool_result[:200],
             success=not tool_result.startswith("Tool"),
         )]
@@ -285,9 +278,12 @@ class ReactAnalyzerAgent(BaseAgent):
                             url = url_content[0]
                             content_snippet = url_content[1].strip()
 
-                            # Fetch full content
-                            fetch_result = await dispatch_tool("fetch_url", {"url": url, "max_chars": 5000})
-                            full_content = fetch_result if not fetch_result.startswith("fetch_url") else content_snippet
+                            # Fetch full content using FetcherAgent for richer data
+                            from app.core.agents.fetcher import FetcherAgent
+                            fetcher = FetcherAgent()
+                            fetch_result = await fetcher.fetch_url(url)
+                            full_content = fetch_result.get("content", content_snippet)
+                            raw_html = fetch_result.get("raw_html", "")
 
                             # Save external reference
                             save_result = await dispatch_tool(
@@ -297,6 +293,7 @@ class ReactAnalyzerAgent(BaseAgent):
                                     "title": title_part,
                                     "content": full_content[:10000],
                                     "content_snippet": content_snippet[:500],
+                                    "raw_html": raw_html,
                                     "source": "web_search",
                                     "search_query": search_query,
                                     "referencer_article_id": str(article_id) if article_id else None,
@@ -356,29 +353,38 @@ class ReactAnalyzerAgent(BaseAgent):
         if kb_articles:
             kb_context = "\n\n知识库参考文章:\n" + "\n".join([
                 f"- {a.get('title', '')}: 质量分{a.get('quality_score', 'N/A')}"
-                for a in kb_articles[:2]
+                for a in kb_articles[:5]
             ])
 
         external_context = ""
         if external_refs:
             external_context = "\n\n外部参考文章:\n" + "\n".join([
                 f"- {r.get('title', '')}: {r.get('content_snippet', '')[:100]}..."
-                for r in external_refs[:2]
+                for r in external_refs
             ])
 
-        system_prompt = f"""你是一位专业的文章分析专家，负责评估文章的{dimension_config.get('description', dimension)}维度。
+        # 判断是否为实操类文章
+        article_type = understanding.get("article_type", "").lower()
+        is_practical = article_type in ["tutorial", "guide", "how-to"]
+        topic_category = understanding.get("topic_category", "").lower()
+        is_tech_related = any(kw in topic_category for kw in ["技术", "编程", "ai", "产品", "工具"])
 
-评分标准：
-{criteria_text}
+        practical_bonus_prompt = ""
+        if is_practical and is_tech_related:
+            practical_bonus_prompt = """
 
-请以JSON格式返回分析结果：
-{{
-  "score": 0-100,
-  "reasoning": "详细的评分依据说明",
-  "standard_matched": "符合的评分档位描述",
-  "evidences": [{{"quote": "原文引用", "context": "上下文说明"}}],
-  "improvement_suggestions": ["改进建议1", "改进建议2"]
-}}"""
+【本文疑似实操教程/技术指南 - 专业度加分说明】
+本文被识别为实操类技术文章。评分时请特别注意：
+- 如果包含原创代码、独特实战经验、详细步骤说明 → 原创性可上浮10-15分
+- 如果步骤清晰、有实际可操作价值 → 内容深度可给60分以上（不按信息整合处理）
+- 但如果只是简单罗列命令、复制粘贴文档内容、无个人经验分享 → 仍按低分处理"""
+
+        system_prompt = ANALYZER_DIMENSION_PROMPT_TEMPLATE.format(
+            dimension=dimension_config.get('description', dimension),
+            criteria=criteria_text,
+            practical_bonus=practical_bonus_prompt,
+        )
+
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -578,13 +584,7 @@ class ReactAnalyzerAgent(BaseAgent):
             for sd in score_details
         ])
 
-        system_prompt = """你是一位专业的文章分析总结专家。请根据各维度评分结果，生成整体分析总结和改进建议。
-
-请以JSON格式返回：
-{
-  "analysis_summary": "整体分析总结（200字内）",
-  "improvement_suggestions": ["最重要的改进建议1", "建议2", "建议3"]
-}"""
+        system_prompt = ANALYZER_REFLECTION_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -629,16 +629,35 @@ class ReactAnalyzerAgent(BaseAgent):
 
         return summary, suggestions
 
+    def _should_use_vision(self, llm: Any) -> bool:
+        """Check if the current model supports vision."""
+        if not self.agent_config:
+            return False
+
+        # Check if model supports vision
+        model_config_name = getattr(self.agent_config, "model_config_name", "")
+        if not model_config_name:
+            return False
+
+        # Get the model config to check supports_vision
+        # This is a simplified check - in practice we'd need to fetch the config
+        # For now, check the model name for known vision models
+        model_name = getattr(llm, '_default_model', '').lower()
+        vision_keywords = ['vision', 'gpt-4o', 'claude-3', 'kimi-k2']
+        return any(kw in model_name for kw in vision_keywords)
+
     async def run(
         self,
         article_content: str,
         article_id: uuid.UUID | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Run the complete React analysis workflow.
 
         Args:
             article_content: The article content to analyze
             article_id: Optional article ID for tracking
+            images: Optional list of image URLs for multimodal analysis
 
         Returns:
             Dict with analysis results matching ArticleAnalysis fields
@@ -651,6 +670,9 @@ class ReactAnalyzerAgent(BaseAgent):
 
         # Get active rubric (code-defined)
         rubric = self._get_active_rubric()
+
+        # Store images for use in analysis
+        self._images = images
 
         # Step 1: Understand
         understanding = await self._step_understand(article_content, article_id)
@@ -678,21 +700,21 @@ class ReactAnalyzerAgent(BaseAgent):
 
         # Build comparison references
         comparison_refs = []
-        for kb in kb_articles[:2]:
+        for kb in kb_articles[:5]:
             comparison_refs.append(ComparisonReferenceEmbedded(
                 source="knowledge_base",
                 kb_article_id=uuid.UUID(kb["article_id"]) if kb.get("article_id") else None,
                 kb_article_title=kb.get("title"),
                 quality_score=kb.get("quality_score"),
-                similarity_score=kb.get("relevance_score", 0),
+                similarity_score=kb.get("relevance_score", 0) / 100,
             ))
-        for ext in external_refs[:2]:
+        for ext in external_refs:
             comparison_refs.append(ComparisonReferenceEmbedded(
                 source="external",
                 external_ref_id=uuid.UUID(ext["id"]) if ext.get("id") else None,
                 external_url=ext.get("url"),
                 external_title=ext.get("title"),
-                similarity_score=50,  # Default for external refs
+                similarity_score=0.5,  # Default for external refs (0-1 range)
             ))
 
         t_end_total = datetime.now(UTC)
@@ -705,6 +727,7 @@ class ReactAnalyzerAgent(BaseAgent):
             "originality": scores.get("originality", 0),
             "ai_flavor": scores.get("ai_flavor", 0),
             "virality_potential": scores.get("virality_potential", 0),
+            "image_content": scores.get("image_content", 0),
         }
 
         # Extract legacy fields from understanding with defaults
@@ -739,5 +762,6 @@ class ReactAnalyzerAgent(BaseAgent):
             },
             "target_audience": understanding.get("target_audience", ""),
             "topic": understanding.get("topic", ""),
+            "topic_category": understanding.get("topic_category", ""),
             "article_type": understanding.get("article_type", ""),
         }

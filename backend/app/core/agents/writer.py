@@ -1,21 +1,6 @@
 """WriterAgent — generates initial draft from article analyses."""
 from app.core.agents.base import BaseAgent
-
-DEFAULT_SYSTEM = """\
-你是一位专业的内容创作者，擅长分析爆款文章的写作框架并进行仿写创作。
-
-任务：根据提供的主题，创作一篇结构清晰、引人入胜的文章。
-
-要求：
-1. 基于主题自行规划文章大纲和结构（不要依赖参考文章的具体内容）
-2. 融合参考文章的优秀写作手法（Hook类型、框架结构）
-3. 使用参考文章中的hook类型和写作框架
-4. 加入情绪触发元素
-5. 语言风格贴近参考文章
-6. 内容必须围绕用户指定的主题展开，不要偏离主题
-
-直接输出文章内容，使用Markdown格式。
-"""
+from app.core.agents.prompts import WRITER_DEFAULT as DEFAULT_SYSTEM
 
 
 class WriterAgent(BaseAgent):
