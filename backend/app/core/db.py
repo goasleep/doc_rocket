@@ -27,10 +27,11 @@ from app.models import (
 )
 
 
-async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
+async def init_db(db_name: str | None = None) -> AsyncIOMotorClient:  # type: ignore[type-arg]
     client: AsyncIOMotorClient = AsyncIOMotorClient(settings.MONGODB_URL)  # type: ignore
+    database_name = db_name or settings.MONGODB_DB
     await init_beanie(
-        database=client[settings.MONGODB_DB],
+        database=client[database_name],
         document_models=[
             User,
             Item,

@@ -31,9 +31,12 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+TEST_DB_NAME = "test_app"
+
+
 @pytest.fixture(scope="session")
 async def db() -> AsyncGenerator[None, None]:
-    client = await init_db()
+    client = await init_db(db_name=TEST_DB_NAME)
 
     yield
 
