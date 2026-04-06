@@ -1,10 +1,17 @@
 """Shared base for OpenAI-compatible LLM clients (Kimi, OpenAI)."""
+import asyncio
 import json
+import logging
+import random
 from typing import Any
 
 from openai import AsyncOpenAI
 
 from app.core.llm.base import ChatResponse, LLMClient, ToolCall, UsageData
+
+logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
 
 
 class OpenAICompatibleClient(LLMClient):
@@ -45,21 +52,43 @@ class OpenAICompatibleClient(LLMClient):
             params["tools"] = tools
         params.update(kwargs)
 
-        try:
-            response = await self._client.chat.completions.create(**params)
-        except Exception as e:
-            error_msg = str(e).lower()
-            print(f"[DEBUG] OpenAI compatible error: {error_msg}")
-            print(f"[DEBUG] Params had temperature: {'temperature' in params}")
-            # Handle models that don't support temperature parameter
-            # Matches: "invalid temperature", "only 1 is allowed for this model", etc.
+        response = None
+        last_exception: Exception | None = None
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await self._client.chat.completions.create(**params)
+                break
+            except Exception as e:
+                last_exception = e
+                error_msg = str(e).lower()
+                status_code = getattr(e, "status_code", None)
+                is_transient = (
+                    status_code in (429, 503, 504)
+                    or "timeout" in error_msg
+                    or "rate limit" in error_msg
+                    or "temporarily unavailable" in error_msg
+                )
+                if not is_transient or attempt >= _MAX_RETRIES:
+                    break
+                wait = (2 ** attempt) + random.uniform(0, 1)
+                logger.debug(
+                    "Transient LLM error on attempt %s, retrying in %.1fs: %s",
+                    attempt + 1,
+                    wait,
+                    e,
+                )
+                await asyncio.sleep(wait)
+
+        if response is None:
+            error_msg = str(last_exception).lower()
+            logger.debug("OpenAI compatible error: %s", error_msg)
+            logger.debug("Params had temperature: %s", "temperature" in params)
             if "temperature" in error_msg and ("invalid" in error_msg or "only" in error_msg or "support" in error_msg):
-                # Remove temperature and retry
                 params.pop("temperature", None)
-                print(f"[DEBUG] Retrying without temperature")
+                logger.debug("Retrying without temperature")
                 response = await self._client.chat.completions.create(**params)
             else:
-                raise
+                raise last_exception
         message = response.choices[0].message
 
         # Parse tool calls if present

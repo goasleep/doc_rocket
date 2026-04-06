@@ -1,11 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { SubmitService } from "@/client"
+import { ArticlesService, SubmitService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -22,6 +22,13 @@ import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/submit")({
   component: Submit,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["articles"],
+      queryFn: () =>
+        ArticlesService.listArticles({ skip: 0, limit: 1 }),
+    })
+  },
   head: () => ({
     meta: [{ title: "手动投稿 - 内容引擎" }],
   }),
@@ -37,7 +44,7 @@ const urlsSchema = z.object({
 })
 
 function TextSubmitForm() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const form = useForm<z.infer<typeof textSchema>>({
     resolver: zodResolver(textSchema),
@@ -101,7 +108,7 @@ function TextSubmitForm() {
 }
 
 function UrlSubmitForm() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const form = useForm<z.infer<typeof urlsSchema>>({
     resolver: zodResolver(urlsSchema),
@@ -125,7 +132,7 @@ function UrlSubmitForm() {
       }),
     onSuccess: (result) => {
       showSuccessToast(result.message)
-      navigate({ to: "/articles" })
+      navigate({ to: "/articles", search: { page: 1, status: "all", source: "all", search: "" } })
     },
     onError: (err: any) => {
       const detail = err?.body?.detail

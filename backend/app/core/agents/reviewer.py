@@ -30,12 +30,32 @@ class ReviewerAgent(BaseAgent):
             json.loads(raw)
             return raw
         except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if match:
-                return match.group()
+            extracted = _extract_json_object(raw)
+            if extracted:
+                try:
+                    json.loads(extracted)
+                    return extracted
+                except json.JSONDecodeError:
+                    pass
             fallback = {
                 "fact_check_flags": [],
                 "legal_notes": [],
                 "format_issues": [{"severity": "info", "description": "审核完成，未发现明显问题"}],
             }
             return json.dumps(fallback, ensure_ascii=False)
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Extract the first top-level JSON object from a string."""
+    depth = 0
+    start = None
+    for idx, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = idx
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                return text[start : idx + 1]
+    return None

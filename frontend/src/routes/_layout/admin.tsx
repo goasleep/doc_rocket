@@ -1,11 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Suspense } from "react"
-
 import { type UserRead, UsersService } from "@/client"
 import AddUser from "@/components/Admin/AddUser"
 import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import useAuth from "@/hooks/useAuth"
 
@@ -49,9 +49,11 @@ function UsersTableContent() {
 
 function UsersTable() {
   return (
-    <Suspense fallback={<PendingUsers />}>
-      <UsersTableContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<PendingUsers />}>
+        <UsersTableContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 }
 

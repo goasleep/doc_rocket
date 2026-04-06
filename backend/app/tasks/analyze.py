@@ -15,17 +15,27 @@ async def _analyze_article_async(article_id: str, task_run_id: str = "") -> None
 
     task_run = await TaskRun.find_one(TaskRun.id == uuid.UUID(task_run_id)) if task_run_id else None
 
+    # Idempotency guard + atomic status transition
+    # Only transition from non-analyzing / non-analyzed -> analyzing atomically
+    update_result = await Article.find_one(
+        Article.id == uuid.UUID(article_id),
+        Article.status != "analyzing",
+        Article.status != "analyzed",
+    ).update({"$set": {"status": "analyzing"}})
+
+    modified_count = getattr(update_result, "modified_count", None)
+    if modified_count is None:
+        raw = getattr(update_result, "raw_result", None) or update_result
+        if isinstance(raw, dict):
+            modified_count = raw.get("nModified") or raw.get("modifiedCount")
+    if not modified_count:
+        # Already analyzing, analyzed, or article missing
+        return
+
     article = await Article.find_one(Article.id == uuid.UUID(article_id))
     if not article:
         return
 
-    # Idempotency guard: skip if already processing or done
-    if article.status in ("analyzing", "analyzed"):
-        return
-
-    # Transition status to 'analyzing'
-    article.status = "analyzing"
-    await article.save()
 
     # Mark TaskRun as running
     if task_run:

@@ -1,6 +1,8 @@
 """Manual article submission — text mode and URL mode."""
+import ipaddress
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
@@ -11,6 +13,44 @@ from app.tasks.fetch import fetch_url_and_analyze_task
 from beanie.operators import In
 
 router = APIRouter(prefix="/submit", tags=["submit"])
+
+
+_DEFERRED_SSRF_NETS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+)
+
+_DEFERRED_SSRF_HOSTS = {"localhost", "0.0.0.0", "[::]", "[::1]"}
+
+
+def _is_private_host(hostname: str) -> bool:
+    hostname = hostname.lower().strip()
+    if not hostname:
+        return True
+    if hostname in _DEFERRED_SSRF_HOSTS:
+        return True
+    # Check plain IP addresses
+    try:
+        ip = ipaddress.ip_address(hostname)
+        for net in _DEFERRED_SSRF_NETS:
+            if ip in net:
+                return True
+    except ValueError:
+        pass
+    return False
+
+
+def _validate_url_not_private(url: str) -> None:
+    parsed = urlparse(url)
+    if _is_private_host(parsed.hostname or ""):
+        raise HTTPException(status_code=400, detail=f"不允许请求内部地址: {url}")
 
 
 class SubmitText(BaseModel):
@@ -44,6 +84,8 @@ async def submit_article(
     if body.mode == "url":
         if not body.url:
             raise HTTPException(status_code=422, detail="url is required for URL mode")
+
+        _validate_url_not_private(body.url)
 
         # Dedup: check if URL already exists
         existing = await Article.find_one(Article.url == body.url)
@@ -125,7 +167,11 @@ def parse_urls(text: str) -> list[str]:
             continue
         # 基本 URL 验证（以 http:// 或 https:// 开头）
         if url.startswith(('http://', 'https://')):
-            urls.append(url)
+            try:
+                _validate_url_not_private(url)
+                urls.append(url)
+            except HTTPException:
+                continue
 
     return urls
 

@@ -5,6 +5,7 @@ from typing import Optional
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, ConfigDict, Field
+from pymongo import IndexModel
 
 
 def get_datetime_utc() -> datetime:
@@ -30,10 +31,10 @@ class TokenUsage(Document):
     class Settings:
         name = "token_usages"
         indexes = [
-            [("agent_config_id", 1), ("created_at", -1)],
-            [("entity_type", 1), ("entity_id", 1), ("created_at", -1)],
-            [("model_name", 1), ("created_at", -1)],
-            [("created_at", -1)],
+            IndexModel([("agent_config_id", 1), ("created_at", -1)]),
+            IndexModel([("entity_type", 1), ("entity_id", 1), ("created_at", -1)]),
+            IndexModel([("model_name", 1), ("created_at", -1)]),
+            IndexModel([("created_at", -1)]),
         ]
 
 
@@ -54,9 +55,9 @@ class TokenUsageDaily(Document):
     class Settings:
         name = "token_usage_daily"
         indexes = [
-            [("date", -1), ("agent_config_id", 1)],
-            [("date", -1), ("model_name", 1)],
-            [("agent_config_id", 1), ("date", -1)],
+            IndexModel([("date", -1), ("agent_config_id", 1)]),
+            IndexModel([("date", -1), ("model_name", 1)]),
+            IndexModel([("agent_config_id", 1), ("date", -1)]),
         ]
 
 

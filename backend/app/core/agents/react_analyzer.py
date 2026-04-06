@@ -1,6 +1,7 @@
 """ReactAnalyzerAgent — multi-step article analysis with ReAct pattern."""
 import asyncio
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -25,9 +26,33 @@ from app.models.quality_rubric import QualityRubric, get_default_rubric
 
 # Max chars to send to LLM
 MAX_CONTENT_CHARS = 12000
+DIMENSION_CONTENT_CHARS = 8000
 
 PRACTICAL_ARTICLE_TYPES = {"tutorial", "guide", "how-to"}
 TECH_TOPIC_KEYWORDS = {"技术", "编程", "ai", "产品", "工具"}
+
+# Trace limits
+MAX_TRACE_INPUT_SUMMARY = 500
+MAX_TRACE_OUTPUT_SUMMARY = 1000
+MAX_TRACE_RAW_RESPONSE = 2000
+MAX_DIMENSION_RAW_RESPONSE_TRACE = 1000
+MAX_REFLECTION_RAW_RESPONSE_TRACE = 500
+
+# External reference limits
+EXTERNAL_REF_CONTENT_CHARS = 10000
+EXTERNAL_REF_SNIPPET_CHARS = 500
+DEFAULT_EXTERNAL_SIMILARITY_SCORE = 0.5
+
+# Analysis defaults
+DEFAULT_DIMENSION_SCORE = 50
+DEFAULT_DIMENSION_WEIGHT = 0.20
+MAX_REFLECTION_SUGGESTIONS = 5
+KB_ARTICLE_LIMIT = 5
+WEB_SEARCH_MAX_RESULTS = 5
+TOOL_OUTPUT_SUMMARY_CHARS = 200
+EXTERNAL_REF_CONTEXT_SNIPPET = 100
+
+logger = logging.getLogger(__name__)
 
 
 class ReactAnalyzerAgent(BaseAgent):
@@ -66,12 +91,12 @@ class ReactAnalyzerAgent(BaseAgent):
             step_index=self.step_index,
             step_name=step_name,
             step_type=step_type,
-            input_summary=input_summary[:500],
-            output_summary=output_summary[:1000],
+            input_summary=input_summary[:MAX_TRACE_INPUT_SUMMARY],
+            output_summary=output_summary[:MAX_TRACE_OUTPUT_SUMMARY],
             tool_calls=tool_calls or [],
             duration_ms=duration_ms,
             timestamp=datetime.now(UTC),
-            raw_response=raw_response[:2000],
+            raw_response=raw_response[:MAX_TRACE_RAW_RESPONSE],
             parsed_ok=parsed_ok,
             parallel_group=parallel_group,
             parallel_index=parallel_index,
@@ -109,18 +134,15 @@ class ReactAnalyzerAgent(BaseAgent):
         """Call LLM and return (content, success)."""
         try:
             llm = await self._get_llm()
-            # Some models (e.g., o3-mini, kimi moonshot-v1-32k) only support temperature=1
-            # Check if the model requires fixed temperature
-            model_name = getattr(llm, '_default_model', '').lower()
-            print(f"[DEBUG] LLM model name: {model_name}, original temperature: {temperature}")
-            if 'o3' in model_name or 'o1' in model_name or 'moonshot-v1-32k' in model_name:
+            # Capability-based temperature adjustment
+            if not getattr(llm, "supports_temperature", True):
                 temperature = 1.0
-                print(f"[DEBUG] Adjusted temperature to 1.0 for model {model_name}")
-            print(f"[DEBUG] Calling llm.chat with temperature={temperature}")
+                logger.debug("Adjusted temperature to 1.0 for model without temperature support")
+            logger.debug("Calling llm.chat with temperature=%s", temperature)
             response = await llm.chat(messages, response_format=response_format, temperature=temperature, images=images)
             return response.content or "", True
         except Exception as e:
-            print(f"[DEBUG] LLM call failed: {e}")
+            logger.warning("LLM call failed: %s", e, exc_info=True)
             return f"Error: {e}", False
 
     async def _step_understand(
@@ -195,7 +217,7 @@ class ReactAnalyzerAgent(BaseAgent):
         # Call tool
         tool_result = await dispatch_tool(
             "search_similar_articles",
-            {"article_content": article_content, "limit": 5},
+            {"article_content": article_content, "limit": KB_ARTICLE_LIMIT},
         )
 
         t_end = datetime.now(UTC)
@@ -204,8 +226,8 @@ class ReactAnalyzerAgent(BaseAgent):
         results = []
         tool_calls = [ToolCallDetail(
             tool_name="search_similar_articles",
-            input_params={"limit": 5},
-            output_summary=tool_result[:200],
+            input_params={"limit": KB_ARTICLE_LIMIT},
+            output_summary=tool_result[:TOOL_OUTPUT_SUMMARY_CHARS],
             success=not tool_result.startswith("Tool"),
         )]
 
@@ -260,7 +282,7 @@ class ReactAnalyzerAgent(BaseAgent):
         # Call web_search tool
         tool_result = await dispatch_tool(
             "web_search",
-            {"query": search_query, "max_results": 5},
+            {"query": search_query, "max_results": WEB_SEARCH_MAX_RESULTS},
         )
 
         t_end = datetime.now(UTC)
@@ -293,8 +315,8 @@ class ReactAnalyzerAgent(BaseAgent):
                                 {
                                     "url": url,
                                     "title": title_part,
-                                    "content": full_content[:10000],
-                                    "content_snippet": content_snippet[:500],
+                                    "content": full_content[:EXTERNAL_REF_CONTENT_CHARS],
+                                    "content_snippet": content_snippet[:EXTERNAL_REF_SNIPPET_CHARS],
                                     "raw_html": raw_html,
                                     "source": "web_search",
                                     "search_query": search_query,
@@ -315,7 +337,7 @@ class ReactAnalyzerAgent(BaseAgent):
 
         tool_calls = [ToolCallDetail(
             tool_name="web_search",
-            input_params={"query": search_query, "max_results": 5},
+            input_params={"query": search_query, "max_results": WEB_SEARCH_MAX_RESULTS},
             output_summary=f"Found {len(external_refs)} external references",
             success=len(external_refs) > 0,
         )]
@@ -344,7 +366,7 @@ class ReactAnalyzerAgent(BaseAgent):
         """Analyze a single dimension (for parallel execution)."""
         t_start = datetime.now(UTC)
 
-        content = article_content[:8000]  # Shorter for dimension analysis
+        content = article_content[:DIMENSION_CONTENT_CHARS]  # Shorter for dimension analysis
 
         criteria_text = "\n".join([
             f"- {c['min_score']}-{c['max_score']}: {c['description']}"
@@ -355,13 +377,13 @@ class ReactAnalyzerAgent(BaseAgent):
         if kb_articles:
             kb_context = "\n\n知识库参考文章:\n" + "\n".join([
                 f"- {a.get('title', '')}: 质量分{a.get('quality_score', 'N/A')}"
-                for a in kb_articles[:5]
+                for a in kb_articles[:KB_ARTICLE_LIMIT]
             ])
 
         external_context = ""
         if external_refs:
             external_context = "\n\n外部参考文章:\n" + "\n".join([
-                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:100]}..."
+                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:EXTERNAL_REF_CONTEXT_SNIPPET]}..."
                 for r in external_refs
             ])
 
@@ -399,7 +421,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 result = json.loads(raw_response)
             except json.JSONDecodeError:
                 result = {
-                    "score": 50,
+                    "score": DEFAULT_DIMENSION_SCORE,
                     "reasoning": "解析失败: 无效的JSON响应",
                     "standard_matched": "",
                     "evidences": [],
@@ -407,7 +429,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 }
         else:
             result = {
-                "score": 50,
+                "score": DEFAULT_DIMENSION_SCORE,
                 "reasoning": f"分析失败: {raw_response}",
                 "standard_matched": "",
                 "evidences": [],
@@ -424,7 +446,7 @@ class ReactAnalyzerAgent(BaseAgent):
             input_summary=f"分析维度: {dimension}",
             output_summary=f"得分: {result.get('score', 0)}",
             duration_ms=duration_ms,
-            raw_response=raw_response[:1000],
+            raw_response=raw_response[:MAX_DIMENSION_RAW_RESPONSE_TRACE],
             parsed_ok="score" in result,
             parallel_group="dimension_analysis",
             parallel_index=parallel_index,
@@ -472,7 +494,22 @@ class ReactAnalyzerAgent(BaseAgent):
                 )
                 for i, dim in enumerate(dimensions)
             ]
-            results = await asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            successes: list[dict[str, Any]] = []
+            for idx, res in enumerate(results):
+                if isinstance(res, Exception):
+                    logger.warning("Dimension analysis failed for %s: %s", dimensions[idx]["name"], res, exc_info=True)
+                    successes.append({
+                        "dimension": dimensions[idx]["name"],
+                        "score": DEFAULT_DIMENSION_SCORE,
+                        "reasoning": f"分析失败: {res}",
+                        "standard_matched": "",
+                        "evidences": [],
+                        "improvement_suggestions": [],
+                    })
+                else:
+                    successes.append(res)
+            results = successes
         else:
             # Run sequentially
             results = []
@@ -507,7 +544,7 @@ class ReactAnalyzerAgent(BaseAgent):
         for result in dimension_results:
             dim_name = result.get("dimension", "")
             score = float(result.get("score", 0))
-            weight = 0.20  # Default weight
+            weight = DEFAULT_DIMENSION_WEIGHT  # Default weight
 
             # Get weight from rubric
             dim = rubric.get_dimension(dim_name)
@@ -578,7 +615,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 duration_ms=duration_ms,
             )
 
-            return summary, suggestions[:5]
+            return summary, suggestions[:MAX_REFLECTION_SUGGESTIONS]
 
         # Build scores summary
         scores_text = "\n".join([
@@ -614,7 +651,7 @@ class ReactAnalyzerAgent(BaseAgent):
         if not suggestions:
             for sd in score_details:
                 suggestions.extend(sd.improvement_suggestions)
-            suggestions = suggestions[:5]
+            suggestions = suggestions[:MAX_REFLECTION_SUGGESTIONS]
 
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
@@ -625,7 +662,7 @@ class ReactAnalyzerAgent(BaseAgent):
             input_summary=f"维度评分: {len(score_details)} 个",
             output_summary=summary[:200],
             duration_ms=duration_ms,
-            raw_response=raw_response[:500],
+            raw_response=raw_response[:MAX_REFLECTION_RAW_RESPONSE_TRACE],
             parsed_ok=success,
         )
 
@@ -682,7 +719,7 @@ class ReactAnalyzerAgent(BaseAgent):
 
         # Build comparison references
         comparison_refs = []
-        for kb in kb_articles[:5]:
+        for kb in kb_articles[:KB_ARTICLE_LIMIT]:
             comparison_refs.append(ComparisonReferenceEmbedded(
                 source="knowledge_base",
                 kb_article_id=uuid.UUID(kb["article_id"]) if kb.get("article_id") else None,
@@ -696,7 +733,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 external_ref_id=uuid.UUID(ext["id"]) if ext.get("id") else None,
                 external_url=ext.get("url"),
                 external_title=ext.get("title"),
-                similarity_score=0.5,  # Default for external refs (0-1 range)
+                similarity_score=DEFAULT_EXTERNAL_SIMILARITY_SCORE,  # Default for external refs (0-1 range)
             ))
 
         t_end_total = datetime.now(UTC)

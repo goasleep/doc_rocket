@@ -22,14 +22,25 @@ from app.models import (
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
 
+def _check_workflow_ownership(run: WorkflowRun, current_user) -> None:
+    if not current_user.is_superuser and run.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this workflow")
+
+
 @router.get("/", response_model=WorkflowRunsPublic)
 async def list_workflows(
     current_user: CurrentUser, skip: int = 0, limit: int = 50
 ) -> Any:
     import asyncio
+
+    if current_user.is_superuser:
+        query = WorkflowRun.find_all()
+    else:
+        query = WorkflowRun.find(WorkflowRun.created_by == current_user.id)
+
     count, runs = await asyncio.gather(
-        WorkflowRun.count(),
-        WorkflowRun.find_all().sort("-created_at").skip(skip).limit(limit).to_list(),
+        query.count(),
+        query.sort("-created_at").skip(skip).limit(limit).to_list(),
     )
     return WorkflowRunsPublic(data=runs, count=count)
 
@@ -91,6 +102,7 @@ async def get_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
     run = await WorkflowRun.find_one(WorkflowRun.id == id)
     if not run:
         raise HTTPException(status_code=404, detail="Workflow run not found")
+    _check_workflow_ownership(run, current_user)
     return run
 
 
@@ -100,6 +112,7 @@ async def workflow_stream(id: uuid.UUID, current_user: CurrentUser) -> Streaming
     run = await WorkflowRun.find_one(WorkflowRun.id == id)
     if not run:
         raise HTTPException(status_code=404, detail="Workflow run not found")
+    _check_workflow_ownership(run, current_user)
 
     return StreamingResponse(
         workflow_event_stream(str(id)),
@@ -120,6 +133,7 @@ async def approve_workflow(
         raise HTTPException(status_code=404, detail="Workflow run not found")
     if run.status != "waiting_human":
         raise HTTPException(status_code=400, detail="Workflow is not awaiting human review")
+    _check_workflow_ownership(run, current_user)
 
     # Extract title_candidates from Editor step
     title_candidates: list[str] = []
@@ -136,6 +150,7 @@ async def approve_workflow(
         title_candidates=title_candidates,
         content=run.final_output or "",
         status="draft",
+        created_by=current_user.id,
     )
     await draft.insert()
 
@@ -154,6 +169,7 @@ async def reject_workflow(
         raise HTTPException(status_code=404, detail="Workflow run not found")
     if run.status != "waiting_human":
         raise HTTPException(status_code=400, detail="Workflow is not awaiting human review")
+    _check_workflow_ownership(run, current_user)
 
     run.status = "failed"
     run.error_message = f"用户驳回：{body.feedback}"
@@ -183,10 +199,11 @@ async def abort_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
     run = await WorkflowRun.find_one(WorkflowRun.id == id)
     if not run:
         raise HTTPException(status_code=404, detail="Workflow run not found")
+    _check_workflow_ownership(run, current_user)
 
     if run.celery_task_id:
         from app.celery_app import celery_app
-        celery_app.control.revoke(run.celery_task_id, terminate=True)
+        celery_app.control.revoke(run.celery_task_id, signal="TERM")
 
     run.status = "failed"
     run.error_message = "用户手动终止工作流"
@@ -201,6 +218,7 @@ async def retry_workflow(current_user: CurrentUser, id: uuid.UUID) -> Any:
     run = await WorkflowRun.find_one(WorkflowRun.id == id)
     if not run:
         raise HTTPException(status_code=404, detail="Workflow run not found")
+    _check_workflow_ownership(run, current_user)
     if run.status not in ("failed",):
         raise HTTPException(status_code=400, detail="Only failed workflows can be retried")
 

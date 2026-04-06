@@ -14,9 +14,12 @@ import { z } from "zod"
 import {
   type AgentConfigPublic,
   AgentsService,
+  ApiError,
   LlmModelConfigsService,
   SkillsService,
 } from "@/client"
+import { useConfirmDialog } from "@/components/ConfirmDialog"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -49,6 +52,12 @@ import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/agents")({
   component: Agents,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["agents"],
+      queryFn: () => AgentsService.listAgents(),
+    })
+  },
   head: () => ({
     meta: [{ title: "Agent 配置 - 内容引擎" }],
   }),
@@ -123,7 +132,7 @@ function AgentFormSheet({
 
   const createMutation = useMutation({
     mutationFn: (data: AgentFormValues) =>
-      AgentsService.createAgent({ requestBody: data as any }),
+      AgentsService.createAgent({ requestBody: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast("Agent 已创建")
@@ -134,7 +143,10 @@ function AgentFormSheet({
 
   const updateMutation = useMutation({
     mutationFn: (data: AgentFormValues) =>
-      AgentsService.updateAgent({ id: initialData!.id, requestBody: data as any }),
+      AgentsService.updateAgent({
+        id: initialData!.id,
+        requestBody: data,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast("Agent 已更新")
@@ -161,12 +173,12 @@ function AgentFormSheet({
         </SheetHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit as any)}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4 mt-6 pb-6"
           >
             <div className="grid grid-cols-2 gap-4">
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -179,7 +191,7 @@ function AgentFormSheet({
                 )}
               />
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
@@ -243,7 +255,7 @@ function AgentFormSheet({
             )}
 
             <FormField
-              control={form.control as any}
+              control={form.control}
               name="model_config_name"
               render={({ field }) => (
                 <FormItem>
@@ -340,8 +352,8 @@ function AgentFormSheet({
                           )}
                         </div>
                       </label>
-                    )))
-                  }
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -392,7 +404,9 @@ function AgentDetailSheet({
           </div>
           <div>
             <p className="text-sm font-medium">职责描述</p>
-            <p className="text-sm text-muted-foreground">{agent.responsibilities}</p>
+            <p className="text-sm text-muted-foreground">
+              {agent.responsibilities}
+            </p>
           </div>
           <div>
             <p className="text-sm font-medium">模型配置</p>
@@ -434,6 +448,7 @@ function AgentDetailSheet({
 function AgentCard({ agent }: { agent: AgentConfigPublic }) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { confirm, ConfirmDialog } = useConfirmDialog()
   const [editOpen, setEditOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
 
@@ -443,11 +458,24 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast("Agent 已删除")
     },
-    onError: (err: any) => {
-      const detail = err?.body?.detail ?? "删除失败"
-      showErrorToast(detail)
+    onError: (err: unknown) => {
+      const detail =
+        err instanceof ApiError
+          ? (err.body as { detail?: string } | undefined)?.detail
+          : undefined
+      showErrorToast(detail ?? "删除失败")
     },
   })
+
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: "删除 Agent",
+      description: `确认删除 Agent "${agent.name}"？`,
+      variant: "destructive",
+      confirmText: "删除",
+    })
+    if (ok) deleteMutation.mutate()
+  }
 
   const ROLE_LABEL: Record<string, string> = {
     writer: "Writer",
@@ -498,9 +526,7 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => {
-                  if (confirm("确认删除此 Agent？")) deleteMutation.mutate()
-                }}
+                onClick={handleDelete}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -525,6 +551,7 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
           </div>
         </CardContent>
       </Card>
+      <ConfirmDialog />
       <AgentFormSheet
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -552,7 +579,9 @@ function AgentsContent() {
           <Bot className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-semibold">暂无 Agent</h3>
-        <p className="text-muted-foreground">系统启动后会自动初始化 Agent 配置</p>
+        <p className="text-muted-foreground">
+          系统启动后会自动初始化 Agent 配置
+        </p>
       </div>
     )
   }
@@ -576,15 +605,17 @@ function Agents() {
         </p>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <AgentsContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <AgentsContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   SourcesService,
   type SourceUpdate,
 } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -472,15 +473,17 @@ function Sources() {
           新建订阅源
         </Button>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <SourcesTableContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <SourcesTableContent />
+        </Suspense>
+      </ErrorBoundary>
       <SourceFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )

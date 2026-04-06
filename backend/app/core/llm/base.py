@@ -40,6 +40,8 @@ class ChatResponse:
 class LLMClient(ABC):
     """Unified interface for all LLM providers."""
 
+    supports_temperature: bool = True
+
     @abstractmethod
     async def chat(
         self,

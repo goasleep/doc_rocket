@@ -56,6 +56,11 @@ class CoverUploadResponse(BaseModel):
 router = APIRouter(prefix="/drafts", tags=["drafts"])
 
 
+def _check_draft_ownership(draft: Draft, current_user) -> None:
+    if not current_user.is_superuser and draft.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this draft")
+
+
 @router.get("/themes")
 async def get_themes(current_user: CurrentUser) -> dict[str, str]:
     """Get available markdown themes for WeChat MP publishing.
@@ -96,6 +101,7 @@ async def upload_cover_image(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     # Validate file type
     allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -165,11 +171,20 @@ async def list_drafts(
     status: str | None = None,
 ) -> Any:
     import asyncio
+    from beanie.operators import And
 
-    if status:
-        query = Draft.find(Draft.status == status)
+    if current_user.is_superuser:
+        if status:
+            query = Draft.find(Draft.status == status)
+        else:
+            query = Draft.find_all()
     else:
-        query = Draft.find_all()
+        if status:
+            query = Draft.find(
+                And(Draft.created_by == current_user.id, Draft.status == status)
+            )
+        else:
+            query = Draft.find(Draft.created_by == current_user.id)
 
     count, drafts = await asyncio.gather(
         query.count(),
@@ -183,6 +198,7 @@ async def get_draft(current_user: CurrentUser, id: uuid.UUID) -> Any:
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
     return draft
 
 
@@ -191,6 +207,7 @@ async def update_draft(current_user: CurrentUser, id: uuid.UUID, body: DraftUpda
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     update_data = body.model_dump(exclude_unset=True)
 
@@ -209,6 +226,7 @@ async def delete_draft(current_user: CurrentUser, id: uuid.UUID) -> None:
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
     await draft.delete()
 
 
@@ -217,6 +235,7 @@ async def approve_draft(current_user: CurrentUser, id: uuid.UUID) -> Any:
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
     draft.status = "approved"
     await draft.save()
     return draft
@@ -229,6 +248,7 @@ async def export_draft(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     filename = f"draft_{draft.id}.md"
     content = f"# {draft.title}\n\n{draft.content}"
@@ -249,6 +269,7 @@ async def rewrite_section(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     rewritten = await _rewrite_section_async(
         draft_id=str(id),
@@ -272,6 +293,7 @@ async def preview_draft(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     html_content = markdown_to_wechat_html(draft.content, draft.title, theme=theme)
     return DraftPreviewResponse(title=draft.title, html_content=html_content)
@@ -295,6 +317,7 @@ async def publish_draft(
     draft = await Draft.find_one(Draft.id == id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    _check_draft_ownership(draft, current_user)
 
     # Check cover image is uploaded
     if not draft.thumb_media_id:

@@ -4,6 +4,7 @@ import { Check, Scale } from "lucide-react"
 import { Suspense } from "react"
 
 import { type RubricDimension, RubricsService } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -132,15 +133,17 @@ function RubricsPage() {
           文章质量评分的评分标准（Rubrics）- 代码定义
         </p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <RubricsContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <RubricsContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -6,6 +6,9 @@ No client (frontend or API) can override these values.
 
 from typing import Any
 
+DEFAULT_MAX_REVISIONS = 20
+DEFAULT_MAX_ITERATIONS = 5
+
 # ---------------------------------------------------------------------------
 # Writer
 # ---------------------------------------------------------------------------
@@ -114,11 +117,15 @@ ORCHESTRATOR_DEFAULT_TEMPLATE = """\
 - 每次只能调用一个工具
 - 必须按顺序执行：Writer → Editor → (循环或继续) → Reviewer → (循环或finalize)
 - Editor 和 Reviewer 都批准后，才能调用 finalize
-- 最大修改次数：{max_revisions} 次（可根据需要调整，当前配置为20次）
+- 最大修改次数：{max_revisions} 次（可根据需要调整，当前配置为{default_max_revisions}次）
 """
 
-def get_orchestrator_default(max_revisions: int = 20) -> str:
-    return ORCHESTRATOR_DEFAULT_TEMPLATE.replace("{max_revisions}", str(max_revisions))
+def get_orchestrator_default(max_revisions: int = DEFAULT_MAX_REVISIONS) -> str:
+    return (
+        ORCHESTRATOR_DEFAULT_TEMPLATE
+        .replace("{max_revisions}", str(max_revisions))
+        .replace("{default_max_revisions}", str(DEFAULT_MAX_REVISIONS))
+    )
 
 # ---------------------------------------------------------------------------
 # Refiner
@@ -216,36 +223,36 @@ AGENT_PROMPTS: dict[str, dict[str, Any]] = {
         "system_prompt": WRITER_DEFAULT,
         "responsibilities": "根据参考文章的分析结果撰写初稿，融合多篇文章的风格与结构",
         "workflow_order": 1,
-        "max_iterations": 5,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
     },
     "editor": {
         "system_prompt": EDITOR_DEFAULT,
         "responsibilities": "对初稿进行润色、去AI味处理，并生成3个标题候选",
         "workflow_order": 2,
-        "max_iterations": 5,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
     },
     "reviewer": {
         "system_prompt": REVIEWER_DEFAULT,
         "responsibilities": "对终稿进行事实核查、法律风险和格式问题审查",
         "workflow_order": 3,
-        "max_iterations": 5,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
     },
     "orchestrator": {
         "system_prompt": ORCHESTRATOR_DEFAULT_TEMPLATE,
         "responsibilities": "协调 Writer、Editor、Reviewer 完成内容创作，根据反馈决定是否需要修改",
         "workflow_order": 0,
-        "max_iterations": 10,
+        "max_iterations": DEFAULT_MAX_ITERATIONS * 2,
     },
     "refiner": {
         "system_prompt": REFINER_SYSTEM_PROMPT,
         "responsibilities": "将原始抓取的文章内容整理为规范的 Markdown 格式",
         "workflow_order": None,
-        "max_iterations": 5,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
     },
     "analyzer": {
         "system_prompt": ANALYZER_DEFAULT,
         "responsibilities": "对文章进行多维度质量分析和评分",
         "workflow_order": None,
-        "max_iterations": 5,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
     },
 }

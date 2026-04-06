@@ -16,6 +16,8 @@ import {
   SourcesService,
   WorkflowsService,
 } from "@/client"
+import { useConfirmDialog } from "@/components/ConfirmDialog"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -56,6 +58,12 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_layout/articles/")({
   component: Articles,
   validateSearch: searchSchema,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["sources"],
+      queryFn: () => SourcesService.listSources({ skip: 0, limit: 200 }),
+    })
+  },
   head: () => ({
     meta: [{ title: "文章库 - 内容引擎" }],
   }),
@@ -92,6 +100,8 @@ function ArticlesTableContent() {
   useEffect(() => {
     setSelected(new Set())
   }, [])
+
+  const { confirm, ConfirmDialog } = useConfirmDialog()
 
   const { data: sourcesData } = useQuery({
     queryKey: ["sources"],
@@ -230,14 +240,14 @@ function ArticlesTableContent() {
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => {
-              if (
-                confirm(
-                  `确认删除选中的 ${selected.size} 篇文章？此操作不可恢复。`,
-                )
-              ) {
-                bulkDeleteMutation.mutate(Array.from(selected))
-              }
+            onClick={async () => {
+              const ok = await confirm({
+                title: "批量删除",
+                description: `确认删除选中的 ${selected.size} 篇文章？此操作不可恢复。`,
+                variant: "destructive",
+                confirmText: "删除",
+              })
+              if (ok) bulkDeleteMutation.mutate(Array.from(selected))
             }}
             disabled={bulkDeleteMutation.isPending}
           >
@@ -345,9 +355,13 @@ function ArticlesTableContent() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => {
-                        if (confirm("确认归档此文章？"))
-                          archiveMutation.mutate(article.id)
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "归档文章",
+                          description: `确认归档 "${article.title}"？`,
+                          confirmText: "归档",
+                        })
+                        if (ok) archiveMutation.mutate(article.id)
                       }}
                       disabled={archiveMutation.isPending}
                     >
@@ -360,6 +374,7 @@ function ArticlesTableContent() {
           )}
         </TableBody>
       </Table>
+      <ConfirmDialog />
 
       {data.count > pageSize && (
         <Pagination>
@@ -444,15 +459,17 @@ function Articles() {
         <h1 className="text-2xl font-bold tracking-tight">文章库</h1>
         <p className="text-muted-foreground">AI 分析素材库，按质量评分排序</p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <ArticlesTableContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <ArticlesTableContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

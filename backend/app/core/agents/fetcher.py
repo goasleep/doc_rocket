@@ -1,11 +1,53 @@
 """FetcherAgent — fetches articles from API sources, RSS feeds, or URLs."""
 import asyncio
+import ipaddress
+import logging
 import re
 from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+MAX_IMAGES_PER_FETCH = 10
+
+_SSRF_NETS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+)
+
+_SSRF_HOSTS = {"localhost", "0.0.0.0", "[::]", "[::1]"}
+
+
+def _is_private_host(hostname: str) -> bool:
+    hostname = hostname.lower().strip()
+    if not hostname:
+        return True
+    if hostname in _SSRF_HOSTS:
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+        for net in _SSRF_NETS:
+            if ip in net:
+                return True
+    except ValueError:
+        pass
+    return False
+
+
+def _check_url_private(url: str) -> None:
+    parsed = urlparse(url)
+    if _is_private_host(parsed.hostname or ""):
+        raise ValueError(f"私有或内部地址不允许访问: {url}")
 
 
 class FetcherAgent:
@@ -28,6 +70,8 @@ class FetcherAgent:
         4. Extract images from HTML, download and upload to Qiniu OSS.
         5. Return content with Qiniu image URLs.
         """
+        _check_url_private(url)
+
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -52,7 +96,7 @@ class FetcherAgent:
             http_raw_html = self._extract_main_html(html_text, url)
             images = await self._extract_and_upload_images(http_raw_html, url)
         except Exception:
-            pass
+            logger.warning("HTTP fetch failed for url=%s", url, exc_info=True)
 
         # Agent validity check
         if http_content and await self._is_content_valid(http_content[:1500], url):
@@ -134,8 +178,8 @@ class FetcherAgent:
 
             unique_images.append(absolute_url)
 
-        # Limit to first 10 images to avoid too many uploads
-        unique_images = unique_images[:10]
+        # Limit to first MAX_IMAGES_PER_FETCH images to avoid too many uploads
+        unique_images = unique_images[:MAX_IMAGES_PER_FETCH]
 
         # Try to initialize Qiniu client
         try:
@@ -181,18 +225,37 @@ class FetcherAgent:
                 }
 
             except Exception:
+                logger.debug("Image download/upload failed for url=%s", img_url, exc_info=True)
                 return {
                     "original_url": img_url,
                     "qiniu_url": img_url,
                     "alt": "",
                 }
 
-        # Download and upload images concurrently
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            tasks = [_download_and_upload(client, img_url) for img_url in unique_images]
-            results = await asyncio.gather(*tasks)
+        # Download and upload images concurrently with bounded concurrency
+        semaphore = asyncio.Semaphore(5)
 
-        return results
+        async def _download_and_upload_limited(client: httpx.AsyncClient, img_url: str) -> dict[str, Any]:
+            async with semaphore:
+                return await _download_and_upload(client, img_url)
+
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            tasks = [_download_and_upload_limited(client, img_url) for img_url in unique_images]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed: list[dict[str, Any]] = []
+        for idx, res in enumerate(results):
+            if isinstance(res, Exception):
+                logger.debug("Image upload failed for url=%s: %s", unique_images[idx], res)
+                processed.append({
+                    "original_url": unique_images[idx],
+                    "qiniu_url": unique_images[idx],
+                    "alt": "",
+                })
+            else:
+                processed.append(res)
+
+        return processed
 
     def _get_image_extension(self, url: str, content_type: str) -> str:
         """Get file extension from URL or content-type."""
@@ -256,11 +319,13 @@ class FetcherAgent:
             answer = (resp.content or "").strip().upper()
             return answer.startswith("YES")
         except Exception:
+            logger.warning("LLM content validity check failed for url=%s", url, exc_info=True)
             # LLM unavailable — treat long content as valid
             return len(content.strip()) >= 500
 
     async def _fetch_url_with_playwright(self, url: str) -> dict[str, Any]:
         """Render the page with headless Chromium and extract content."""
+        _check_url_private(url)
         from playwright.async_api import async_playwright
 
         html_text = ""
@@ -288,7 +353,7 @@ class FetcherAgent:
                 finally:
                     await browser.close()
         except Exception:
-            pass
+            logger.warning("Playwright fetch failed for url=%s", url, exc_info=True)
 
         content = self._extract_text(html_text) if html_text else ""
         title = self._extract_title(html_text) if html_text else "Untitled"
@@ -496,6 +561,7 @@ a:hover {{
 </html>"""
             return styled_html
         except Exception:
+            logger.warning("Readability extraction failed for url=%s", base_url, exc_info=True)
             # Fallback: return original HTML with basic cleanup
             return self._basic_html_cleanup(html, base_url)
 

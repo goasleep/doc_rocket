@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 import { FileCode } from "lucide-react"
 import { Suspense } from "react"
 
 import { type AgentConfigPublic, AgentsService } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const Route = createFileRoute("/_layout/prompts")({
@@ -108,15 +109,17 @@ function Prompts() {
           查看各 Agent 的 System Prompt（由代码统一管理，不可编辑）
         </p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <PromptsContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <PromptsContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

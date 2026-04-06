@@ -36,10 +36,18 @@ class EditorAgent(BaseAgent):
             data["title_candidates"] = candidates[:3]
             return json.dumps(data, ensure_ascii=False)
         except json.JSONDecodeError:
-            # Extract JSON block if wrapped in markdown
-            match = re.search(r"\{.*\}", raw, re.DOTALL)  # type: ignore[arg-type]
-            if match:
-                return match.group()
+            # Extract JSON object block if wrapped in markdown
+            extracted = _extract_json_object(raw)
+            if extracted:
+                try:
+                    data = json.loads(extracted)
+                    candidates = data.get("title_candidates", [])
+                    while len(candidates) < 3:
+                        candidates.append(f"候选标题{len(candidates) + 1}")
+                    data["title_candidates"] = candidates[:3]
+                    return json.dumps(data, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    pass
             # Fallback: wrap raw content
             fallback = {
                 "content": raw,
@@ -47,3 +55,19 @@ class EditorAgent(BaseAgent):
                 "changed_sections": [],
             }
             return json.dumps(fallback, ensure_ascii=False)
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Extract the first top-level JSON object from a string."""
+    depth = 0
+    start = None
+    for idx, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = idx
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                return text[start : idx + 1]
+    return None
