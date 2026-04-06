@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
@@ -85,11 +85,7 @@ function TextSubmitForm() {
                 <Textarea
                   className="min-h-[240px] resize-y"
                   placeholder="粘贴文章正文..."
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  ref={field.ref}
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -107,8 +103,6 @@ function TextSubmitForm() {
 function UrlSubmitForm() {
   const navigate = useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const [urlCount, setUrlCount] = useState(0)
-
   const form = useForm<z.infer<typeof urlsSchema>>({
     resolver: zodResolver(urlsSchema),
     defaultValues: { urls: "" },
@@ -116,14 +110,12 @@ function UrlSubmitForm() {
 
   // 实时解析 URL 数量
   const watchUrls = form.watch("urls")
-  useEffect(() => {
+  const urlCount = useMemo(() => {
     const urls = watchUrls
       .split(/[\n;]+/)
       .map((u) => u.trim().replace(/,$/, ""))
       .filter((u) => u.startsWith("http://") || u.startsWith("https://"))
-    // 去重计数
-    const uniqueUrls = [...new Set(urls)]
-    setUrlCount(uniqueUrls.length)
+    return new Set(urls).size
   }, [watchUrls])
 
   const mutation = useMutation({
@@ -164,11 +156,7 @@ function UrlSubmitForm() {
                 <Textarea
                   className="min-h-[200px] resize-y font-mono text-sm"
                   placeholder={`https://example.com/article1\nhttps://example.com/article2\nhttps://example.com/article3`}
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  ref={field.ref}
+                  {...field}
                 />
               </FormControl>
               <FormMessage />

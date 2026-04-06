@@ -64,9 +64,10 @@ class BaseAgent:
         if not skill_names:
             return base
 
+        from beanie.operators import In
         from app.models import Skill
         skills = await Skill.find(
-            Skill.name.in_(skill_names),  # type: ignore[attr-defined]
+            In(Skill.name, skill_names),
             Skill.is_active == True,  # noqa: E712
         ).to_list()
 
@@ -92,11 +93,12 @@ class BaseAgent:
         if not effective_tools:
             return None
 
+        from beanie.operators import In
         from app.core.tools.registry import TOOL_REGISTRY
         from app.models import Tool
 
         db_tools = await Tool.find(
-            Tool.name.in_(effective_tools),  # type: ignore[attr-defined]
+            In(Tool.name, effective_tools),
             Tool.is_active == True,  # noqa: E712
         ).to_list()
 

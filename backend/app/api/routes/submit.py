@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.api.deps import CurrentUser
 from app.models import Article
 from app.tasks.fetch import fetch_url_and_analyze_task
+from beanie.operators import In
 
 router = APIRouter(prefix="/submit", tags=["submit"])
 
@@ -142,17 +143,20 @@ async def submit_urls_batch(
     # 去重：同一批次内的重复 URL
     unique_urls = list(dict.fromkeys(urls))
 
+    # Bulk check existing URLs
+    existing_urls = {
+        a.url
+        for a in await Article.find(In(Article.url, unique_urls)).to_list()
+    }
+
     accepted = 0
     skipped = 0
 
     for url in unique_urls:
-        # 检查数据库是否已存在
-        existing = await Article.find_one(Article.url == url)
-        if existing:
+        if url in existing_urls:
             skipped += 1
             continue
 
-        # 创建异步任务
         fetch_url_and_analyze_task.apply_async(
             args=[url, str(current_user.id)],
         )

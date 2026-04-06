@@ -1,6 +1,6 @@
 """FetcherAgent — fetches articles from API sources, RSS feeds, or URLs."""
+import asyncio
 import re
-import uuid
 from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -50,12 +50,12 @@ class FetcherAgent:
             http_content = self._extract_text(html_text)
             http_title = self._extract_title(html_text)
             http_raw_html = self._extract_main_html(html_text, url)
-            images = await self._extract_and_upload_images(html_text, url)
+            images = await self._extract_and_upload_images(http_raw_html, url)
         except Exception:
             pass
 
         # Agent validity check
-        if http_content and await self._is_content_valid(http_content, url):
+        if http_content and await self._is_content_valid(http_content[:1500], url):
             return {
                 "title": http_title,
                 "content": http_content,
@@ -147,53 +147,50 @@ class FetcherAgent:
                 for url in unique_images
             ]
 
-        # Download and upload images
-        results = []
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            for img_url in unique_images:
-                try:
-                    # Download image
-                    response = await client.get(img_url, headers={
-                        "User-Agent": (
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/124.0.0.0 Safari/537.36"
-                        ),
-                        "Referer": base_url,
-                    })
-                    response.raise_for_status()
-                    image_data = response.content
+        async def _download_and_upload(client: httpx.AsyncClient, img_url: str) -> dict[str, Any]:
+            try:
+                response = await client.get(img_url, headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Referer": base_url,
+                })
+                response.raise_for_status()
+                image_data = response.content
 
-                    # Skip if too small (likely icon) or too large
-                    if len(image_data) < 1024 or len(image_data) > 10 * 1024 * 1024:
-                        results.append({
-                            "original_url": img_url,
-                            "qiniu_url": img_url,
-                            "alt": "",
-                        })
-                        continue
-
-                    # Generate unique filename
-                    content_type = response.headers.get("content-type", "")
-                    ext = self._get_image_extension(img_url, content_type)
-                    filename = f"articles/{uuid.uuid4()}{ext}"
-
-                    # Upload to Qiniu
-                    qiniu_url = await qiniu_client.upload_file(image_data, filename)
-
-                    results.append({
-                        "original_url": img_url,
-                        "qiniu_url": qiniu_url,
-                        "alt": "",
-                    })
-
-                except Exception:
-                    # On any error, keep original URL
-                    results.append({
+                # Skip if too small (likely icon) or too large
+                if len(image_data) < 1024 or len(image_data) > 10 * 1024 * 1024:
+                    return {
                         "original_url": img_url,
                         "qiniu_url": img_url,
                         "alt": "",
-                    })
+                    }
+
+                content_type = response.headers.get("content-type", "")
+                ext = self._get_image_extension(img_url, content_type)
+                filename = qiniu_client.generate_key(image_data, "articles", ext)
+
+                qiniu_url = await qiniu_client.upload_file(image_data, filename)
+
+                return {
+                    "original_url": img_url,
+                    "qiniu_url": qiniu_url,
+                    "alt": "",
+                }
+
+            except Exception:
+                return {
+                    "original_url": img_url,
+                    "qiniu_url": img_url,
+                    "alt": "",
+                }
+
+        # Download and upload images concurrently
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            tasks = [_download_and_upload(client, img_url) for img_url in unique_images]
+            results = await asyncio.gather(*tasks)
 
         return results
 
@@ -275,19 +272,21 @@ class FetcherAgent:
                     executable_path="/usr/bin/chromium",
                     args=["--no-sandbox", "--disable-setuid-sandbox"],
                 )
-                page = await browser.new_page(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/124.0.0.0 Safari/537.36"
+                try:
+                    page = await browser.new_page(
+                        user_agent=(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        )
                     )
-                )
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-                # Give JS-heavy pages a moment to finish rendering
-                await page.wait_for_timeout(2000)
-                html_text = await page.content()
-                final_url = page.url
-                await browser.close()
+                    await page.goto(url, wait_until="networkidle", timeout=30000)
+                    # Give JS-heavy pages a moment to finish rendering
+                    await page.wait_for_timeout(2000)
+                    html_text = await page.content()
+                    final_url = page.url
+                finally:
+                    await browser.close()
         except Exception:
             pass
 
@@ -297,8 +296,8 @@ class FetcherAgent:
 
         # Extract and upload images
         images = []
-        if html_text:
-            images = await self._extract_and_upload_images(html_text, final_url)
+        if raw_html:
+            images = await self._extract_and_upload_images(raw_html, final_url)
 
         return {
             "title": title,

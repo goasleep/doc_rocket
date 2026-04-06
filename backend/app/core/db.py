@@ -86,17 +86,25 @@ async def init_db(db_name: str | None = None) -> AsyncIOMotorClient:  # type: ig
     for role, cfg in AGENT_PROMPTS.items():
         existing = await AgentConfig.find_one(AgentConfig.role == role)
         if existing:
-            existing.system_prompt = cfg["system_prompt"]
-            existing.responsibilities = cfg["responsibilities"]
-            await existing.save()
+            changed = False
+            if existing.system_prompt != cfg["system_prompt"]:
+                existing.system_prompt = cfg["system_prompt"]
+                changed = True
+            if existing.responsibilities != cfg["responsibilities"]:
+                existing.responsibilities = cfg["responsibilities"]
+                changed = True
+            if existing.max_iterations != cfg.get("max_iterations", 5):
+                existing.max_iterations = cfg.get("max_iterations", 5)
+                changed = True
+            if changed:
+                await existing.save()
         else:
             await AgentConfig(
                 name=role.capitalize(),
                 role=role,
                 responsibilities=cfg["responsibilities"],
                 system_prompt=cfg["system_prompt"],
-                workflow_order={"orchestrator": 0, "writer": 1, "editor": 2, "reviewer": 3}.get(role),
-                max_iterations=10 if role == "orchestrator" else 5,
+                max_iterations=cfg.get("max_iterations", 5),
             ).insert()
 
     # QualityRubric seeding removed - now code-defined in quality_rubric.py

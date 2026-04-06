@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.agents.base import BaseAgent
+from app.core.agents.fetcher import FetcherAgent
 from app.core.agents.prompts import (
     ANALYZER_DEFAULT,
     ANALYZER_DIMENSION_PROMPT_TEMPLATE,
@@ -24,6 +25,9 @@ from app.models.quality_rubric import QualityRubric, get_default_rubric
 
 # Max chars to send to LLM
 MAX_CONTENT_CHARS = 12000
+
+PRACTICAL_ARTICLE_TYPES = {"tutorial", "guide", "how-to"}
+TECH_TOPIC_KEYWORDS = {"技术", "编程", "ai", "产品", "工具"}
 
 
 class ReactAnalyzerAgent(BaseAgent):
@@ -123,6 +127,7 @@ class ReactAnalyzerAgent(BaseAgent):
         self,
         article_content: str,
         article_id: uuid.UUID | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Step 1: Understand the article."""
         t_start = datetime.now(UTC)
@@ -131,9 +136,7 @@ class ReactAnalyzerAgent(BaseAgent):
         if len(article_content) > MAX_CONTENT_CHARS:
             content += "\n[内容已截断...]"
 
-        # Check if we should use vision for images
-        images = getattr(self, '_images', None)
-        use_vision = images and len(images) > 0
+        use_vision = bool(images)
 
         system_prompt = ANALYZER_UNDERSTAND_PROMPT
 
@@ -279,7 +282,6 @@ class ReactAnalyzerAgent(BaseAgent):
                             content_snippet = url_content[1].strip()
 
                             # Fetch full content using FetcherAgent for richer data
-                            from app.core.agents.fetcher import FetcherAgent
                             fetcher = FetcherAgent()
                             fetch_result = await fetcher.fetch_url(url)
                             full_content = fetch_result.get("content", content_snippet)
@@ -365,9 +367,9 @@ class ReactAnalyzerAgent(BaseAgent):
 
         # 判断是否为实操类文章
         article_type = understanding.get("article_type", "").lower()
-        is_practical = article_type in ["tutorial", "guide", "how-to"]
+        is_practical = article_type in PRACTICAL_ARTICLE_TYPES
         topic_category = understanding.get("topic_category", "").lower()
-        is_tech_related = any(kw in topic_category for kw in ["技术", "编程", "ai", "产品", "工具"])
+        is_tech_related = any(kw in topic_category for kw in TECH_TOPIC_KEYWORDS)
 
         practical_bonus_prompt = ""
         if is_practical and is_tech_related:
@@ -629,23 +631,6 @@ class ReactAnalyzerAgent(BaseAgent):
 
         return summary, suggestions
 
-    def _should_use_vision(self, llm: Any) -> bool:
-        """Check if the current model supports vision."""
-        if not self.agent_config:
-            return False
-
-        # Check if model supports vision
-        model_config_name = getattr(self.agent_config, "model_config_name", "")
-        if not model_config_name:
-            return False
-
-        # Get the model config to check supports_vision
-        # This is a simplified check - in practice we'd need to fetch the config
-        # For now, check the model name for known vision models
-        model_name = getattr(llm, '_default_model', '').lower()
-        vision_keywords = ['vision', 'gpt-4o', 'claude-3', 'kimi-k2']
-        return any(kw in model_name for kw in vision_keywords)
-
     async def run(
         self,
         article_content: str,
@@ -671,11 +656,8 @@ class ReactAnalyzerAgent(BaseAgent):
         # Get active rubric (code-defined)
         rubric = self._get_active_rubric()
 
-        # Store images for use in analysis
-        self._images = images
-
         # Step 1: Understand
-        understanding = await self._step_understand(article_content, article_id)
+        understanding = await self._step_understand(article_content, article_id, images)
 
         # Step 2: KB Comparison
         kb_articles = await self._step_kb_comparison(article_content, article_id)

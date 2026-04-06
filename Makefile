@@ -140,6 +140,12 @@ test-frontend: ## Run frontend E2E tests
 	@echo "$(BLUE)Running frontend E2E tests...$(NC)"
 	docker compose exec frontend pnpm exec playwright test
 
+test-smoke: ## Run full-stack UI smoke test (requires dev environment up)
+	@echo "$(BLUE)Seeding smoke test data...$(NC)"
+	docker compose exec backend bash -c "cd /app/backend && uv run python scripts/seed-smoke-draft.py"
+	@echo "$(BLUE)Running smoke tests in container...$(NC)"
+	docker compose exec frontend pnpm exec playwright test smoke.spec.ts
+
 test-frontend-ui: ## Run frontend E2E tests in UI mode
 	@echo "$(BLUE)Running frontend E2E tests (UI mode)...$(NC)"
 	docker compose exec frontend pnpm exec playwright test --ui

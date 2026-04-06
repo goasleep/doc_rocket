@@ -1,4 +1,3 @@
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
@@ -44,10 +43,10 @@ async def upload_image(
         )
 
     ext = EXT_BY_CONTENT_TYPE.get(file.content_type, "bin")
-    key = f"{uuid.uuid4().hex}.{ext}"
 
     try:
         client = QiniuOSSClient.from_settings()
+        key = client.generate_key(data, "uploads", ext)
         url = await client.upload_file(data, key)
     except QiniuOSError as exc:
         raise HTTPException(

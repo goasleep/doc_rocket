@@ -30,21 +30,10 @@ async def list_agents(current_user: CurrentUser) -> Any:
 
 @router.post("/", response_model=AgentConfigPublic, status_code=201)
 async def create_agent(current_user: CurrentUser, body: AgentConfigCreate) -> Any:
-    from app.core.agents.prompts import AGENT_PROMPTS
-
-    data = body.model_dump()
-    # Force code-defined prompts and responsibilities; ignore any client-provided values
-    role = data.get("role", "")
-    if role in AGENT_PROMPTS:
-        data["system_prompt"] = AGENT_PROMPTS[role]["system_prompt"]
-        data["responsibilities"] = AGENT_PROMPTS[role]["responsibilities"]
-    else:
-        data["system_prompt"] = data.get("system_prompt", "")
-        data["responsibilities"] = data.get("responsibilities", "")
-
-    agent = AgentConfig(**data)
-    await agent.insert()
-    return agent
+    raise HTTPException(
+        status_code=403,
+        detail="Agent creation is not allowed. Agents are code-defined and auto-synced on startup.",
+    )
 
 
 @router.get("/{id}", response_model=AgentConfigPublic)

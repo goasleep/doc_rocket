@@ -123,8 +123,7 @@ async def upload_cover_image(
     # Upload to Qiniu
     try:
         qiniu_client = QiniuOSSClient.from_settings()
-        ext = "jpg"  # Output is always JPEG
-        key = f"covers/{uuid.uuid4().hex}.{ext}"
+        key = qiniu_client.generate_key(processed_data, "covers", "jpg")
         cover_image_url = await qiniu_client.upload_file(processed_data, key)
     except Exception as exc:
         raise HTTPException(
@@ -334,6 +333,7 @@ async def publish_draft(
             image_urls = extract_images_from_markdown(draft.content)
             qiniu_urls = [url for url in image_urls if url.startswith(qiniu_domain)]
             if qiniu_urls:
+                image_replacements: dict[str, str] = {}
                 async with httpx.AsyncClient(timeout=30.0) as http_client:
                     for raw_url in qiniu_urls:
                         try:
@@ -342,10 +342,13 @@ async def publish_draft(
                             image_data = response.content
                             filename = (raw_url.split("/")[-1] or "image.jpg").split("?")[0]
                             mp_url = await client.upload_image(image_data, filename)
-                            draft.content = draft.content.replace(raw_url, mp_url)
+                            image_replacements[raw_url] = mp_url
                         except Exception as exc:  # noqa: BLE001
                             logging.warning("Failed to sync Qiniu image %s to WeChat MP: %s", raw_url, exc)
                             failed_image_urls.append(raw_url)
+
+                for raw_url, mp_url in image_replacements.items():
+                    draft.content = draft.content.replace(raw_url, mp_url)
 
                 # Persist updated content with replaced image URLs
                 await draft.save()

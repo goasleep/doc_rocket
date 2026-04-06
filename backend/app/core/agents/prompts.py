@@ -4,6 +4,8 @@ Code-defined prompts are force-synced to the database on startup.
 No client (frontend or API) can override these values.
 """
 
+from typing import Any
+
 # ---------------------------------------------------------------------------
 # Writer
 # ---------------------------------------------------------------------------
@@ -209,29 +211,41 @@ ANALYZER_DEFAULT = "你是一位专业的文章分析专家，负责评估文章
 # ---------------------------------------------------------------------------
 # Master registry
 # ---------------------------------------------------------------------------
-AGENT_PROMPTS: dict[str, dict[str, str]] = {
+AGENT_PROMPTS: dict[str, dict[str, Any]] = {
     "writer": {
         "system_prompt": WRITER_DEFAULT,
         "responsibilities": "根据参考文章的分析结果撰写初稿，融合多篇文章的风格与结构",
+        "workflow_order": 1,
+        "max_iterations": 5,
     },
     "editor": {
         "system_prompt": EDITOR_DEFAULT,
         "responsibilities": "对初稿进行润色、去AI味处理，并生成3个标题候选",
+        "workflow_order": 2,
+        "max_iterations": 5,
     },
     "reviewer": {
         "system_prompt": REVIEWER_DEFAULT,
         "responsibilities": "对终稿进行事实核查、法律风险和格式问题审查",
+        "workflow_order": 3,
+        "max_iterations": 5,
     },
     "orchestrator": {
         "system_prompt": ORCHESTRATOR_DEFAULT_TEMPLATE,
         "responsibilities": "协调 Writer、Editor、Reviewer 完成内容创作，根据反馈决定是否需要修改",
+        "workflow_order": 0,
+        "max_iterations": 10,
     },
     "refiner": {
         "system_prompt": REFINER_SYSTEM_PROMPT,
         "responsibilities": "将原始抓取的文章内容整理为规范的 Markdown 格式",
+        "workflow_order": None,
+        "max_iterations": 5,
     },
     "analyzer": {
         "system_prompt": ANALYZER_DEFAULT,
         "responsibilities": "对文章进行多维度质量分析和评分",
+        "workflow_order": None,
+        "max_iterations": 5,
     },
 }

@@ -21,6 +21,20 @@ class OpenAICompatibleClient(LLMClient):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> ChatResponse:
+        # Extract images from kwargs and convert to vision message format
+        images: list[str] | None = kwargs.pop("images", None)
+        if images and messages:
+            last_msg = messages[-1]
+            if last_msg.get("role") == "user":
+                content_parts: list[dict[str, Any]] = [
+                    {"type": "text", "text": str(last_msg.get("content", ""))}
+                ]
+                for url in images:
+                    content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+                last_msg["content"] = content_parts
+
         params: dict[str, Any] = {
             "model": model or self._default_model,
             "messages": messages,
