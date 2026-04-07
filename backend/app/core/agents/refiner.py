@@ -35,6 +35,9 @@ class RefinerAgent:
     For non-HTML content, applies light normalization.
     """
 
+    def __init__(self, agent_config: Any | None = None) -> None:
+        self.agent_config = agent_config
+
     def build_content_with_images(
         self, content: str, images: list[Any]
     ) -> str:

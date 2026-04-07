@@ -1,6 +1,6 @@
 """Tests for refine_article Celery task async logic."""
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from tests.fixtures.content import sample_article, sample_source  # noqa: F401
 from tests.fixtures.llm import MOCK_ANALYSIS_RESPONSE

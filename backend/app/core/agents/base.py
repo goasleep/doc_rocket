@@ -343,7 +343,7 @@ class BaseAgent:
         )
 
 
-def create_agent_for_config(agent_config: Any) -> "BaseAgent":
+def create_agent_for_config(agent_config: Any) -> Any:
     """Instantiate the right agent subclass based on agent_config.role."""
     if agent_config is None:
         return BaseAgent()
