@@ -6,7 +6,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bot, Edit2, Plus, Search, Trash2 } from "lucide-react"
+import { Bot, Edit2, Eye, Search, Trash2 } from "lucide-react"
 import { Suspense, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -14,9 +14,12 @@ import { z } from "zod"
 import {
   type AgentConfigPublic,
   AgentsService,
+  ApiError,
   LlmModelConfigsService,
   SkillsService,
 } from "@/client"
+import { useConfirmDialog } from "@/components/ConfirmDialog"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -49,6 +52,12 @@ import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/agents")({
   component: Agents,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["agents"],
+      queryFn: () => AgentsService.listAgents(),
+    })
+  },
   head: () => ({
     meta: [{ title: "Agent 配置 - 内容引擎" }],
   }),
@@ -65,8 +74,6 @@ const agentSchema = z.object({
     "orchestrator",
     "custom",
   ]),
-  responsibilities: z.string().min(1, "职责描述不能为空"),
-  system_prompt: z.string().min(10, "System Prompt 至少 10 个字符"),
   model_config_name: z.string(),
   skills: z.array(z.string()),
 })
@@ -93,16 +100,12 @@ function AgentFormSheet({
       ? {
           name: initialData.name,
           role: initialData.role as AgentFormValues["role"],
-          responsibilities: initialData.responsibilities,
-          system_prompt: initialData.system_prompt,
           model_config_name: initialData.model_config_name || "",
           skills: initialData.skills || [],
         }
       : {
           name: "",
           role: "writer",
-          responsibilities: "",
-          system_prompt: "",
           model_config_name: "",
           skills: [],
         },
@@ -140,7 +143,10 @@ function AgentFormSheet({
 
   const updateMutation = useMutation({
     mutationFn: (data: AgentFormValues) =>
-      AgentsService.updateAgent({ id: initialData!.id, requestBody: data }),
+      AgentsService.updateAgent({
+        id: initialData!.id,
+        requestBody: data,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast("Agent 已更新")
@@ -167,12 +173,12 @@ function AgentFormSheet({
         </SheetHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit as any)}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4 mt-6 pb-6"
           >
             <div className="grid grid-cols-2 gap-4">
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -185,7 +191,7 @@ function AgentFormSheet({
                 )}
               />
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
@@ -223,43 +229,33 @@ function AgentFormSheet({
               />
             </div>
 
-            <FormField
-              control={form.control as any}
-              name="responsibilities"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>职责描述</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="负责根据素材进行仿写创作..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isEdit && initialData && (
+              <>
+                <div>
+                  <p className="text-sm font-medium">职责描述</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {initialData.responsibilities}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    （提示词由代码统一管理，不可编辑）
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">System Prompt</p>
+                  <textarea
+                    readOnly
+                    className="flex min-h-[120px] w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono ring-offset-background resize-y mt-1"
+                    value={initialData.system_prompt}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    （提示词由代码统一管理，不可编辑）
+                  </p>
+                </div>
+              </>
+            )}
 
             <FormField
-              control={form.control as any}
-              name="system_prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>System Prompt</FormLabel>
-                  <FormControl>
-                    <textarea
-                      className="flex min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
-                      placeholder="你是一名专业的内容创作者..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control as any}
+              control={form.control}
               name="model_config_name"
               render={({ field }) => (
                 <FormItem>
@@ -288,7 +284,7 @@ function AgentFormSheet({
                         modelConfigsData.data.filter(
                           (c) => c.is_active && c.api_key_masked,
                         ).length === 0) && (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="__empty__" disabled>
                           请先在"模型配置"页面添加配置
                         </SelectItem>
                       )}
@@ -381,10 +377,80 @@ function AgentFormSheet({
   )
 }
 
+function AgentDetailSheet({
+  open,
+  onOpenChange,
+  agent,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  agent?: AgentConfigPublic
+}) {
+  if (!agent) return null
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-2xl overflow-y-auto"
+      >
+        <SheetHeader>
+          <SheetTitle>{agent.name}</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-4 mt-6 pb-6">
+          <div>
+            <p className="text-sm font-medium">角色</p>
+            <p className="text-sm text-muted-foreground">{agent.role}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">职责描述</p>
+            <p className="text-sm text-muted-foreground">
+              {agent.responsibilities}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">模型配置</p>
+            <p className="text-sm text-muted-foreground">
+              {agent.model_config_name || "未配置"}
+            </p>
+          </div>
+          {agent.skills && agent.skills.length > 0 && (
+            <div>
+              <p className="text-sm font-medium">关联技能</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {agent.skills.map((s) => (
+                  <Badge key={s} variant="secondary" className="text-xs">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-medium">System Prompt</p>
+            <textarea
+              readOnly
+              className="flex min-h-[200px] w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono ring-offset-background resize-y mt-1"
+              value={agent.system_prompt}
+            />
+          </div>
+          <SheetFooter className="pt-2">
+            <Button type="button" onClick={() => onOpenChange(false)}>
+              关闭
+            </Button>
+          </SheetFooter>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 function AgentCard({ agent }: { agent: AgentConfigPublic }) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { confirm, ConfirmDialog } = useConfirmDialog()
   const [editOpen, setEditOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const deleteMutation = useMutation({
     mutationFn: () => AgentsService.deleteAgent({ id: agent.id }),
@@ -392,11 +458,24 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
       showSuccessToast("Agent 已删除")
     },
-    onError: (err: any) => {
-      const detail = err?.body?.detail ?? "删除失败"
-      showErrorToast(detail)
+    onError: (err: unknown) => {
+      const detail =
+        err instanceof ApiError
+          ? (err.body as { detail?: string } | undefined)?.detail
+          : undefined
+      showErrorToast(detail ?? "删除失败")
     },
   })
+
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: "删除 Agent",
+      description: `确认删除 Agent "${agent.name}"？`,
+      variant: "destructive",
+      confirmText: "删除",
+    })
+    if (ok) deleteMutation.mutate()
+  }
 
   const ROLE_LABEL: Record<string, string> = {
     writer: "Writer",
@@ -433,6 +512,13 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
               <Button
                 size="icon"
                 variant="ghost"
+                onClick={() => setDetailOpen(true)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
                 onClick={() => setEditOpen(true)}
               >
                 <Edit2 className="h-4 w-4" />
@@ -440,9 +526,7 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => {
-                  if (confirm("确认删除此 Agent？")) deleteMutation.mutate()
-                }}
+                onClick={handleDelete}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -467,10 +551,16 @@ function AgentCard({ agent }: { agent: AgentConfigPublic }) {
           </div>
         </CardContent>
       </Card>
+      <ConfirmDialog />
       <AgentFormSheet
         open={editOpen}
         onOpenChange={setEditOpen}
         initialData={agent}
+      />
+      <AgentDetailSheet
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        agent={agent}
       />
     </>
   )
@@ -489,7 +579,9 @@ function AgentsContent() {
           <Bot className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-semibold">暂无 Agent</h3>
-        <p className="text-muted-foreground">创建 Agent 来配置写作流水线</p>
+        <p className="text-muted-foreground">
+          系统启动后会自动初始化 Agent 配置
+        </p>
       </div>
     )
   }
@@ -504,33 +596,26 @@ function AgentsContent() {
 }
 
 function Agents() {
-  const [createOpen, setCreateOpen] = useState(false)
-
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agent 配置</h1>
-          <p className="text-muted-foreground">
-            配置写作流水线中的 AI Agent 角色
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          新建 Agent
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Agent 配置</h1>
+        <p className="text-muted-foreground">
+          查看写作流水线中的 AI Agent 角色配置（提示词由代码统一管理）
+        </p>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <AgentsContent />
-      </Suspense>
-      <AgentFormSheet open={createOpen} onOpenChange={setCreateOpen} />
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <AgentsContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

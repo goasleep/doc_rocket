@@ -1016,6 +1016,13 @@ export type SourceUpdate = {
     is_active?: (boolean | null);
 };
 
+export type SubmitBatchResponse = {
+    total: number;
+    accepted: number;
+    skipped: number;
+    message: string;
+};
+
 export type SubmitResponse = {
     article_id: string;
     status: string;
@@ -1027,6 +1034,10 @@ export type SubmitText = {
     title?: string;
     content?: string;
     url?: string;
+};
+
+export type SubmitUrlsBatch = {
+    urls: string;
 };
 
 /**
@@ -1736,6 +1747,12 @@ export type SubmitSubmitArticleData = {
 };
 
 export type SubmitSubmitArticleResponse = (SubmitResponse);
+
+export type SubmitSubmitUrlsBatchData = {
+    requestBody: SubmitUrlsBatch;
+};
+
+export type SubmitSubmitUrlsBatchResponse = (SubmitBatchResponse);
 
 export type SystemConfigGetSystemConfigResponse = (SystemConfigPublic);
 

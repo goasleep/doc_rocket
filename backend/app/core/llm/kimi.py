@@ -9,5 +9,7 @@ class KimiClient(OpenAICompatibleClient):
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.moonshot.cn/v1",
+            timeout=60.0,
         )
         self._default_model = default_model
+        self.supports_temperature = "moonshot-v1-32k" not in self._default_model.lower()

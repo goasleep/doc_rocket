@@ -17,6 +17,7 @@ import {
   SkillsService,
   type SkillUpdate,
 } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -717,15 +718,17 @@ function Skills() {
         </div>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <SkillsTableContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <SkillsTableContent />
+        </Suspense>
+      </ErrorBoundary>
 
       <CreateSkillDialog open={createOpen} onOpenChange={setCreateOpen} />
       <ImportSkillDialog open={importOpen} onOpenChange={setImportOpen} />

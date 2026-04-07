@@ -30,9 +30,10 @@ async def list_agents(current_user: CurrentUser) -> Any:
 
 @router.post("/", response_model=AgentConfigPublic, status_code=201)
 async def create_agent(current_user: CurrentUser, body: AgentConfigCreate) -> Any:
-    agent = AgentConfig(**body.model_dump())
-    await agent.insert()
-    return agent
+    raise HTTPException(
+        status_code=403,
+        detail="Agent creation is not allowed. Agents are code-defined and auto-synced on startup.",
+    )
 
 
 @router.get("/{id}", response_model=AgentConfigPublic)
@@ -50,6 +51,11 @@ async def update_agent(current_user: CurrentUser, id: uuid.UUID, body: AgentConf
         raise HTTPException(status_code=404, detail="Agent config not found")
 
     update_data = body.model_dump(exclude_unset=True)
+    # Prompts and responsibilities are code-defined and immutable via API
+    forbidden = {"system_prompt", "responsibilities"}
+    for field in forbidden:
+        update_data.pop(field, None)
+
     for field, value in update_data.items():
         setattr(agent, field, value)
     await agent.save()

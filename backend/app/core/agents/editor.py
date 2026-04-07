@@ -3,29 +3,7 @@ import json
 import re
 
 from app.core.agents.base import BaseAgent
-
-DEFAULT_SYSTEM = """\
-你是一位资深内容编辑，负责：
-1. 去除AI味：用更自然、口语化的表达替换AI常见句式
-2. 优化段落节奏和可读性
-3. 生成3个吸引眼球的标题候选
-4. 评估内容质量，决定是否通过审核
-
-必须以JSON格式返回：
-{
-  "content": "优化后的文章内容（Markdown格式）",
-  "title_candidates": ["标题一", "标题二", "标题三"],
-  "changed_sections": ["修改了第X段", "..."],
-  "approved": true|false,
-  "feedback": "如果不通过，详细说明需要修改的问题和具体建议；如果通过，可留空或写'审核通过'"
-}
-
-审核标准：
-- 内容是否自然流畅，无明显AI痕迹
-- 结构是否清晰，逻辑是否通顺
-- 标题是否吸引人
-- 只有当内容质量达到发布标准时，approved 才设为 true
-"""
+from app.core.agents.prompts import EDITOR_DEFAULT as DEFAULT_SYSTEM
 
 
 class EditorAgent(BaseAgent):
@@ -58,10 +36,18 @@ class EditorAgent(BaseAgent):
             data["title_candidates"] = candidates[:3]
             return json.dumps(data, ensure_ascii=False)
         except json.JSONDecodeError:
-            # Extract JSON block if wrapped in markdown
-            match = re.search(r"\{.*\}", raw, re.DOTALL)  # type: ignore[arg-type]
-            if match:
-                return match.group()
+            # Extract JSON object block if wrapped in markdown
+            extracted = _extract_json_object(raw)
+            if extracted:
+                try:
+                    data = json.loads(extracted)
+                    candidates = data.get("title_candidates", [])
+                    while len(candidates) < 3:
+                        candidates.append(f"候选标题{len(candidates) + 1}")
+                    data["title_candidates"] = candidates[:3]
+                    return json.dumps(data, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    pass
             # Fallback: wrap raw content
             fallback = {
                 "content": raw,
@@ -69,3 +55,19 @@ class EditorAgent(BaseAgent):
                 "changed_sections": [],
             }
             return json.dumps(fallback, ensure_ascii=False)
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Extract the first top-level JSON object from a string."""
+    depth = 0
+    start = None
+    for idx, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = idx
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                return text[start : idx + 1]
+    return None

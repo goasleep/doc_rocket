@@ -1,11 +1,53 @@
 """FetcherAgent — fetches articles from API sources, RSS feeds, or URLs."""
+import asyncio
+import ipaddress
+import logging
 import re
-import uuid
 from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+MAX_IMAGES_PER_FETCH = 10
+
+_SSRF_NETS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+)
+
+_SSRF_HOSTS = {"localhost", "0.0.0.0", "[::]", "[::1]"}
+
+
+def _is_private_host(hostname: str) -> bool:
+    hostname = hostname.lower().strip()
+    if not hostname:
+        return True
+    if hostname in _SSRF_HOSTS:
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+        for net in _SSRF_NETS:
+            if ip in net:
+                return True
+    except ValueError:
+        pass
+    return False
+
+
+def _check_url_private(url: str) -> None:
+    parsed = urlparse(url)
+    if _is_private_host(parsed.hostname or ""):
+        raise ValueError(f"私有或内部地址不允许访问: {url}")
 
 
 class FetcherAgent:
@@ -28,6 +70,8 @@ class FetcherAgent:
         4. Extract images from HTML, download and upload to Qiniu OSS.
         5. Return content with Qiniu image URLs.
         """
+        _check_url_private(url)
+
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -50,12 +94,12 @@ class FetcherAgent:
             http_content = self._extract_text(html_text)
             http_title = self._extract_title(html_text)
             http_raw_html = self._extract_main_html(html_text, url)
-            images = await self._extract_and_upload_images(html_text, url)
+            images = await self._extract_and_upload_images(http_raw_html, url)
         except Exception:
-            pass
+            logger.warning("HTTP fetch failed for url=%s", url, exc_info=True)
 
         # Agent validity check
-        if http_content and await self._is_content_valid(http_content, url):
+        if http_content and await self._is_content_valid(http_content[:1500], url):
             return {
                 "title": http_title,
                 "content": http_content,
@@ -134,8 +178,8 @@ class FetcherAgent:
 
             unique_images.append(absolute_url)
 
-        # Limit to first 10 images to avoid too many uploads
-        unique_images = unique_images[:10]
+        # Limit to first MAX_IMAGES_PER_FETCH images to avoid too many uploads
+        unique_images = unique_images[:MAX_IMAGES_PER_FETCH]
 
         # Try to initialize Qiniu client
         try:
@@ -147,55 +191,71 @@ class FetcherAgent:
                 for url in unique_images
             ]
 
-        # Download and upload images
-        results = []
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            for img_url in unique_images:
-                try:
-                    # Download image
-                    response = await client.get(img_url, headers={
-                        "User-Agent": (
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/124.0.0.0 Safari/537.36"
-                        ),
-                        "Referer": base_url,
-                    })
-                    response.raise_for_status()
-                    image_data = response.content
+        async def _download_and_upload(client: httpx.AsyncClient, img_url: str) -> dict[str, Any]:
+            try:
+                response = await client.get(img_url, headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Referer": base_url,
+                })
+                response.raise_for_status()
+                image_data = response.content
 
-                    # Skip if too small (likely icon) or too large
-                    if len(image_data) < 1024 or len(image_data) > 10 * 1024 * 1024:
-                        results.append({
-                            "original_url": img_url,
-                            "qiniu_url": img_url,
-                            "alt": "",
-                        })
-                        continue
-
-                    # Generate unique filename
-                    content_type = response.headers.get("content-type", "")
-                    ext = self._get_image_extension(img_url, content_type)
-                    filename = f"articles/{uuid.uuid4()}{ext}"
-
-                    # Upload to Qiniu
-                    qiniu_url = await qiniu_client.upload_file(image_data, filename)
-
-                    results.append({
-                        "original_url": img_url,
-                        "qiniu_url": qiniu_url,
-                        "alt": "",
-                    })
-
-                except Exception:
-                    # On any error, keep original URL
-                    results.append({
+                # Skip if too small (likely icon) or too large
+                if len(image_data) < 1024 or len(image_data) > 10 * 1024 * 1024:
+                    return {
                         "original_url": img_url,
                         "qiniu_url": img_url,
                         "alt": "",
-                    })
+                    }
 
-        return results
+                content_type = response.headers.get("content-type", "")
+                ext = self._get_image_extension(img_url, content_type)
+                filename = qiniu_client.generate_key(image_data, "articles", ext)
+
+                qiniu_url = await qiniu_client.upload_file(image_data, filename)
+
+                return {
+                    "original_url": img_url,
+                    "qiniu_url": qiniu_url,
+                    "alt": "",
+                }
+
+            except Exception:
+                logger.debug("Image download/upload failed for url=%s", img_url, exc_info=True)
+                return {
+                    "original_url": img_url,
+                    "qiniu_url": img_url,
+                    "alt": "",
+                }
+
+        # Download and upload images concurrently with bounded concurrency
+        semaphore = asyncio.Semaphore(5)
+
+        async def _download_and_upload_limited(client: httpx.AsyncClient, img_url: str) -> dict[str, Any]:
+            async with semaphore:
+                return await _download_and_upload(client, img_url)
+
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            tasks = [_download_and_upload_limited(client, img_url) for img_url in unique_images]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed: list[dict[str, Any]] = []
+        for idx, res in enumerate(results):
+            if isinstance(res, Exception):
+                logger.debug("Image upload failed for url=%s: %s", unique_images[idx], res)
+                processed.append({
+                    "original_url": unique_images[idx],
+                    "qiniu_url": unique_images[idx],
+                    "alt": "",
+                })
+            else:
+                processed.append(res)
+
+        return processed
 
     def _get_image_extension(self, url: str, content_type: str) -> str:
         """Get file extension from URL or content-type."""
@@ -223,47 +283,27 @@ class FetcherAgent:
         # Default to .jpg
         return ".jpg"
 
-    async def _is_content_valid(self, content: str, url: str) -> bool:
-        """Ask the LLM whether the extracted text looks like real article content."""
-        # Quick heuristic: if content is shorter than 200 chars
-        # it's almost certainly invalid
-        if len(content.strip()) < 200:
+    def _is_content_valid_heuristic(self, content: str) -> bool:
+        """Fast rule-based check for whether extracted text is real article content."""
+        stripped = content.strip()
+        if len(stripped) < 200:
             return False
+        if len(stripped) >= 1500:
+            return True
+        paragraphs = [p for p in stripped.split("\n\n") if len(p.strip()) > 50]
+        sentences = re.split(r"[。！？.!?]", stripped)
+        return len(paragraphs) >= 2 and len([s for s in sentences if s.strip()]) >= 5
 
-        try:
-            from app.models import LLMModelConfig
-            from app.core.llm.factory import get_llm_client_by_config_name
+    async def _is_content_valid(self, content: str, url: str) -> bool:
+        """Check whether extracted text looks like real article content.
 
-            first = await LLMModelConfig.find_one(LLMModelConfig.is_active == True)  # noqa: E712
-            if not first:
-                # No LLM configured — fall back to length heuristic only
-                return len(content.strip()) >= 500
-
-            llm = await get_llm_client_by_config_name(first.name)
-            snippet = content[:1500]
-            messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "你是一个内容质量判断助手。"
-                        "判断以下文本是否包含真实的文章正文内容（而非导航栏、广告、登录提示、空白骨架页等无效内容）。"
-                        "只回复 YES 或 NO，不要解释。"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"URL: {url}\n\n文本片段:\n{snippet}",
-                },
-            ]
-            resp = await llm.chat(messages)
-            answer = (resp.content or "").strip().upper()
-            return answer.startswith("YES")
-        except Exception:
-            # LLM unavailable — treat long content as valid
-            return len(content.strip()) >= 500
+        Uses fast heuristic rules. No LLM call is performed.
+        """
+        return self._is_content_valid_heuristic(content)
 
     async def _fetch_url_with_playwright(self, url: str) -> dict[str, Any]:
         """Render the page with headless Chromium and extract content."""
+        _check_url_private(url)
         from playwright.async_api import async_playwright
 
         html_text = ""
@@ -275,21 +315,23 @@ class FetcherAgent:
                     executable_path="/usr/bin/chromium",
                     args=["--no-sandbox", "--disable-setuid-sandbox"],
                 )
-                page = await browser.new_page(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/124.0.0.0 Safari/537.36"
+                try:
+                    page = await browser.new_page(
+                        user_agent=(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        )
                     )
-                )
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-                # Give JS-heavy pages a moment to finish rendering
-                await page.wait_for_timeout(2000)
-                html_text = await page.content()
-                final_url = page.url
-                await browser.close()
+                    await page.goto(url, wait_until="networkidle", timeout=30000)
+                    # Give JS-heavy pages a moment to finish rendering
+                    await page.wait_for_timeout(2000)
+                    html_text = await page.content()
+                    final_url = page.url
+                finally:
+                    await browser.close()
         except Exception:
-            pass
+            logger.warning("Playwright fetch failed for url=%s", url, exc_info=True)
 
         content = self._extract_text(html_text) if html_text else ""
         title = self._extract_title(html_text) if html_text else "Untitled"
@@ -297,8 +339,8 @@ class FetcherAgent:
 
         # Extract and upload images
         images = []
-        if html_text:
-            images = await self._extract_and_upload_images(html_text, final_url)
+        if raw_html:
+            images = await self._extract_and_upload_images(raw_html, final_url)
 
         return {
             "title": title,
@@ -497,6 +539,7 @@ a:hover {{
 </html>"""
             return styled_html
         except Exception:
+            logger.warning("Readability extraction failed for url=%s", base_url, exc_info=True)
             # Fallback: return original HTML with basic cleanup
             return self._basic_html_cleanup(html, base_url)
 

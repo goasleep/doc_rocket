@@ -201,6 +201,14 @@ MongoDB with Beanie ODM. No migrations needed — Beanie manages indexes automat
 
 Copy `.env` template and set at minimum: `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD` before deploying. Backend reads config exclusively from the top-level `.env` file via Pydantic settings.
 
+### Environment Variable Unification Rule
+
+**All services must load environment variables from the single top-level `.env` file.** Do not maintain separate `.env` files in subdirectories (e.g., `frontend/.env` has been removed).
+
+- `docker-compose.yml` / `docker-compose.override.yml`: backend already uses `env_file: - .env`; frontend development service also loads `env_file: - .env` and overlays service-specific variables (e.g., `VITE_API_URL=`, `VITE_API_PROXY_TARGET=http://backend:8000`) via the `environment:` block.
+- Why this matters: previously `frontend/.env` existed with an empty `VITE_API_URL`, while runtime containers could inherit stale or host-injected values. This caused Playwright E2E tests to hit `http://localhost:8000` directly inside the container (where backend is unreachable) instead of using the Vite dev proxy, making the full-stack smoke test fail consistently.
+- Frontend code (`main.tsx`) sets `OpenAPI.BASE = import.meta.env.VITE_API_URL || ""`; keeping `VITE_API_URL` empty in development ensures API requests stay relative and flow through the Vite proxy target.
+
 ## Key Ports (dev)
 
 | Service | Port |

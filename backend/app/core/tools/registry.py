@@ -1,5 +1,8 @@
 """Tool registry and dispatcher."""
+import logging
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 # Import all built-in tool functions (populated below)
 TOOL_REGISTRY: dict[str, Callable[..., Any]] = {}
@@ -28,6 +31,7 @@ async def dispatch_tool(name: str, arguments: dict[str, Any], context: dict[str,
         result = await fn(**arguments)
         return str(result)
     except Exception as e:
+        logger.exception("Tool '%s' dispatch failed", name)
         return f"Tool '{name}' error: {e}"
 
 

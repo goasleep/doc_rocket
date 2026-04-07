@@ -1,11 +1,20 @@
 """ReactAnalyzerAgent — multi-step article analysis with ReAct pattern."""
 import asyncio
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from app.core.agents.base import BaseAgent
+from app.core.agents.fetcher import FetcherAgent
+from app.core.agents.prompts import (
+    ANALYZER_ALL_DIMENSIONS_PROMPT_TEMPLATE,
+    ANALYZER_DEFAULT,
+    ANALYZER_DIMENSION_PROMPT_TEMPLATE,
+    ANALYZER_REFLECTION_PROMPT,
+    ANALYZER_UNDERSTAND_PROMPT,
+)
 from app.core.tools.registry import dispatch_tool
 from app.models import (
     AnalysisTraceStep,
@@ -18,6 +27,33 @@ from app.models.quality_rubric import QualityRubric, get_default_rubric
 
 # Max chars to send to LLM
 MAX_CONTENT_CHARS = 12000
+DIMENSION_CONTENT_CHARS = 8000
+
+PRACTICAL_ARTICLE_TYPES = {"tutorial", "guide", "how-to"}
+TECH_TOPIC_KEYWORDS = {"技术", "编程", "ai", "产品", "工具"}
+
+# Trace limits
+MAX_TRACE_INPUT_SUMMARY = 500
+MAX_TRACE_OUTPUT_SUMMARY = 1000
+MAX_TRACE_RAW_RESPONSE = 2000
+MAX_DIMENSION_RAW_RESPONSE_TRACE = 1000
+MAX_REFLECTION_RAW_RESPONSE_TRACE = 500
+
+# External reference limits
+EXTERNAL_REF_CONTENT_CHARS = 10000
+EXTERNAL_REF_SNIPPET_CHARS = 500
+DEFAULT_EXTERNAL_SIMILARITY_SCORE = 0.5
+
+# Analysis defaults
+DEFAULT_DIMENSION_SCORE = 50
+DEFAULT_DIMENSION_WEIGHT = 0.20
+MAX_REFLECTION_SUGGESTIONS = 5
+KB_ARTICLE_LIMIT = 5
+WEB_SEARCH_MAX_RESULTS = 5
+TOOL_OUTPUT_SUMMARY_CHARS = 200
+EXTERNAL_REF_CONTEXT_SNIPPET = 100
+
+logger = logging.getLogger(__name__)
 
 
 class ReactAnalyzerAgent(BaseAgent):
@@ -56,12 +92,12 @@ class ReactAnalyzerAgent(BaseAgent):
             step_index=self.step_index,
             step_name=step_name,
             step_type=step_type,
-            input_summary=input_summary[:500],
-            output_summary=output_summary[:1000],
+            input_summary=input_summary[:MAX_TRACE_INPUT_SUMMARY],
+            output_summary=output_summary[:MAX_TRACE_OUTPUT_SUMMARY],
             tool_calls=tool_calls or [],
             duration_ms=duration_ms,
             timestamp=datetime.now(UTC),
-            raw_response=raw_response[:2000],
+            raw_response=raw_response[:MAX_TRACE_RAW_RESPONSE],
             parsed_ok=parsed_ok,
             parallel_group=parallel_group,
             parallel_index=parallel_index,
@@ -94,28 +130,27 @@ class ReactAnalyzerAgent(BaseAgent):
         messages: list[dict[str, Any]],
         response_format: dict[str, str] | None = None,
         temperature: float = 0.3,
+        images: list[str] | None = None,
     ) -> tuple[str, bool]:
         """Call LLM and return (content, success)."""
         try:
             llm = await self._get_llm()
-            # Some models (e.g., o3-mini, kimi moonshot-v1-32k) only support temperature=1
-            # Check if the model requires fixed temperature
-            model_name = getattr(llm, '_default_model', '').lower()
-            print(f"[DEBUG] LLM model name: {model_name}, original temperature: {temperature}")
-            if 'o3' in model_name or 'o1' in model_name or 'moonshot-v1-32k' in model_name:
+            # Capability-based temperature adjustment
+            if not getattr(llm, "supports_temperature", True):
                 temperature = 1.0
-                print(f"[DEBUG] Adjusted temperature to 1.0 for model {model_name}")
-            print(f"[DEBUG] Calling llm.chat with temperature={temperature}")
-            response = await llm.chat(messages, response_format=response_format, temperature=temperature)
+                logger.debug("Adjusted temperature to 1.0 for model without temperature support")
+            logger.debug("Calling llm.chat with temperature=%s", temperature)
+            response = await llm.chat(messages, response_format=response_format, temperature=temperature, images=images)
             return response.content or "", True
         except Exception as e:
-            print(f"[DEBUG] LLM call failed: {e}")
+            logger.warning("LLM call failed: %s", e, exc_info=True)
             return f"Error: {e}", False
 
     async def _step_understand(
         self,
         article_content: str,
         article_id: uuid.UUID | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Step 1: Understand the article."""
         t_start = datetime.now(UTC)
@@ -124,36 +159,20 @@ class ReactAnalyzerAgent(BaseAgent):
         if len(article_content) > MAX_CONTENT_CHARS:
             content += "\n[内容已截断...]"
 
-        system_prompt = """你是一位专业的文章分析专家。请分析以下文章，提取关键信息。
-请以JSON格式返回：
-{
-  "topic": "文章主题",
-  "core_ideas": ["核心观点1", "核心观点2"],
-  "target_audience": "目标受众描述",
-  "article_type": "文章类型 (news/opinion/tutorial/story/review/other)",
-  "key_entities": ["关键实体1", "关键实体2"],
-  "estimated_read_time": "预估阅读时间",
-  "hook_type": "开头钩子类型 (痛点型|好奇型|数字型|故事型|争议型|权威型|其他)",
-  "framework": "文章框架 (AIDA|PAS|故事型|清单型|问答型|倒金字塔|其他)",
-  "emotional_triggers": ["情绪触发词1", "情绪触发词2", "情绪触发词3"],
-  "structure": {
-    "intro": "开头/引言部分的主要内容描述",
-    "body_sections": ["正文段落1主题", "正文段落2主题", "正文段落3主题"],
-    "cta": "结尾/行动号召部分的内容描述"
-  },
-  "style": {
-    "tone": "语气语调 (犀利|温暖|幽默|严肃|客观|口语化|专业|亲切)",
-    "formality": "正式程度 (正式|半正式|口语化)",
-    "avg_sentence_length": 25
-  }
-}"""
+        use_vision = bool(images)
+
+        system_prompt = ANALYZER_UNDERSTAND_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"请分析以下文章：\n\n{content}"},
         ]
 
-        raw_response, success = await self._call_llm(messages, response_format={"type": "json_object"})
+        raw_response, success = await self._call_llm(
+            messages,
+            response_format={"type": "json_object"},
+            images=images if use_vision else None
+        )
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
@@ -199,7 +218,7 @@ class ReactAnalyzerAgent(BaseAgent):
         # Call tool
         tool_result = await dispatch_tool(
             "search_similar_articles",
-            {"article_content": article_content, "limit": 3},
+            {"article_content": article_content, "limit": KB_ARTICLE_LIMIT},
         )
 
         t_end = datetime.now(UTC)
@@ -208,8 +227,8 @@ class ReactAnalyzerAgent(BaseAgent):
         results = []
         tool_calls = [ToolCallDetail(
             tool_name="search_similar_articles",
-            input_params={"limit": 3},
-            output_summary=tool_result[:200],
+            input_params={"limit": KB_ARTICLE_LIMIT},
+            output_summary=tool_result[:TOOL_OUTPUT_SUMMARY_CHARS],
             success=not tool_result.startswith("Tool"),
         )]
 
@@ -264,7 +283,7 @@ class ReactAnalyzerAgent(BaseAgent):
         # Call web_search tool
         tool_result = await dispatch_tool(
             "web_search",
-            {"query": search_query, "max_results": 5},
+            {"query": search_query, "max_results": WEB_SEARCH_MAX_RESULTS},
         )
 
         t_end = datetime.now(UTC)
@@ -285,9 +304,11 @@ class ReactAnalyzerAgent(BaseAgent):
                             url = url_content[0]
                             content_snippet = url_content[1].strip()
 
-                            # Fetch full content
-                            fetch_result = await dispatch_tool("fetch_url", {"url": url, "max_chars": 5000})
-                            full_content = fetch_result if not fetch_result.startswith("fetch_url") else content_snippet
+                            # Fetch full content using FetcherAgent for richer data
+                            fetcher = FetcherAgent()
+                            fetch_result = await fetcher.fetch_url(url)
+                            full_content = fetch_result.get("content", content_snippet)
+                            raw_html = fetch_result.get("raw_html", "")
 
                             # Save external reference
                             save_result = await dispatch_tool(
@@ -295,8 +316,9 @@ class ReactAnalyzerAgent(BaseAgent):
                                 {
                                     "url": url,
                                     "title": title_part,
-                                    "content": full_content[:10000],
-                                    "content_snippet": content_snippet[:500],
+                                    "content": full_content[:EXTERNAL_REF_CONTENT_CHARS],
+                                    "content_snippet": content_snippet[:EXTERNAL_REF_SNIPPET_CHARS],
+                                    "raw_html": raw_html,
                                     "source": "web_search",
                                     "search_query": search_query,
                                     "referencer_article_id": str(article_id) if article_id else None,
@@ -316,7 +338,7 @@ class ReactAnalyzerAgent(BaseAgent):
 
         tool_calls = [ToolCallDetail(
             tool_name="web_search",
-            input_params={"query": search_query, "max_results": 5},
+            input_params={"query": search_query, "max_results": WEB_SEARCH_MAX_RESULTS},
             output_summary=f"Found {len(external_refs)} external references",
             success=len(external_refs) > 0,
         )]
@@ -332,6 +354,130 @@ class ReactAnalyzerAgent(BaseAgent):
 
         return external_refs
 
+    def _build_dimensions_text(self, dimensions: list[dict[str, Any]]) -> str:
+        """Build inline dimension criteria text for unified prompt."""
+        parts: list[str] = []
+        for dim in dimensions:
+            criteria_lines = "\n".join(
+                f"      {c['min_score']}-{c['max_score']}: {c['description']}"
+                for c in dim.get("criteria", [])
+            )
+            parts.append(
+                f"- 维度：{dim.get('description', dim['name'])} (权重 {dim.get('weight', 0.2)})\n"
+                f"  评分标准：\n{criteria_lines}"
+            )
+        return "\n\n".join(parts)
+
+    async def _analyze_all_dimensions(
+        self,
+        article_content: str,
+        kb_articles: list[dict[str, Any]],
+        external_refs: list[dict[str, Any]],
+        understanding: dict[str, Any],
+        dimensions: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Analyze all dimensions in a single LLM call."""
+        t_start = datetime.now(UTC)
+
+        content = article_content[:DIMENSION_CONTENT_CHARS]
+
+        kb_context = ""
+        if kb_articles:
+            kb_context = "\n\n知识库参考文章:\n" + "\n".join(
+                f"- {a.get('title', '')}: 质量分{a.get('quality_score', 'N/A')}"
+                for a in kb_articles[:KB_ARTICLE_LIMIT]
+            )
+
+        external_context = ""
+        if external_refs:
+            external_context = "\n\n外部参考文章:\n" + "\n".join(
+                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:EXTERNAL_REF_CONTEXT_SNIPPET]}..."
+                for r in external_refs
+            )
+
+        article_type = understanding.get("article_type", "").lower()
+        is_practical = article_type in PRACTICAL_ARTICLE_TYPES
+        topic_category = understanding.get("topic_category", "").lower()
+        is_tech_related = any(kw in topic_category for kw in TECH_TOPIC_KEYWORDS)
+
+        practical_bonus_prompt = ""
+        if is_practical and is_tech_related:
+            practical_bonus_prompt = """
+
+【本文疑似实操教程/技术指南 - 专业度加分说明】
+本文被识别为实操类技术文章。评分时请特别注意：
+- 如果包含原创代码、独特实战经验、详细步骤说明 → 原创性可上浮10-15分
+- 如果步骤清晰、有实际可操作价值 → 内容深度可给60分以上（不按信息整合处理）
+- 但如果只是简单罗列命令、复制粘贴文档内容、无个人经验分享 → 仍按低分处理"""
+
+        dimensions_text = self._build_dimensions_text(dimensions)
+
+        system_prompt = ANALYZER_ALL_DIMENSIONS_PROMPT_TEMPLATE.format(
+            dimensions_text=dimensions_text,
+            practical_bonus=practical_bonus_prompt,
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请分析以下文章的所有维度：\n\n{content}{kb_context}{external_context}"},
+        ]
+
+        raw_response, success = await self._call_llm(messages, response_format={"type": "json_object"})
+
+        results: list[dict[str, Any]] = []
+        parsed_dimensions: dict[str, dict[str, Any]] = {}
+
+        if success:
+            try:
+                parsed = json.loads(raw_response)
+                for d in parsed.get("dimensions", []):
+                    dim_name = d.get("dimension")
+                    if dim_name:
+                        parsed_dimensions[dim_name] = d
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                success = False
+
+        t_end = datetime.now(UTC)
+        duration_ms = int((t_end - t_start).total_seconds() * 1000)
+
+        for i, dim in enumerate(dimensions):
+            dim_name = dim["name"]
+            dim_data = parsed_dimensions.get(dim_name)
+            if dim_data and "score" in dim_data:
+                result = {
+                    "dimension": dim_name,
+                    "score": dim_data.get("score", DEFAULT_DIMENSION_SCORE),
+                    "reasoning": dim_data.get("reasoning", ""),
+                    "standard_matched": dim_data.get("standard_matched", ""),
+                    "evidences": dim_data.get("evidences", []),
+                    "improvement_suggestions": dim_data.get("improvement_suggestions", []),
+                }
+            else:
+                result = {
+                    "dimension": dim_name,
+                    "score": DEFAULT_DIMENSION_SCORE,
+                    "reasoning": "解析失败: 无效的JSON响应或缺少该维度" if not success else "模型未返回该维度",
+                    "standard_matched": "",
+                    "evidences": [],
+                    "improvement_suggestions": [],
+                }
+
+            results.append(result)
+
+            self._add_trace_step(
+                step_name=f"维度分析: {dim_name}",
+                step_type="conclusion",
+                input_summary=f"分析维度: {dim_name}",
+                output_summary=f"得分: {result.get('score', 0)}",
+                duration_ms=duration_ms if i == 0 else 0,
+                raw_response=raw_response[:MAX_DIMENSION_RAW_RESPONSE_TRACE] if i == 0 else "",
+                parsed_ok="score" in result,
+                parallel_group="dimension_analysis",
+                parallel_index=i,
+            )
+
+        return results
+
     async def _analyze_dimension(
         self,
         dimension: str,
@@ -345,7 +491,7 @@ class ReactAnalyzerAgent(BaseAgent):
         """Analyze a single dimension (for parallel execution)."""
         t_start = datetime.now(UTC)
 
-        content = article_content[:8000]  # Shorter for dimension analysis
+        content = article_content[:DIMENSION_CONTENT_CHARS]  # Shorter for dimension analysis
 
         criteria_text = "\n".join([
             f"- {c['min_score']}-{c['max_score']}: {c['description']}"
@@ -356,29 +502,38 @@ class ReactAnalyzerAgent(BaseAgent):
         if kb_articles:
             kb_context = "\n\n知识库参考文章:\n" + "\n".join([
                 f"- {a.get('title', '')}: 质量分{a.get('quality_score', 'N/A')}"
-                for a in kb_articles[:2]
+                for a in kb_articles[:KB_ARTICLE_LIMIT]
             ])
 
         external_context = ""
         if external_refs:
             external_context = "\n\n外部参考文章:\n" + "\n".join([
-                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:100]}..."
-                for r in external_refs[:2]
+                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:EXTERNAL_REF_CONTEXT_SNIPPET]}..."
+                for r in external_refs
             ])
 
-        system_prompt = f"""你是一位专业的文章分析专家，负责评估文章的{dimension_config.get('description', dimension)}维度。
+        # 判断是否为实操类文章
+        article_type = understanding.get("article_type", "").lower()
+        is_practical = article_type in PRACTICAL_ARTICLE_TYPES
+        topic_category = understanding.get("topic_category", "").lower()
+        is_tech_related = any(kw in topic_category for kw in TECH_TOPIC_KEYWORDS)
 
-评分标准：
-{criteria_text}
+        practical_bonus_prompt = ""
+        if is_practical and is_tech_related:
+            practical_bonus_prompt = """
 
-请以JSON格式返回分析结果：
-{{
-  "score": 0-100,
-  "reasoning": "详细的评分依据说明",
-  "standard_matched": "符合的评分档位描述",
-  "evidences": [{{"quote": "原文引用", "context": "上下文说明"}}],
-  "improvement_suggestions": ["改进建议1", "改进建议2"]
-}}"""
+【本文疑似实操教程/技术指南 - 专业度加分说明】
+本文被识别为实操类技术文章。评分时请特别注意：
+- 如果包含原创代码、独特实战经验、详细步骤说明 → 原创性可上浮10-15分
+- 如果步骤清晰、有实际可操作价值 → 内容深度可给60分以上（不按信息整合处理）
+- 但如果只是简单罗列命令、复制粘贴文档内容、无个人经验分享 → 仍按低分处理"""
+
+        system_prompt = ANALYZER_DIMENSION_PROMPT_TEMPLATE.format(
+            dimension=dimension_config.get('description', dimension),
+            criteria=criteria_text,
+            practical_bonus=practical_bonus_prompt,
+        )
+
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -391,7 +546,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 result = json.loads(raw_response)
             except json.JSONDecodeError:
                 result = {
-                    "score": 50,
+                    "score": DEFAULT_DIMENSION_SCORE,
                     "reasoning": "解析失败: 无效的JSON响应",
                     "standard_matched": "",
                     "evidences": [],
@@ -399,7 +554,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 }
         else:
             result = {
-                "score": 50,
+                "score": DEFAULT_DIMENSION_SCORE,
                 "reasoning": f"分析失败: {raw_response}",
                 "standard_matched": "",
                 "evidences": [],
@@ -416,7 +571,7 @@ class ReactAnalyzerAgent(BaseAgent):
             input_summary=f"分析维度: {dimension}",
             output_summary=f"得分: {result.get('score', 0)}",
             duration_ms=duration_ms,
-            raw_response=raw_response[:1000],
+            raw_response=raw_response[:MAX_DIMENSION_RAW_RESPONSE_TRACE],
             parsed_ok="score" in result,
             parallel_group="dimension_analysis",
             parallel_index=parallel_index,
@@ -435,7 +590,7 @@ class ReactAnalyzerAgent(BaseAgent):
         understanding: dict[str, Any],
         rubric: QualityRubric,
     ) -> list[dict[str, Any]]:
-        """Step 4: Parallel multidimensional analysis."""
+        """Step 4: Multidimensional analysis via single LLM call."""
         t_start = datetime.now(UTC)
 
         dimensions = [
@@ -446,43 +601,18 @@ class ReactAnalyzerAgent(BaseAgent):
             for d in rubric.dimensions
         ]
 
-        # Check if parallel analysis is enabled
-        react_config = getattr(self.agent_config, "react_config", None)
-        parallel_enabled = getattr(react_config, "parallel_analysis", True)
-
-        if parallel_enabled:
-            # Run all dimensions in parallel
-            tasks = [
-                self._analyze_dimension(
-                    dim["name"],
-                    dim,
-                    article_content,
-                    kb_articles,
-                    external_refs,
-                    understanding,
-                    i,
-                )
-                for i, dim in enumerate(dimensions)
-            ]
-            results = await asyncio.gather(*tasks)
-        else:
-            # Run sequentially
-            results = []
-            for i, dim in enumerate(dimensions):
-                result = await self._analyze_dimension(
-                    dim["name"],
-                    dim,
-                    article_content,
-                    kb_articles,
-                    external_refs,
-                    understanding,
-                    i,
-                )
-                results.append(result)
+        results = await self._analyze_all_dimensions(
+            article_content,
+            kb_articles,
+            external_refs,
+            understanding,
+            dimensions,
+        )
 
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
+        logger.debug("Multidimensional analysis completed in %s ms, %s dimensions", duration_ms, len(results))
         return list(results)
 
     async def _step_scoring_with_reasoning(
@@ -499,7 +629,7 @@ class ReactAnalyzerAgent(BaseAgent):
         for result in dimension_results:
             dim_name = result.get("dimension", "")
             score = float(result.get("score", 0))
-            weight = 0.20  # Default weight
+            weight = DEFAULT_DIMENSION_WEIGHT  # Default weight
 
             # Get weight from rubric
             dim = rubric.get_dimension(dim_name)
@@ -570,7 +700,7 @@ class ReactAnalyzerAgent(BaseAgent):
                 duration_ms=duration_ms,
             )
 
-            return summary, suggestions[:5]
+            return summary, suggestions[:MAX_REFLECTION_SUGGESTIONS]
 
         # Build scores summary
         scores_text = "\n".join([
@@ -578,13 +708,7 @@ class ReactAnalyzerAgent(BaseAgent):
             for sd in score_details
         ])
 
-        system_prompt = """你是一位专业的文章分析总结专家。请根据各维度评分结果，生成整体分析总结和改进建议。
-
-请以JSON格式返回：
-{
-  "analysis_summary": "整体分析总结（200字内）",
-  "improvement_suggestions": ["最重要的改进建议1", "建议2", "建议3"]
-}"""
+        system_prompt = ANALYZER_REFLECTION_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -612,7 +736,7 @@ class ReactAnalyzerAgent(BaseAgent):
         if not suggestions:
             for sd in score_details:
                 suggestions.extend(sd.improvement_suggestions)
-            suggestions = suggestions[:5]
+            suggestions = suggestions[:MAX_REFLECTION_SUGGESTIONS]
 
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
@@ -623,7 +747,7 @@ class ReactAnalyzerAgent(BaseAgent):
             input_summary=f"维度评分: {len(score_details)} 个",
             output_summary=summary[:200],
             duration_ms=duration_ms,
-            raw_response=raw_response[:500],
+            raw_response=raw_response[:MAX_REFLECTION_RAW_RESPONSE_TRACE],
             parsed_ok=success,
         )
 
@@ -633,12 +757,14 @@ class ReactAnalyzerAgent(BaseAgent):
         self,
         article_content: str,
         article_id: uuid.UUID | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Run the complete React analysis workflow.
 
         Args:
             article_content: The article content to analyze
             article_id: Optional article ID for tracking
+            images: Optional list of image URLs for multimodal analysis
 
         Returns:
             Dict with analysis results matching ArticleAnalysis fields
@@ -653,7 +779,7 @@ class ReactAnalyzerAgent(BaseAgent):
         rubric = self._get_active_rubric()
 
         # Step 1: Understand
-        understanding = await self._step_understand(article_content, article_id)
+        understanding = await self._step_understand(article_content, article_id, images)
 
         # Step 2: KB Comparison
         kb_articles = await self._step_kb_comparison(article_content, article_id)
@@ -678,21 +804,21 @@ class ReactAnalyzerAgent(BaseAgent):
 
         # Build comparison references
         comparison_refs = []
-        for kb in kb_articles[:2]:
+        for kb in kb_articles[:KB_ARTICLE_LIMIT]:
             comparison_refs.append(ComparisonReferenceEmbedded(
                 source="knowledge_base",
                 kb_article_id=uuid.UUID(kb["article_id"]) if kb.get("article_id") else None,
                 kb_article_title=kb.get("title"),
                 quality_score=kb.get("quality_score"),
-                similarity_score=kb.get("relevance_score", 0),
+                similarity_score=kb.get("relevance_score", 0) / 100,
             ))
-        for ext in external_refs[:2]:
+        for ext in external_refs:
             comparison_refs.append(ComparisonReferenceEmbedded(
                 source="external",
                 external_ref_id=uuid.UUID(ext["id"]) if ext.get("id") else None,
                 external_url=ext.get("url"),
                 external_title=ext.get("title"),
-                similarity_score=50,  # Default for external refs
+                similarity_score=DEFAULT_EXTERNAL_SIMILARITY_SCORE,  # Default for external refs (0-1 range)
             ))
 
         t_end_total = datetime.now(UTC)
@@ -705,6 +831,7 @@ class ReactAnalyzerAgent(BaseAgent):
             "originality": scores.get("originality", 0),
             "ai_flavor": scores.get("ai_flavor", 0),
             "virality_potential": scores.get("virality_potential", 0),
+            "image_content": scores.get("image_content", 0),
         }
 
         # Extract legacy fields from understanding with defaults
@@ -739,5 +866,6 @@ class ReactAnalyzerAgent(BaseAgent):
             },
             "target_audience": understanding.get("target_audience", ""),
             "topic": understanding.get("topic", ""),
+            "topic_category": understanding.get("topic_category", ""),
             "article_type": understanding.get("article_type", ""),
         }

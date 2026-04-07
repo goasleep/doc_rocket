@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { SubmitService } from "@/client"
+import { ArticlesService, SubmitService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -21,6 +22,13 @@ import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/submit")({
   component: Submit,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["articles"],
+      queryFn: () =>
+        ArticlesService.listArticles({ skip: 0, limit: 1 }),
+    })
+  },
   head: () => ({
     meta: [{ title: "手动投稿 - 内容引擎" }],
   }),
@@ -31,12 +39,12 @@ const textSchema = z.object({
   content: z.string().min(10, "正文至少 10 个字符"),
 })
 
-const urlSchema = z.object({
-  url: z.string().url("请输入有效的 URL"),
+const urlsSchema = z.object({
+  urls: z.string().min(1, "请输入至少一个 URL"),
 })
 
 function TextSubmitForm() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const form = useForm<z.infer<typeof textSchema>>({
     resolver: zodResolver(textSchema),
@@ -84,11 +92,7 @@ function TextSubmitForm() {
                 <Textarea
                   className="min-h-[240px] resize-y"
                   placeholder="粘贴文章正文..."
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  ref={field.ref}
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -104,21 +108,31 @@ function TextSubmitForm() {
 }
 
 function UrlSubmitForm() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const form = useForm<z.infer<typeof urlSchema>>({
-    resolver: zodResolver(urlSchema),
-    defaultValues: { url: "" },
+  const form = useForm<z.infer<typeof urlsSchema>>({
+    resolver: zodResolver(urlsSchema),
+    defaultValues: { urls: "" },
   })
 
+  // 实时解析 URL 数量
+  const watchUrls = form.watch("urls")
+  const urlCount = useMemo(() => {
+    const urls = watchUrls
+      .split(/[\n;]+/)
+      .map((u) => u.trim().replace(/,$/, ""))
+      .filter((u) => u.startsWith("http://") || u.startsWith("https://"))
+    return new Set(urls).size
+  }, [watchUrls])
+
   const mutation = useMutation({
-    mutationFn: (data: z.infer<typeof urlSchema>) =>
-      SubmitService.submitArticle({
-        requestBody: { mode: "url", url: data.url },
+    mutationFn: (data: z.infer<typeof urlsSchema>) =>
+      SubmitService.submitUrlsBatch({
+        requestBody: { urls: data.urls },
       }),
     onSuccess: (result) => {
-      showSuccessToast("URL 已提交，正在抓取分析...")
-      navigate({ to: "/articles/$id", params: { id: result.article_id } })
+      showSuccessToast(result.message)
+      navigate({ to: "/articles", search: { page: 1, status: "all", source: "all", search: "" } })
     },
     onError: (err: any) => {
       const detail = err?.body?.detail
@@ -134,19 +148,33 @@ function UrlSubmitForm() {
       >
         <FormField
           control={form.control}
-          name="url"
+          name="urls"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>文章 URL</FormLabel>
+              <FormLabel>
+                文章 URL 列表
+                {urlCount > 0 && (
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    (已识别 {urlCount} 个有效 URL)
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <Input placeholder="https://..." {...field} />
+                <Textarea
+                  className="min-h-[200px] resize-y font-mono text-sm"
+                  placeholder={`https://example.com/article1\nhttps://example.com/article2\nhttps://example.com/article3`}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
+              <p className="text-xs text-muted-foreground">
+                支持换行、分号或逗号分隔多个 URL
+              </p>
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "抓取中..." : "抓取并分析"}
+        <Button type="submit" disabled={mutation.isPending || urlCount === 0}>
+          {mutation.isPending ? "提交中..." : `批量抓取 (${urlCount})`}
         </Button>
       </form>
     </Form>

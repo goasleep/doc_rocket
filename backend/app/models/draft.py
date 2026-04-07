@@ -24,6 +24,7 @@ class Draft(Document):
     content: str = ""
     status: str = "draft"  # draft | editing | approved
     edit_history: list[EditHistoryEntry] = Field(default_factory=list)
+    created_by: uuid.UUID | None = None
     created_at: datetime = Field(default_factory=get_datetime_utc)
     # Cover image fields
     cover_image_url: str | None = None      # Qiniu permanent URL
@@ -43,6 +44,7 @@ class DraftPublic(BaseModel):
     content: str
     status: str
     edit_history: list[EditHistoryEntry]
+    created_by: uuid.UUID | None = None
     created_at: datetime
     cover_image_url: str | None = None
 

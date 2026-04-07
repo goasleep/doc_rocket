@@ -39,6 +39,7 @@ class BackgroundTaskManager:
     def __init__(self):
         self.tasks: dict[str, BackgroundTask] = {}
         self._notification_queue: asyncio.Queue[BackgroundTask] = asyncio.Queue()
+        self._async_tasks: set[asyncio.Task[Any]] = set()
 
     async def submit(
         self,
@@ -72,8 +73,10 @@ class BackgroundTaskManager:
         )
         self.tasks[task_id] = task
 
-        # Start polling for this task
-        asyncio.create_task(self._poll_task(task_id))
+        # Start polling for this task and track it for cleanup
+        task = asyncio.create_task(self._poll_task(task_id))
+        self._async_tasks.add(task)
+        task.add_done_callback(self._async_tasks.discard)
 
         return task_id
 
@@ -147,6 +150,14 @@ class BackgroundTaskManager:
             t for t in self.tasks.values()
             if t.status in ("pending", "running")
         ]
+
+    async def shutdown(self) -> None:
+        """Cancel all pending async polling tasks and wait for them to finish."""
+        if self._async_tasks:
+            for task in list(self._async_tasks):
+                task.cancel()
+            await asyncio.gather(*self._async_tasks, return_exceptions=True)
+            self._async_tasks.clear()
 
     def format_notifications(self, notifications: list[BackgroundTask]) -> str:
         """Format task notifications for agent consumption.

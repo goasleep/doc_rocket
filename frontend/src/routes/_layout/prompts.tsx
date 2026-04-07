@@ -1,16 +1,11 @@
-import {
-  useMutation,
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FileCode } from "lucide-react"
-import { Suspense, useState } from "react"
+import { Suspense } from "react"
 
 import { type AgentConfigPublic, AgentsService } from "@/client"
-import { Button } from "@/components/ui/button"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import useCustomToast from "@/hooks/useCustomToast"
 
 export const Route = createFileRoute("/_layout/prompts")({
   component: Prompts,
@@ -34,24 +29,6 @@ const ROLE_COLOR: Record<string, string> = {
 }
 
 function PromptCard({ agent }: { agent: AgentConfigPublic }) {
-  const queryClient = useQueryClient()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
-  const [prompt, setPrompt] = useState(agent.system_prompt)
-  const isDirty = prompt !== agent.system_prompt
-
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      AgentsService.updateAgent({
-        id: agent.id,
-        requestBody: { system_prompt: prompt },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["agents"] })
-      showSuccessToast(`${agent.name} 的 Prompt 已保存`)
-    },
-    onError: () => showErrorToast("保存失败"),
-  })
-
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -64,13 +41,6 @@ function PromptCard({ agent }: { agent: AgentConfigPublic }) {
               {ROLE_LABEL[agent.role] ?? agent.role}
             </span>
           </div>
-          <Button
-            size="sm"
-            disabled={!isDirty || updateMutation.isPending}
-            onClick={() => updateMutation.mutate()}
-          >
-            {updateMutation.isPending ? "保存中..." : "保存"}
-          </Button>
         </div>
         {agent.responsibilities && (
           <p className="text-xs text-muted-foreground mt-1">
@@ -80,9 +50,9 @@ function PromptCard({ agent }: { agent: AgentConfigPublic }) {
       </CardHeader>
       <CardContent>
         <textarea
-          className="flex min-h-[220px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          readOnly
+          className="flex min-h-[220px] w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono ring-offset-background resize-y"
+          value={agent.system_prompt}
         />
       </CardContent>
     </Card>
@@ -103,7 +73,7 @@ function PromptsContent() {
         </div>
         <h3 className="text-lg font-semibold">暂无 Agent 配置</h3>
         <p className="text-muted-foreground">
-          请先在「Agent 配置」页面创建 Agent
+          系统启动后会自动初始化 Agent 配置
         </p>
       </div>
     )
@@ -136,18 +106,20 @@ function Prompts() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Prompt 模板</h1>
         <p className="text-muted-foreground">
-          直接编辑每个 Agent 的 System Prompt，修改后点击保存即刻生效
+          查看各 Agent 的 System Prompt（由代码统一管理，不可编辑）
         </p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <PromptsContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <PromptsContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { createRootRoute, HeadContent, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
+import { queryClient } from "@/query-client"
 
 export const Route = createRootRoute({
   component: () => (
@@ -15,4 +16,5 @@ export const Route = createRootRoute({
   ),
   notFoundComponent: () => <NotFound />,
   errorComponent: () => <ErrorComponent />,
+  beforeLoad: () => ({ queryClient }),
 })

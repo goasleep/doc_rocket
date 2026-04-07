@@ -2,9 +2,9 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Search } from "lucide-react"
 import { Suspense } from "react"
-
 import { ItemsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import AddItem from "@/components/Items/AddItem"
 import { columns } from "@/components/Items/columns"
 import PendingItems from "@/components/Pending/PendingItems"
@@ -47,9 +47,11 @@ function ItemsTableContent() {
 
 function ItemsTable() {
   return (
-    <Suspense fallback={<PendingItems />}>
-      <ItemsTableContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<PendingItems />}>
+        <ItemsTableContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 }
 

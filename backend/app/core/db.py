@@ -27,10 +27,11 @@ from app.models import (
 )
 
 
-async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
+async def init_db(db_name: str | None = None) -> AsyncIOMotorClient:  # type: ignore[type-arg]
     client: AsyncIOMotorClient = AsyncIOMotorClient(settings.MONGODB_URL)  # type: ignore
+    database_name = db_name or settings.MONGODB_DB
     await init_beanie(
-        database=client[settings.MONGODB_DB],
+        database=client[database_name],
         document_models=[
             User,
             Item,
@@ -79,47 +80,32 @@ async def init_db() -> AsyncIOMotorClient:  # type: ignore[type-arg]
         config = SystemConfig()
         await config.insert()
 
-    # Seed default AgentConfigs if none exist
-    agent_count = await AgentConfig.count()
-    if agent_count == 0:
-        from app.core.agents.editor import DEFAULT_SYSTEM as EDITOR_DEFAULT
-        from app.core.agents.orchestrator import DEFAULT_SYSTEM as ORCHESTRATOR_DEFAULT
-        from app.core.agents.reviewer import DEFAULT_SYSTEM as REVIEWER_DEFAULT
-        from app.core.agents.writer import DEFAULT_SYSTEM as WRITER_DEFAULT
+    # Force-sync code-defined AgentConfig prompts/responsibilities to DB on every startup
+    from app.core.agents.prompts import AGENT_PROMPTS
 
-        defaults = [
-            AgentConfig(
-                name="Writer",
-                role="writer",
-                responsibilities="根据参考文章的分析结果撰写初稿，融合多篇文章的风格与结构",
-                system_prompt=WRITER_DEFAULT,
-                workflow_order=1,
-            ),
-            AgentConfig(
-                name="Editor",
-                role="editor",
-                responsibilities="对初稿进行润色、去AI味处理，并生成3个标题候选",
-                system_prompt=EDITOR_DEFAULT,
-                workflow_order=2,
-            ),
-            AgentConfig(
-                name="Reviewer",
-                role="reviewer",
-                responsibilities="对终稿进行事实核查、法律风险和格式问题审查",
-                system_prompt=REVIEWER_DEFAULT,
-                workflow_order=3,
-            ),
-            AgentConfig(
-                name="Orchestrator",
-                role="orchestrator",
-                responsibilities="协调 Writer、Editor、Reviewer 完成内容创作，根据反馈决定是否需要修改",
-                system_prompt=ORCHESTRATOR_DEFAULT,
-                workflow_order=0,
-                max_iterations=10,
-            ),
-        ]
-        for agent in defaults:
-            await agent.insert()
+    for role, cfg in AGENT_PROMPTS.items():
+        existing = await AgentConfig.find_one(AgentConfig.role == role)
+        if existing:
+            changed = False
+            if existing.system_prompt != cfg["system_prompt"]:
+                existing.system_prompt = cfg["system_prompt"]
+                changed = True
+            if existing.responsibilities != cfg["responsibilities"]:
+                existing.responsibilities = cfg["responsibilities"]
+                changed = True
+            if existing.max_iterations != cfg.get("max_iterations", 5):
+                existing.max_iterations = cfg.get("max_iterations", 5)
+                changed = True
+            if changed:
+                await existing.save()
+        else:
+            await AgentConfig(
+                name=role.capitalize(),
+                role=role,
+                responsibilities=cfg["responsibilities"],
+                system_prompt=cfg["system_prompt"],
+                max_iterations=cfg.get("max_iterations", 5),
+            ).insert()
 
     # QualityRubric seeding removed - now code-defined in quality_rubric.py
 
