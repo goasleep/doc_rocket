@@ -9,6 +9,7 @@ from typing import Any
 from app.core.agents.base import BaseAgent
 from app.core.agents.fetcher import FetcherAgent
 from app.core.agents.prompts import (
+    ANALYZER_ALL_DIMENSIONS_PROMPT_TEMPLATE,
     ANALYZER_DEFAULT,
     ANALYZER_DIMENSION_PROMPT_TEMPLATE,
     ANALYZER_REFLECTION_PROMPT,
@@ -353,6 +354,130 @@ class ReactAnalyzerAgent(BaseAgent):
 
         return external_refs
 
+    def _build_dimensions_text(self, dimensions: list[dict[str, Any]]) -> str:
+        """Build inline dimension criteria text for unified prompt."""
+        parts: list[str] = []
+        for dim in dimensions:
+            criteria_lines = "\n".join(
+                f"      {c['min_score']}-{c['max_score']}: {c['description']}"
+                for c in dim.get("criteria", [])
+            )
+            parts.append(
+                f"- 维度：{dim.get('description', dim['name'])} (权重 {dim.get('weight', 0.2)})\n"
+                f"  评分标准：\n{criteria_lines}"
+            )
+        return "\n\n".join(parts)
+
+    async def _analyze_all_dimensions(
+        self,
+        article_content: str,
+        kb_articles: list[dict[str, Any]],
+        external_refs: list[dict[str, Any]],
+        understanding: dict[str, Any],
+        dimensions: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Analyze all dimensions in a single LLM call."""
+        t_start = datetime.now(UTC)
+
+        content = article_content[:DIMENSION_CONTENT_CHARS]
+
+        kb_context = ""
+        if kb_articles:
+            kb_context = "\n\n知识库参考文章:\n" + "\n".join(
+                f"- {a.get('title', '')}: 质量分{a.get('quality_score', 'N/A')}"
+                for a in kb_articles[:KB_ARTICLE_LIMIT]
+            )
+
+        external_context = ""
+        if external_refs:
+            external_context = "\n\n外部参考文章:\n" + "\n".join(
+                f"- {r.get('title', '')}: {r.get('content_snippet', '')[:EXTERNAL_REF_CONTEXT_SNIPPET]}..."
+                for r in external_refs
+            )
+
+        article_type = understanding.get("article_type", "").lower()
+        is_practical = article_type in PRACTICAL_ARTICLE_TYPES
+        topic_category = understanding.get("topic_category", "").lower()
+        is_tech_related = any(kw in topic_category for kw in TECH_TOPIC_KEYWORDS)
+
+        practical_bonus_prompt = ""
+        if is_practical and is_tech_related:
+            practical_bonus_prompt = """
+
+【本文疑似实操教程/技术指南 - 专业度加分说明】
+本文被识别为实操类技术文章。评分时请特别注意：
+- 如果包含原创代码、独特实战经验、详细步骤说明 → 原创性可上浮10-15分
+- 如果步骤清晰、有实际可操作价值 → 内容深度可给60分以上（不按信息整合处理）
+- 但如果只是简单罗列命令、复制粘贴文档内容、无个人经验分享 → 仍按低分处理"""
+
+        dimensions_text = self._build_dimensions_text(dimensions)
+
+        system_prompt = ANALYZER_ALL_DIMENSIONS_PROMPT_TEMPLATE.format(
+            dimensions_text=dimensions_text,
+            practical_bonus=practical_bonus_prompt,
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请分析以下文章的所有维度：\n\n{content}{kb_context}{external_context}"},
+        ]
+
+        raw_response, success = await self._call_llm(messages, response_format={"type": "json_object"})
+
+        results: list[dict[str, Any]] = []
+        parsed_dimensions: dict[str, dict[str, Any]] = {}
+
+        if success:
+            try:
+                parsed = json.loads(raw_response)
+                for d in parsed.get("dimensions", []):
+                    dim_name = d.get("dimension")
+                    if dim_name:
+                        parsed_dimensions[dim_name] = d
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                success = False
+
+        t_end = datetime.now(UTC)
+        duration_ms = int((t_end - t_start).total_seconds() * 1000)
+
+        for i, dim in enumerate(dimensions):
+            dim_name = dim["name"]
+            dim_data = parsed_dimensions.get(dim_name)
+            if dim_data and "score" in dim_data:
+                result = {
+                    "dimension": dim_name,
+                    "score": dim_data.get("score", DEFAULT_DIMENSION_SCORE),
+                    "reasoning": dim_data.get("reasoning", ""),
+                    "standard_matched": dim_data.get("standard_matched", ""),
+                    "evidences": dim_data.get("evidences", []),
+                    "improvement_suggestions": dim_data.get("improvement_suggestions", []),
+                }
+            else:
+                result = {
+                    "dimension": dim_name,
+                    "score": DEFAULT_DIMENSION_SCORE,
+                    "reasoning": "解析失败: 无效的JSON响应或缺少该维度" if not success else "模型未返回该维度",
+                    "standard_matched": "",
+                    "evidences": [],
+                    "improvement_suggestions": [],
+                }
+
+            results.append(result)
+
+            self._add_trace_step(
+                step_name=f"维度分析: {dim_name}",
+                step_type="conclusion",
+                input_summary=f"分析维度: {dim_name}",
+                output_summary=f"得分: {result.get('score', 0)}",
+                duration_ms=duration_ms if i == 0 else 0,
+                raw_response=raw_response[:MAX_DIMENSION_RAW_RESPONSE_TRACE] if i == 0 else "",
+                parsed_ok="score" in result,
+                parallel_group="dimension_analysis",
+                parallel_index=i,
+            )
+
+        return results
+
     async def _analyze_dimension(
         self,
         dimension: str,
@@ -465,7 +590,7 @@ class ReactAnalyzerAgent(BaseAgent):
         understanding: dict[str, Any],
         rubric: QualityRubric,
     ) -> list[dict[str, Any]]:
-        """Step 4: Parallel multidimensional analysis."""
+        """Step 4: Multidimensional analysis via single LLM call."""
         t_start = datetime.now(UTC)
 
         dimensions = [
@@ -476,58 +601,18 @@ class ReactAnalyzerAgent(BaseAgent):
             for d in rubric.dimensions
         ]
 
-        # Check if parallel analysis is enabled
-        react_config = getattr(self.agent_config, "react_config", None)
-        parallel_enabled = getattr(react_config, "parallel_analysis", True)
-
-        if parallel_enabled:
-            # Run all dimensions in parallel
-            tasks = [
-                self._analyze_dimension(
-                    dim["name"],
-                    dim,
-                    article_content,
-                    kb_articles,
-                    external_refs,
-                    understanding,
-                    i,
-                )
-                for i, dim in enumerate(dimensions)
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            successes: list[dict[str, Any]] = []
-            for idx, res in enumerate(results):
-                if isinstance(res, Exception):
-                    logger.warning("Dimension analysis failed for %s: %s", dimensions[idx]["name"], res, exc_info=True)
-                    successes.append({
-                        "dimension": dimensions[idx]["name"],
-                        "score": DEFAULT_DIMENSION_SCORE,
-                        "reasoning": f"分析失败: {res}",
-                        "standard_matched": "",
-                        "evidences": [],
-                        "improvement_suggestions": [],
-                    })
-                else:
-                    successes.append(res)
-            results = successes
-        else:
-            # Run sequentially
-            results = []
-            for i, dim in enumerate(dimensions):
-                result = await self._analyze_dimension(
-                    dim["name"],
-                    dim,
-                    article_content,
-                    kb_articles,
-                    external_refs,
-                    understanding,
-                    i,
-                )
-                results.append(result)
+        results = await self._analyze_all_dimensions(
+            article_content,
+            kb_articles,
+            external_refs,
+            understanding,
+            dimensions,
+        )
 
         t_end = datetime.now(UTC)
         duration_ms = int((t_end - t_start).total_seconds() * 1000)
 
+        logger.debug("Multidimensional analysis completed in %s ms, %s dimensions", duration_ms, len(results))
         return list(results)
 
     async def _step_scoring_with_reasoning(

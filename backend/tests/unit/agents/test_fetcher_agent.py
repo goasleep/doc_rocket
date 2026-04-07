@@ -150,10 +150,12 @@ async def test_rss_source_field_mapping():
 @respx.mock
 async def test_fetch_url_extracts_content():
     """fetch_url returns title and content extracted from HTML."""
-    html = """<html>
+    # Provide enough content to pass the heuristic (>1500 chars after extraction)
+    long_para = "这是页面的主要正文内容。包含有意义的文章文字。"
+    html = f"""<html>
     <head><title>测试页面标题</title></head>
     <body>
-      <p>这是页面的主要正文内容，包含有意义的文章文字。</p>
+      <p>{long_para * 80}</p>
       <script>alert('skip me');</script>
     </body>
     </html>"""
@@ -168,3 +170,50 @@ async def test_fetch_url_extracts_content():
     assert "正文内容" in result["content"]
     assert "skip me" not in result["content"]
     assert result["url"] == "https://example.com/page"
+
+
+@pytest.mark.anyio
+@respx.mock
+async def test_fetch_url_short_content_falls_back_to_playwright():
+    """Short HTTP content (<200 chars) triggers Playwright fallback."""
+    html = """<html>
+    <head><title>标题</title></head>
+    <body><p>很短的内容。</p></body>
+    </html>"""
+    respx.get("https://example.com/short").mock(return_value=Response(200, text=html))
+
+    agent = FetcherAgent()
+    result = await agent.fetch_url("https://example.com/short")
+
+    # Playwright isn't available in container test env, so fallback returns empty content
+    assert result["title"] == "Untitled"
+    assert result["content"] == ""
+    assert result["url"] == "https://example.com/short"
+
+
+@pytest.fixture
+def fetcher() -> FetcherAgent:
+    return FetcherAgent()
+
+
+class TestContentValidHeuristic:
+    def test_too_short_is_invalid(self, fetcher: FetcherAgent) -> None:
+        assert fetcher._is_content_valid_heuristic("Hello world") is False
+
+    def test_long_content_is_valid(self, fetcher: FetcherAgent) -> None:
+        text = "这是一个段落。" * 300
+        assert fetcher._is_content_valid_heuristic(text) is True
+
+    def test_medium_with_paragraphs_and_sentences_is_valid(self, fetcher: FetcherAgent) -> None:
+        text = (
+            "这是第一个段落，内容比较长，满足段落长度要求才可以通过检查。它有几个句子。讲述了某个主题。"
+            "这里继续补充说明，让段落的长度超过五十个字符的要求。\n\n"
+            "这是第二个段落，同样需要有足够的长度才能通过上述检查。继续展开论述。补充了更多细节。"
+            "为了让整体内容长度超过两百个字符，这里再补充一些说明文字，确保能够通过基本长度门槛。"
+            "继续补充更多文字，让总长度达到要求，这样启发式规则才能正确判断该文本为有效的文章内容。"
+        )
+        assert fetcher._is_content_valid_heuristic(text) is True
+
+    def test_medium_without_structure_is_invalid(self, fetcher: FetcherAgent) -> None:
+        text = "短句。" * 10
+        assert fetcher._is_content_valid_heuristic(text) is False
