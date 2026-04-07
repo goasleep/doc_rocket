@@ -167,36 +167,15 @@ async def test_react_analyzer_run_integration() -> None:
                 "avg_sentence_length": 25
             }
         }), tool_calls=[]),
-        # Step 4: Dimension analysis (called 5 times in parallel for default rubric dimensions)
+        # Step 4: Dimension analysis (single call returning all dimensions)
         ChatResponse(content=json.dumps({
-            "score": 80,
-            "reasoning": "Good content",
-            "evidences": [{"quote": "AI is", "context": "Introduction"}],
-            "improvement_suggestions": ["Add more data"],
-        }), tool_calls=[]),
-        ChatResponse(content=json.dumps({
-            "score": 75,
-            "reasoning": "Readable",
-            "evidences": [],
-            "improvement_suggestions": [],
-        }), tool_calls=[]),
-        ChatResponse(content=json.dumps({
-            "score": 85,
-            "reasoning": "Original",
-            "evidences": [],
-            "improvement_suggestions": [],
-        }), tool_calls=[]),
-        ChatResponse(content=json.dumps({
-            "score": 70,
-            "reasoning": "Natural",
-            "evidences": [],
-            "improvement_suggestions": [],
-        }), tool_calls=[]),
-        ChatResponse(content=json.dumps({
-            "score": 72,
-            "reasoning": "Good potential",
-            "evidences": [],
-            "improvement_suggestions": [],
+            "dimensions": [
+                {"dimension": "content_depth", "score": 80, "reasoning": "Good content", "evidences": [{"quote": "AI is", "context": "Introduction"}], "improvement_suggestions": ["Add more data"]},
+                {"dimension": "readability", "score": 75, "reasoning": "Readable", "evidences": [], "improvement_suggestions": []},
+                {"dimension": "originality", "score": 85, "reasoning": "Original", "evidences": [], "improvement_suggestions": []},
+                {"dimension": "ai_flavor", "score": 70, "reasoning": "Natural", "evidences": [], "improvement_suggestions": []},
+                {"dimension": "virality_potential", "score": 72, "reasoning": "Good potential", "evidences": [], "improvement_suggestions": []},
+            ]
         }), tool_calls=[]),
         # Step 6: Reflection
         ChatResponse(content=json.dumps({
