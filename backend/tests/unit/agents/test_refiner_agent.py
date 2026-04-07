@@ -1,74 +1,70 @@
-"""Unit tests for RefinerAgent."""
+"""Unit tests for RefinerAgent without LLM."""
 import pytest
-from unittest.mock import AsyncMock, patch
-
-from app.core.llm.base import ChatResponse
-
-
-MOCK_REFINED_RESPONSE = ChatResponse(
-    content="# 测试文章标题\n\n这是整理后的 Markdown 内容。\n\n## 第一节\n\n段落内容。",
-    tool_calls=[],
-)
 
 
 @pytest.mark.anyio
-async def test_refiner_returns_nonempty_string():
-    """RefinerAgent.run() returns a non-empty string from LLM response."""
+async def test_refiner_extracts_markdown_from_html():
+    """RefinerAgent converts HTML to Markdown using trafilatura/markdownify."""
     from app.core.agents.refiner import RefinerAgent
 
-    mock_llm = AsyncMock()
-    mock_llm.chat = AsyncMock(return_value=MOCK_REFINED_RESPONSE)
-
     agent = RefinerAgent()
+    html = (
+        "<html><head><title>Test Page</title></head>"
+        "<body><main><h1>Title</h1>"
+        "<p>Paragraph one has enough text to be considered real content and not just navigation noise.</p>"
+        "<p>Paragraph two also needs to be long enough for trafilatura to extract it properly.</p>"
+        "</main></body></html>"
+    )
 
-    with patch.object(agent, "_get_llm", return_value=mock_llm):
-        result = await agent.run("导航栏 首页 关于 文章正文内容 版权所有 广告")
+    result = agent.run(input_text="fallback text", raw_html=html)
 
     assert isinstance(result, str)
-    assert len(result) > 0
-    assert "Markdown" in result or "标题" in result or "#" in result
+    assert "Title" in result
+    assert "Paragraph one" in result
 
 
 @pytest.mark.anyio
-async def test_refiner_truncates_long_content():
-    """RefinerAgent truncates content over 16000 chars before sending to LLM."""
+async def test_refiner_falls_back_to_input_text():
+    """RefinerAgent falls back to input_text when raw_html is empty or invalid."""
     from app.core.agents.refiner import RefinerAgent
 
-    captured_messages: list = []
-
-    async def capture_chat(messages, **kwargs):
-        captured_messages.extend(messages)
-        return MOCK_REFINED_RESPONSE
-
-    mock_llm = AsyncMock()
-    mock_llm.chat = capture_chat
-
     agent = RefinerAgent()
-    long_content = "A" * 20000
+    fallback = "fallback text content"
 
-    with patch.object(agent, "_get_llm", return_value=mock_llm):
-        result = await agent.run(long_content)
+    result = agent.run(input_text=fallback, raw_html="<html></html>")
+    assert fallback in result
 
-    user_message = next((m for m in captured_messages if m.get("role") == "user"), None)
-    assert user_message is not None
-    # Content should be truncated (16000 + "[内容已截断...]" marker)
-    assert len(user_message.get("content", "")) < 17000
-    assert "[内容已截断...]" in user_message.get("content", "")
-    assert isinstance(result, str)
+    result_no_html = agent.run(input_text=fallback, raw_html=None)
+    assert result_no_html == fallback
 
 
 @pytest.mark.anyio
-async def test_refiner_fallback_on_empty_response():
-    """RefinerAgent falls back to original input when LLM returns empty content."""
+async def test_refiner_inserts_images():
+    """RefinerAgent distributes images into Markdown output."""
     from app.core.agents.refiner import RefinerAgent
 
-    mock_llm = AsyncMock()
-    mock_llm.chat = AsyncMock(return_value=ChatResponse(content="", tool_calls=[]))
+    class FakeImage:
+        def __init__(self, url):
+            self.qiniu_url = url
+            self.original_url = url
+            self.alt = "test image"
 
     agent = RefinerAgent()
-    original = "原始文章内容"
+    markdown = "# Title\n\nLine 1\n\nLine 2\n\nLine 3\n\nLine 4"
+    images = [FakeImage("http://example.com/img1.png")]
 
-    with patch.object(agent, "_get_llm", return_value=mock_llm):
-        result = await agent.run(original)
+    result = agent.run(input_text=markdown, raw_html=None, images=images)
 
-    assert result == original
+    assert "![test image](http://example.com/img1.png)" in result
+
+
+@pytest.mark.anyio
+async def test_refiner_no_images_returns_unchanged():
+    """RefinerAgent returns Markdown unchanged when no images are provided."""
+    from app.core.agents.refiner import RefinerAgent
+
+    agent = RefinerAgent()
+    markdown = "# Title\n\nSome content."
+
+    result = agent.run(input_text=markdown, raw_html=None, images=[])
+    assert result == markdown

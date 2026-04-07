@@ -32,29 +32,13 @@ async def _refine_article_async(article_id: str, task_run_id: str) -> None:
 
     try:
         from app.core.agents.refiner import RefinerAgent
-        from app.core.agents.base import AgentContext
-        from app.models import AgentConfig
 
-        agent_config = await AgentConfig.find_one(
-            AgentConfig.role == "refiner",
-            AgentConfig.is_active == True,
-        )
-        agent = RefinerAgent(agent_config=agent_config)
+        agent = RefinerAgent()
 
-        # Create context for token usage tracking
-        context = AgentContext(
-            entity_type="article",
-            entity_id=str(article.id),
-            operation="refine",
-        )
-
-        # Build content with images for refinement
-        content_with_images = agent.build_content_with_images(
-            article.content, article.images
-        )
-
-        refined_md = await agent.run(
-            content_with_images, context=context, images=article.images
+        refined_md = agent.run(
+            input_text=article.content,
+            raw_html=article.raw_html,
+            images=article.images,
         )
 
         article.content_md = refined_md
