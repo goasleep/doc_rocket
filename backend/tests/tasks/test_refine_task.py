@@ -1,6 +1,6 @@
 """Tests for refine_article Celery task async logic."""
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from tests.fixtures.content import sample_article, sample_source  # noqa: F401
 from tests.fixtures.llm import MOCK_ANALYSIS_RESPONSE
@@ -26,7 +26,7 @@ async def test_refine_success_writes_content_md(db: None, sample_article):
     mock_analyze.apply_async.return_value = MagicMock(id="celery-analyze-id")
 
     with (
-        patch("app.core.agents.refiner.RefinerAgent.run", new=AsyncMock(return_value="# 精修后内容\n\n段落")),
+        patch("app.core.agents.refiner.RefinerAgent.run", return_value="# 精修后内容\n\n段落"),
         patch("app.tasks.analyze.analyze_article_task", mock_analyze),
     ):
         await _refine_article_async(str(sample_article.id), str(task_run.id))
@@ -64,7 +64,7 @@ async def test_refine_failure_degrades_to_analyze(db: None, sample_article):
     mock_analyze.apply_async.return_value = MagicMock(id="celery-analyze-id")
 
     with (
-        patch("app.core.agents.refiner.RefinerAgent.run", new=AsyncMock(side_effect=RuntimeError("llm error"))),
+        patch("app.core.agents.refiner.RefinerAgent.run", side_effect=RuntimeError("refiner error")),
         patch("app.tasks.analyze.analyze_article_task", mock_analyze),
     ):
         await _refine_article_async(str(sample_article.id), str(task_run.id))
@@ -102,7 +102,7 @@ async def test_refine_task_run_lifecycle(db: None, sample_article):
     mock_analyze.apply_async.return_value = MagicMock(id="celery-analyze-id")
 
     with (
-        patch("app.core.agents.refiner.RefinerAgent.run", new=AsyncMock(return_value="# content")),
+        patch("app.core.agents.refiner.RefinerAgent.run", return_value="# content"),
         patch("app.tasks.analyze.analyze_article_task", mock_analyze),
     ):
         await _refine_article_async(str(sample_article.id), str(task_run.id))
@@ -135,7 +135,7 @@ async def test_refine_copies_triggered_by_to_analyze_task_run(db: None, sample_a
     mock_analyze.apply_async.return_value = MagicMock(id="celery-analyze-id")
 
     with (
-        patch("app.core.agents.refiner.RefinerAgent.run", new=AsyncMock(return_value="# content")),
+        patch("app.core.agents.refiner.RefinerAgent.run", return_value="# content"),
         patch("app.tasks.analyze.analyze_article_task", mock_analyze),
     ):
         await _refine_article_async(str(sample_article.id), str(task_run.id))

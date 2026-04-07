@@ -1,45 +1,69 @@
-"""RefinerAgent — converts raw fetched article text into clean, structured Markdown."""
+"""RefinerAgent — converts raw article content into clean Markdown without LLM."""
 from typing import Any
 
-from app.core.agents.base import AgentContext, BaseAgent
-from app.core.agents.prompts import REFINER_SYSTEM_PROMPT
 
-# Max chars to send to LLM for refinement
-MAX_CONTENT_CHARS = 16000
+def _markdownify_html(html: str) -> str:
+    """Convert HTML to Markdown using markdownify."""
+    from markdownify import markdownify as md
+
+    return md(html, heading_style="ATX")
 
 
-class RefinerAgent(BaseAgent):
+def _trafilatura_extract(html: str) -> str:
+    """Extract Markdown from HTML using trafilatura."""
+    import trafilatura
+
+    result = trafilatura.extract(html, output_format="markdown", url=None)
+    return result or ""
+
+
+def _is_meaningful_md(text: str) -> bool:
+    """Heuristic to check if extracted markdown looks like real content."""
+    if not text:
+        return False
+    stripped = text.strip()
+    # Should have enough substance
+    if len(stripped) < 100:
+        return False
+    return True
+
+
+class RefinerAgent:
+    """Refines raw article content into clean Markdown without LLM.
+
+    Uses trafilatura for HTML->Markdown extraction, fallback to markdownify.
+    For non-HTML content, applies light normalization.
+    """
+
+    def __init__(self, agent_config: Any | None = None) -> None:
+        self.agent_config = agent_config
+
     def build_content_with_images(
         self, content: str, images: list[Any]
     ) -> str:
         """Build content string with image references for refinement.
 
         Inserts image placeholders throughout the content at regular intervals
-        so the LLM can include them in the refined output at appropriate positions.
+        so they can be included in the refined output at appropriate positions.
         """
         if not images:
             return content
 
-        # Split content into paragraphs
-        paragraphs = content.split('\n\n')
+        paragraphs = content.split("\n\n")
         if len(paragraphs) <= 1:
-            paragraphs = content.split('\n')
+            paragraphs = content.split("\n")
 
-        # Calculate how often to insert images (distribute evenly)
         total_images = len(images)
         if total_images == 0:
             return content
 
         result_lines = []
         image_idx = 0
-
-        # Insert an image every N paragraphs
         interval = max(1, len(paragraphs) // (total_images + 1))
 
         for i, para in enumerate(paragraphs):
             result_lines.append(para)
 
-            # Insert image at interval
             if image_idx < total_images and (i + 1) % interval == 0:
                 img = images[image_idx]
                 if hasattr(img, "qiniu_url") and img.qiniu_url:
@@ -53,7 +77,6 @@ class RefinerAgent(BaseAgent):
                 result_lines.append(f"\n[图片 {image_idx + 1}: {alt}]({url})\n")
                 image_idx += 1
 
-        # Add any remaining images at the end
         while image_idx < total_images:
             img = images[image_idx]
             if hasattr(img, "qiniu_url") and img.qiniu_url:
@@ -70,33 +93,23 @@ class RefinerAgent(BaseAgent):
 
         return "\n\n".join(result_lines)
 
-    async def run(
-        self, input_text: str, context: AgentContext | None = None, images: list[Any] | None = None
-    ) -> str:
-        """Refine raw article text into clean Markdown."""
-        content = input_text[:MAX_CONTENT_CHARS]
-        if len(input_text) > MAX_CONTENT_CHARS:
-            content += "\n[内容已截断...]"
+    def run(self, input_text: str, raw_html: str | None = None, images: list[Any] | None = None) -> str:
+        """Refine raw article text into clean Markdown.
 
-        llm = await self._get_llm()
-        self._last_llm = llm  # Store for token usage recording
+        Args:
+            input_text: The extracted plain text content (fallback if no HTML).
+            raw_html: Original HTML content if available.
+            images: Article images to embed in the output.
+        """
+        if raw_html and raw_html.strip():
+            refined = _trafilatura_extract(raw_html)
+            if not _is_meaningful_md(refined):
+                refined = _markdownify_html(raw_html)
+            if not _is_meaningful_md(refined):
+                refined = input_text
+        else:
+            refined = input_text
 
-        # Use agent_config system_prompt if available, fallback to default
-        system_prompt = self._base_system_prompt()
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"请整理以下文章内容：\n\n{content}"},
-        ]
-
-        chat_response = await llm.chat(messages)
-
-        # Record token usage if context is provided
-        if context:
-            await self._record_token_usage(chat_response, context)
-
-        refined = chat_response.content or input_text
-
-        # Post-process: insert images into the refined markdown
         if images:
             refined = self._insert_images_into_markdown(refined, images)
 
@@ -112,24 +125,20 @@ class RefinerAgent(BaseAgent):
         if not images:
             return markdown
 
-        # Split markdown into lines
         lines = markdown.split("\n")
         if len(lines) <= 1:
-            # If single line, just append images at the end
             image_md = "\n\n".join(
                 f"![{getattr(img, 'alt', '') or '文章配图'}]({img.qiniu_url if hasattr(img, 'qiniu_url') and img.qiniu_url else getattr(img, 'original_url', '')})"
                 for img in images
             )
             return markdown + "\n\n" + image_md
 
-        # Calculate positions to insert images (distribute evenly)
         total_lines = len(lines)
         num_images = len(images)
         positions = [
             int((i + 1) * total_lines / (num_images + 1)) for i in range(num_images)
         ]
 
-        # Insert images at calculated positions
         result_lines = []
         img_idx = 0
         for i, line in enumerate(lines):
@@ -145,7 +154,6 @@ class RefinerAgent(BaseAgent):
                 result_lines.append(f"\n![{alt}]({url})\n")
                 img_idx += 1
 
-        # Add any remaining images at the end
         while img_idx < num_images:
             img = images[img_idx]
             url = (
