@@ -25,6 +25,7 @@ import {
 } from "@/client"
 import { PublishConfirmDialog } from "@/components/DraftEditor/PublishConfirmDialog"
 import { WeChatPreviewModal } from "@/components/DraftEditor/WeChatPreviewModal"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -608,14 +609,16 @@ img{max-width:100%}
 
 function DraftEditorPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-12 text-muted-foreground">
-          加载中...
-        </div>
-      }
-    >
-      <DraftEditorContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-12 text-muted-foreground">
+            加载中...
+          </div>
+        }
+      >
+        <DraftEditorContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 }

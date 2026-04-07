@@ -3721,6 +3721,30 @@ export const SourcesPublicSchema = {
     title: 'SourcesPublic'
 } as const;
 
+export const SubmitBatchResponseSchema = {
+    properties: {
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        accepted: {
+            type: 'integer',
+            title: 'Accepted'
+        },
+        skipped: {
+            type: 'integer',
+            title: 'Skipped'
+        },
+        message: {
+            type: 'string',
+            title: 'Message'
+        }
+    },
+    type: 'object',
+    required: ['total', 'accepted', 'skipped', 'message'],
+    title: 'SubmitBatchResponse'
+} as const;
+
 export const SubmitResponseSchema = {
     properties: {
         article_id: {
@@ -3766,6 +3790,18 @@ export const SubmitTextSchema = {
     },
     type: 'object',
     title: 'SubmitText'
+} as const;
+
+export const SubmitUrlsBatchSchema = {
+    properties: {
+        urls: {
+            type: 'string',
+            title: 'Urls'
+        }
+    },
+    type: 'object',
+    required: ['urls'],
+    title: 'SubmitUrlsBatch'
 } as const;
 
 export const SuggestionDimensionItemSchema = {

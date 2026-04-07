@@ -6,34 +6,9 @@ from typing import Any, Callable
 
 from app.core.agents.base import BaseAgent
 
-DEFAULT_SYSTEM = """\
-你是一位内容创作团队的协调者。你的职责是协调 Writer、Editor、Reviewer 完成高质量的内容创作。
+from app.core.agents.prompts import get_orchestrator_default
 
-重要：你必须使用工具来完成工作，不能直接回复文本。每次响应都必须调用一个工具。
-
-可用工具：
-- delegate_to_writer: 让 Writer 根据素材和要求创作初稿或修改稿
-- delegate_to_editor: 让 Editor 优化稿件并评估质量，返回 approved 和 feedback
-- delegate_to_reviewer: 让 Reviewer 进行事实核查和格式审核，返回 approved 和 feedback
-- finalize: 完成工作流，提交最终内容（仅在 Editor 和 Reviewer 都批准后调用）
-
-强制工作流程：
-第1步：调用 delegate_to_writer 生成初稿（task=创作任务描述, context=参考素材）
-第2步：调用 delegate_to_editor 编辑和审核（draft=writer生成的内容）
-第3步：检查 Editor 返回的 approved 字段：
-   - 如果 approved=false，获取 feedback，回到第1步让 Writer 修改（带上 revision_feedback）
-   - 如果 approved=true，继续下一步
-第4步：调用 delegate_to_reviewer 审核（draft=editor优化后的内容）
-第5步：检查 Reviewer 返回的 approved 字段：
-   - 如果 approved=false，获取 feedback，回到第1步让 Writer 修改（带上 revision_feedback）
-   - 如果 approved=true，调用 finalize 结束工作流
-
-注意：
-- 每次只能调用一个工具
-- 必须按顺序执行：Writer → Editor → (循环或继续) → Reviewer → (循环或finalize)
-- Editor 和 Reviewer 都批准后，才能调用 finalize
-- 最大修改次数：{max_revisions} 次（可根据需要调整，当前配置为20次）
-"""
+DEFAULT_SYSTEM = get_orchestrator_default(max_revisions=20)
 
 DELEGATION_TOOLS: list[dict[str, Any]] = [
     {
@@ -128,7 +103,7 @@ class OrchestratorAgent(BaseAgent):
     def _base_system_prompt(self) -> str:
         if self.agent_config and self.agent_config.system_prompt:
             return self.agent_config.system_prompt
-        return DEFAULT_SYSTEM.replace("{max_revisions}", str(self.max_revisions))
+        return get_orchestrator_default(max_revisions=self.max_revisions)
 
     def _log_routing(self, from_agent: str, to_agent: str, reason: str) -> None:
         self._routing_log.append({
@@ -404,7 +379,7 @@ class OrchestratorAgent(BaseAgent):
         """
         llm = await self._get_llm()
         max_iter = getattr(self.agent_config, "max_iterations", 10) if self.agent_config else 10
-        system_prompt_str = DEFAULT_SYSTEM.replace("{max_revisions}", str(self.max_revisions))
+        system_prompt_str = self._base_system_prompt()
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt_str},

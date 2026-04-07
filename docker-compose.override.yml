@@ -4,12 +4,38 @@
 # =============================================================================
 
 services:
+  # Pre-start tasks (db setup, seeding)
+  prestart:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: builder
+    volumes:
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - backend-venv:/app/.venv
+    working_dir: /app/backend
+    command: bash scripts/prestart.sh
+    environment:
+      - PATH=/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - ENVIRONMENT=local
+      - MONGODB_URL=mongodb://mongodb:27017
+      - SECRET_KEY=${SECRET_KEY}
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
+
   # Backend development service
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
       target: builder  # Use builder stage which has dev dependencies
+    working_dir: /app/backend
     volumes:
       # Mount source code for live reload
       - ./backend:/app/backend
@@ -21,7 +47,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=development
+      - PATH=/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - ENVIRONMENT=local
       - MONGODB_URL=mongodb://mongodb:27017
       - REDIS_URL=redis://redis:6379/0
       - BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
@@ -42,6 +69,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    env_file:
+      - .env
     volumes:
       - ./frontend:/app/frontend
       # Named volume for node_modules to avoid bind mount issues
@@ -49,7 +78,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=
+      - VITE_API_PROXY_TARGET=http://backend:8000
       - NODE_ENV=development
     develop:
       watch:
@@ -72,6 +102,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: builder
+    working_dir: /app/backend
     volumes:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
@@ -79,7 +110,8 @@ services:
       - backend-venv:/app/.venv
     command: celery -A app.celery_app worker --loglevel=info
     environment:
-      - ENVIRONMENT=development
+      - PATH=/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - ENVIRONMENT=local
       - MONGODB_URL=mongodb://mongodb:27017
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -92,6 +124,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: builder
+    working_dir: /app/backend
     volumes:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
@@ -99,7 +132,8 @@ services:
       - backend-venv:/app/.venv
     command: celery -A app.celery_app beat --scheduler redbeat.RedBeatScheduler --loglevel=info
     environment:
-      - ENVIRONMENT=development
+      - PATH=/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - ENVIRONMENT=local
       - MONGODB_URL=mongodb://mongodb:27017
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -112,6 +146,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: builder
+    working_dir: /app/backend
     volumes:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
@@ -121,7 +156,8 @@ services:
     ports:
       - "5555:5555"
     environment:
-      - REDIS_URL=redis://redis://redis:6379/0
+      - PATH=/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis
 

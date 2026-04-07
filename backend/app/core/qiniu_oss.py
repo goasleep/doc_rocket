@@ -1,5 +1,6 @@
 """Qiniu OSS client for async file uploads."""
 import asyncio
+import hashlib
 from typing_extensions import Self
 
 from qiniu import Auth, put_data
@@ -40,6 +41,17 @@ class QiniuOSSClient:
             error_msg = getattr(info, "error", str(info))
             raise QiniuOSError(f"Qiniu upload failed: {error_msg}")
         return f"{self.domain}/{key}"
+
+    @staticmethod
+    def generate_key(data: bytes, prefix: str, ext: str) -> str:
+        """Generate a deterministic key based on file content hash.
+
+        This ensures identical files are stored under the same key,
+        preventing duplicate uploads to Qiniu OSS.
+        """
+        content_hash = hashlib.sha256(data).hexdigest()
+        ext = ext.lstrip(".")
+        return f"{prefix.rstrip('/')}/{content_hash}.{ext}"
 
     async def upload_file(self, data: bytes, filename: str) -> str:
         loop = asyncio.get_event_loop()

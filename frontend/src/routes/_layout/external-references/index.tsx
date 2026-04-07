@@ -11,6 +11,7 @@ import {
   type ExternalReferencePublic,
   ExternalReferencesService,
 } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -213,15 +214,17 @@ function ExternalReferences() {
           文章分析过程中收集的外部参考文章
         </p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <ExternalReferencesTableContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <ExternalReferencesTableContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

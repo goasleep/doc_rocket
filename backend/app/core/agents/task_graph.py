@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from beanie.operators import In
+
 from app.models.task_graph import TaskNode
 
 
@@ -52,12 +54,11 @@ class TaskGraphManager:
 
         # Update blocks relationships on dependency tasks
         if blocked_by:
-            for dep_id in blocked_by:
-                dep_task = await TaskNode.find_one(TaskNode.id == dep_id)
-                if dep_task:
-                    if task.id not in dep_task.blocks:
-                        dep_task.blocks.append(task.id)
-                        await dep_task.save()
+            deps = await TaskNode.find(In(TaskNode.id, blocked_by)).to_list()
+            for dep_task in deps:
+                if task.id not in dep_task.blocks:
+                    dep_task.blocks.append(task.id)
+                    await dep_task.save()
 
         return task
 
@@ -66,7 +67,7 @@ class TaskGraphManager:
         task_id: uuid.UUID,
         owner: str,
     ) -> TaskNode | None:
-        """Claim a task for execution.
+        """Claim a task for execution atomically.
 
         Args:
             task_id: The task ID to claim
@@ -79,18 +80,45 @@ class TaskGraphManager:
         if not task:
             return None
 
-        # Check if task is claimable (pending and all dependencies completed)
+        # Non-pending tasks cannot be claimed early-exit without lock
         if task.status != "pending":
             return None
 
-        # Verify all dependencies are completed
-        for dep_id in task.blocked_by:
-            dep_task = await TaskNode.find_one(TaskNode.id == dep_id)
-            if not dep_task or dep_task.status != "completed":
-                return None
+        # Verify all dependencies are completed before competing for the task
+        if task.blocked_by:
+            deps = await TaskNode.find(In(TaskNode.id, task.blocked_by)).to_list()
+            dep_map = {dep.id: dep for dep in deps}
+            for dep_id in task.blocked_by:
+                dep_task = dep_map.get(dep_id)
+                if not dep_task or dep_task.status != "completed":
+                    return None
 
-        task.mark_claimed(owner)
-        await task.save()
+        now = get_datetime_utc()
+        # Atomically update from pending -> in_progress only if still pending
+        update_result = await TaskNode.find_one(
+            TaskNode.id == task_id,
+            TaskNode.status == "pending",
+        ).update({
+            "$set": {
+                "status": "in_progress",
+                "owner": owner,
+                "claimed_at": now,
+            }
+        })
+
+        # Beanie update returns the number of matched documents in some versions,
+        # but the API can vary. Safely check whether anything was modified.
+        modified_count = getattr(update_result, "modified_count", None)
+        if modified_count is None:
+            # Fallback: check raw result dict / pymongo write result
+            raw = getattr(update_result, "raw_result", None) or update_result
+            if isinstance(raw, dict):
+                modified_count = raw.get("nModified") or raw.get("modifiedCount")
+        if not modified_count:
+            return None
+
+        # Refresh the document to reflect the update
+        task = await TaskNode.find_one(TaskNode.id == task_id)
         return task
 
     async def complete_task(
@@ -116,19 +144,30 @@ class TaskGraphManager:
 
         # Find newly unblocked tasks
         unblocked: list[TaskNode] = []
-        for blocked_task_id in task.blocks:
-            blocked_task = await TaskNode.find_one(TaskNode.id == blocked_task_id)
-            if blocked_task and blocked_task.status == "pending":
-                # Check if all dependencies are now completed
-                all_deps_completed = True
-                for dep_id in blocked_task.blocked_by:
-                    dep_task = await TaskNode.find_one(TaskNode.id == dep_id)
-                    if not dep_task or dep_task.status != "completed":
-                        all_deps_completed = False
-                        break
+        if task.blocks:
+            blocked_tasks = await TaskNode.find(In(TaskNode.id, task.blocks)).to_list()
+            # Batch load all dependencies for pending blocked tasks
+            dep_ids: set[uuid.UUID] = set()
+            for bt in blocked_tasks:
+                if bt.status == "pending":
+                    dep_ids.update(bt.blocked_by)
+            if dep_ids:
+                all_deps = await TaskNode.find(In(TaskNode.id, list(dep_ids))).to_list()
+                dep_map = {dep.id: dep for dep in all_deps}
+            else:
+                dep_map = {}
 
-                if all_deps_completed:
-                    unblocked.append(blocked_task)
+            for blocked_task in blocked_tasks:
+                if blocked_task.status == "pending":
+                    all_deps_completed = True
+                    for dep_id in blocked_task.blocked_by:
+                        dep_task = dep_map.get(dep_id)
+                        if not dep_task or dep_task.status != "completed":
+                            all_deps_completed = False
+                            break
+
+                    if all_deps_completed:
+                        unblocked.append(blocked_task)
 
         return task, unblocked
 
@@ -173,17 +212,26 @@ class TaskGraphManager:
         ).to_list()
 
         ready: list[TaskNode] = []
-        for task in pending_tasks:
-            # Check if all dependencies are completed
-            all_deps_completed = True
-            for dep_id in task.blocked_by:
-                dep_task = await TaskNode.find_one(TaskNode.id == dep_id)
-                if not dep_task or dep_task.status != "completed":
-                    all_deps_completed = False
-                    break
+        if pending_tasks:
+            dep_ids: set[uuid.UUID] = set()
+            for task in pending_tasks:
+                dep_ids.update(task.blocked_by)
+            if dep_ids:
+                all_deps = await TaskNode.find(In(TaskNode.id, list(dep_ids))).to_list()
+                dep_map = {dep.id: dep for dep in all_deps}
+            else:
+                dep_map = {}
 
-            if all_deps_completed:
-                ready.append(task)
+            for task in pending_tasks:
+                all_deps_completed = True
+                for dep_id in task.blocked_by:
+                    dep_task = dep_map.get(dep_id)
+                    if not dep_task or dep_task.status != "completed":
+                        all_deps_completed = False
+                        break
+
+                if all_deps_completed:
+                    ready.append(task)
 
         # Sort by priority (descending)
         ready.sort(key=lambda t: t.priority, reverse=True)
@@ -241,19 +289,20 @@ class TaskGraphManager:
             task.priority = priority
 
         if add_blocked_by:
-            for dep_id in add_blocked_by:
-                if dep_id not in task.blocked_by:
-                    # Check for cycles before adding
+            # Batch fetch dependency tasks
+            new_dep_ids = [dep_id for dep_id in add_blocked_by if dep_id not in task.blocked_by]
+            if new_dep_ids:
+                dep_tasks = await TaskNode.find(In(TaskNode.id, new_dep_ids)).to_list()
+                dep_map = {dep.id: dep for dep in dep_tasks}
+                for dep_id in new_dep_ids:
                     if await self._would_create_cycle(task.id, dep_id):
                         raise ValueError(f"Adding dependency {dep_id} would create a cycle")
                     task.blocked_by.append(dep_id)
 
-                    # Update reverse relationship
-                    dep_task = await TaskNode.find_one(TaskNode.id == dep_id)
-                    if dep_task:
-                        if task.id not in dep_task.blocks:
-                            dep_task.blocks.append(task.id)
-                            await dep_task.save()
+                    dep_task = dep_map.get(dep_id)
+                    if dep_task and task.id not in dep_task.blocks:
+                        dep_task.blocks.append(task.id)
+                        await dep_task.save()
 
         await task.save()
         return task
@@ -277,16 +326,23 @@ class TaskGraphManager:
         to_visit = [new_dependency_id]
 
         while to_visit:
-            current_id = to_visit.pop()
-            if current_id == task_id:
-                return True
-            if current_id in visited:
-                continue
-            visited.add(current_id)
+            # Batch load next frontier
+            fetch_ids = [tid for tid in to_visit if tid not in visited]
+            if not fetch_ids:
+                break
+            tasks = await TaskNode.find(In(TaskNode.id, fetch_ids)).to_list()
+            task_map = {t.id: t for t in tasks}
 
-            current_task = await TaskNode.find_one(TaskNode.id == current_id)
-            if current_task:
-                to_visit.extend(current_task.blocked_by)  # Follow dependencies (what current task is blocked by)
+            to_visit = []
+            for tid in fetch_ids:
+                if tid in visited:
+                    continue
+                if tid == task_id:
+                    return True
+                visited.add(tid)
+                current_task = task_map.get(tid)
+                if current_task:
+                    to_visit.extend(current_task.blocked_by)
 
         return False
 

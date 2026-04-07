@@ -8,6 +8,7 @@ import { FileText, Trash2 } from "lucide-react"
 import { Suspense } from "react"
 
 import { type DraftPublic, DraftsService } from "@/client"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import {
@@ -118,15 +119,17 @@ function Drafts() {
         <h1 className="text-2xl font-bold tracking-tight">仿写稿件</h1>
         <p className="text-muted-foreground">查看和编辑 AI 生成的仿写稿件</p>
       </div>
-      <Suspense
-        fallback={
-          <div className="flex justify-center py-12 text-muted-foreground">
-            加载中...
-          </div>
-        }
-      >
-        <DraftsTableContent />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12 text-muted-foreground">
+              加载中...
+            </div>
+          }
+        >
+          <DraftsTableContent />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -1,7 +1,23 @@
 """Base agent class, AgentRunContext, and factory function."""
+import json
+import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+
+from beanie.operators import In
+
+from app.core.agents.background import BackgroundTaskManager
+from app.core.agents.compression import ContextCompressor
+from app.core.llm.factory import get_llm_client_by_config_name
+from app.core.tools.registry import TOOL_REGISTRY
+from app.models import LLMModelConfig, Skill, Tool
+from app.services.token_usage import TokenUsageService
+
+DEFAULT_MAX_ITERATIONS = 5
+MAX_CONTEXT_COMPACT_MESSAGES = 20
+MAX_CONSECUTIVE_FAILURES = 3
 
 
 @dataclass
@@ -34,14 +50,11 @@ class BaseAgent:
         self.bg_manager: Any | None = None  # Initialized lazily
 
     async def _get_llm(self) -> Any:
-        from app.core.llm.factory import get_llm_client_by_config_name
-
         config_name = getattr(self.agent_config, "model_config_name", "") if self.agent_config else ""
         if config_name:
             return await get_llm_client_by_config_name(config_name)
 
         # Fallback: use the first active LLMModelConfig
-        from app.models import LLMModelConfig
         first = await LLMModelConfig.find_one(LLMModelConfig.is_active == True)  # noqa: E712
         if first:
             return await get_llm_client_by_config_name(first.name)
@@ -64,9 +77,8 @@ class BaseAgent:
         if not skill_names:
             return base
 
-        from app.models import Skill
         skills = await Skill.find(
-            Skill.name.in_(skill_names),  # type: ignore[attr-defined]
+            In(Skill.name, skill_names),
             Skill.is_active == True,  # noqa: E712
         ).to_list()
 
@@ -92,11 +104,8 @@ class BaseAgent:
         if not effective_tools:
             return None
 
-        from app.core.tools.registry import TOOL_REGISTRY
-        from app.models import Tool
-
         db_tools = await Tool.find(
-            Tool.name.in_(effective_tools),  # type: ignore[attr-defined]
+            In(Tool.name, effective_tools),
             Tool.is_active == True,  # noqa: E712
         ).to_list()
 
@@ -126,15 +135,13 @@ class BaseAgent:
 
         Returns True if compression was performed.
         """
-        from app.core.agents.compression import ContextCompressor
-
         compressor = ContextCompressor()
 
         if not force and not compressor.should_compress(messages):
             return False
 
         # Use microcompact for first compression, full compact for subsequent
-        if len(messages) > 20:
+        if len(messages) > MAX_CONTEXT_COMPACT_MESSAGES:
             compressed, transcript_id = await compressor.compact(messages, llm, workflow_run_id)
             messages.clear()
             messages.extend(compressed)
@@ -148,14 +155,12 @@ class BaseAgent:
 
     async def run(self, input_text: str, context: AgentContext | None = None) -> str:
         """Agentic event loop: reason → tool_call → execute → observe → repeat."""
-        from app.core.agents.background import BackgroundTaskManager
-
         llm = await self._get_llm()
         self._last_llm = llm  # Store for token usage recording
         system_prompt = await self._build_system_prompt()
         tools_schema = await self._build_tools_schema()
 
-        max_iterations = getattr(self.agent_config, "max_iterations", 5) if self.agent_config else 5
+        max_iterations = getattr(self.agent_config, "max_iterations", DEFAULT_MAX_ITERATIONS) if self.agent_config else DEFAULT_MAX_ITERATIONS
         ctx = AgentRunContext()
 
         # Initialize background task manager
@@ -204,7 +209,7 @@ class BaseAgent:
                 {
                     "id": tc.id,
                     "type": "function",
-                    "function": {"name": tc.name, "arguments": str(tc.arguments)},
+                    "function": {"name": tc.name, "arguments": json.dumps(tc.arguments, ensure_ascii=False)},
                 }
                 for tc in response.tool_calls
             ]
@@ -237,7 +242,6 @@ class BaseAgent:
                     })
 
                     # Extract task_id from result and register with manager
-                    import re
                     task_id_match = re.search(r"Task ID: ([a-f0-9-]+)", result)
                     if task_id_match:
                         task_id = task_id_match.group(1)
@@ -254,8 +258,8 @@ class BaseAgent:
                 is_error = result.startswith(f"Tool '{tc.name}' error:") or result.startswith(f"Tool '{tc.name}' is not available")
                 if is_error:
                     consecutive_failures[tc.name] = consecutive_failures.get(tc.name, 0) + 1
-                    if consecutive_failures[tc.name] >= 3:
-                        result += f"\n[Circuit breaker: '{tc.name}' failed 3 consecutive times. Terminating loop.]"
+                    if consecutive_failures[tc.name] >= MAX_CONSECUTIVE_FAILURES:
+                        result += f"\n[Circuit breaker: '{tc.name}' failed {MAX_CONSECUTIVE_FAILURES} consecutive times. Terminating loop.]"
                         should_terminate = True
                 else:
                     consecutive_failures[tc.name] = 0
@@ -283,10 +287,6 @@ class BaseAgent:
             response: The ChatResponse from the LLM call
             context: The AgentContext containing entity and operation info
         """
-        import uuid
-
-        from app.services.token_usage import TokenUsageService
-
         # Get agent config info
         agent_config_id = None
         agent_config_name = ""

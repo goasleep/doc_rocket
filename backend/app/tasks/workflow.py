@@ -334,7 +334,12 @@ async def _writing_workflow_task_graph(run: object, workflow_run_id: str, publis
             await run.save()  # type: ignore[union-attr]
 
         # Execute all ready tasks concurrently
-        await asyncio.gather(*[execute_task(t) for t in ready_tasks])
+        results = await asyncio.gather(*[execute_task(t) for t in ready_tasks], return_exceptions=True)
+        for idx, res in enumerate(results):
+            if isinstance(res, Exception):
+                # Errors are already handled inside execute_task via manager.fail_task + agent_error publish;
+                # re-raise only the first error so the workflow fails consistently.
+                raise res
 
     # Finalize
     run.final_output = current_content  # type: ignore[union-attr]
@@ -527,6 +532,7 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
 
     # Track subagent steps for real-time persistence
     _current_subagent_step: AgentStep | None = None
+    _pending_saves: list[asyncio.Task[None]] = []
 
     # Define event callback to publish real-time events and persist steps
     def event_callback(event_type: str, data: dict) -> None:
@@ -545,8 +551,8 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
             )
             _current_subagent_step = step
             run.steps.append(step)  # type: ignore[union-attr]
-            # Fire-and-forget save for real-time updates
-            asyncio.create_task(run.save())  # type: ignore[union-attr]
+            # Collect save task so we can await it before final exit
+            _pending_saves.append(asyncio.create_task(run.save()))  # type: ignore[union-attr]
 
             publish("agent_start", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
@@ -563,8 +569,8 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
                 _current_subagent_step.ended_at = datetime.now(timezone.utc)
                 if data.get("title_candidates"):
                     _current_subagent_step.title_candidates = data.get("title_candidates", [])
-                # Fire-and-forget save for real-time updates
-                asyncio.create_task(run.save())  # type: ignore[union-attr]
+                # Collect save task so we can await it before final exit
+                _pending_saves.append(asyncio.create_task(run.save()))  # type: ignore[union-attr]
 
             publish("agent_output", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
@@ -580,8 +586,8 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
                 _current_subagent_step.output = data.get("error", "")
                 _current_subagent_step.status = "failed"
                 _current_subagent_step.ended_at = datetime.now(timezone.utc)
-                # Fire-and-forget save for real-time updates
-                asyncio.create_task(run.save())  # type: ignore[union-attr]
+                # Collect save task so we can await it before final exit
+                _pending_saves.append(asyncio.create_task(run.save()))  # type: ignore[union-attr]
 
             publish("agent_error", {  # type: ignore[call-arg,operator]
                 "agent": data.get("agent"),
@@ -649,6 +655,13 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         run.status = "waiting_human"  # type: ignore[union-attr]
         await run.save()  # type: ignore[union-attr]
 
+        # Await any pending event_callback save tasks with exceptions logged
+        if _pending_saves:
+            save_results = await asyncio.gather(*_pending_saves, return_exceptions=True)
+            for sr in save_results:
+                if isinstance(sr, Exception):
+                    print(f"[DEBUG] Pending orchestrator save failed: {sr}")
+
         publish("agent_output", {  # type: ignore[call-arg,operator]
             "agent": "Orchestrator",
             "role": "orchestrator",
@@ -673,6 +686,14 @@ async def _writing_workflow_orchestrator(run: object, workflow_run_id: str, publ
         run.status = "failed"  # type: ignore[union-attr]
         run.error_message = error_msg[:500]  # type: ignore[union-attr]
         await run.save()  # type: ignore[union-attr]
+
+        # Await any pending event_callback save tasks with exceptions logged
+        if _pending_saves:
+            save_results = await asyncio.gather(*_pending_saves, return_exceptions=True)
+            for sr in save_results:
+                if isinstance(sr, Exception):
+                    print(f"[DEBUG] Pending orchestrator save failed: {sr}")
+
         raise
 
 
