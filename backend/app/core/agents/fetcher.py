@@ -283,45 +283,23 @@ class FetcherAgent:
         # Default to .jpg
         return ".jpg"
 
-    async def _is_content_valid(self, content: str, url: str) -> bool:
-        """Ask the LLM whether the extracted text looks like real article content."""
-        # Quick heuristic: if content is shorter than 200 chars
-        # it's almost certainly invalid
-        if len(content.strip()) < 200:
+    def _is_content_valid_heuristic(self, content: str) -> bool:
+        """Fast rule-based check for whether extracted text is real article content."""
+        stripped = content.strip()
+        if len(stripped) < 200:
             return False
+        if len(stripped) >= 1500:
+            return True
+        paragraphs = [p for p in stripped.split("\n\n") if len(p.strip()) > 50]
+        sentences = re.split(r"[。！？.!?]", stripped)
+        return len(paragraphs) >= 2 and len([s for s in sentences if s.strip()]) >= 5
 
-        try:
-            from app.models import LLMModelConfig
-            from app.core.llm.factory import get_llm_client_by_config_name
+    async def _is_content_valid(self, content: str, url: str) -> bool:
+        """Check whether extracted text looks like real article content.
 
-            first = await LLMModelConfig.find_one(LLMModelConfig.is_active == True)  # noqa: E712
-            if not first:
-                # No LLM configured — fall back to length heuristic only
-                return len(content.strip()) >= 500
-
-            llm = await get_llm_client_by_config_name(first.name)
-            snippet = content[:1500]
-            messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "你是一个内容质量判断助手。"
-                        "判断以下文本是否包含真实的文章正文内容（而非导航栏、广告、登录提示、空白骨架页等无效内容）。"
-                        "只回复 YES 或 NO，不要解释。"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"URL: {url}\n\n文本片段:\n{snippet}",
-                },
-            ]
-            resp = await llm.chat(messages)
-            answer = (resp.content or "").strip().upper()
-            return answer.startswith("YES")
-        except Exception:
-            logger.warning("LLM content validity check failed for url=%s", url, exc_info=True)
-            # LLM unavailable — treat long content as valid
-            return len(content.strip()) >= 500
+        Uses fast heuristic rules. No LLM call is performed.
+        """
+        return self._is_content_valid_heuristic(content)
 
     async def _fetch_url_with_playwright(self, url: str) -> dict[str, Any]:
         """Render the page with headless Chromium and extract content."""
