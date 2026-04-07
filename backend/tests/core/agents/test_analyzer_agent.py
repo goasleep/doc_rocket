@@ -6,6 +6,7 @@ import pytest
 
 from app.core.agents.react_analyzer import ReactAnalyzerAgent
 from app.core.llm.base import ChatResponse
+from app.models.quality_rubric import get_default_rubric
 
 
 @pytest.mark.anyio
@@ -26,7 +27,14 @@ async def test_react_analyzer_returns_dict() -> None:
     ))
 
     with patch.object(agent, "_get_llm", return_value=mock_llm), \
-         patch.object(agent, "_get_active_rubric", return_value=None), \
+         patch.object(agent, "_get_active_rubric", return_value=get_default_rubric()), \
+         patch.object(agent, "_step_multidimensional_analysis", return_value=[
+             {"dimension": "content_depth", "score": 80, "reasoning": "Good", "evidences": [], "improvement_suggestions": []},
+             {"dimension": "readability", "score": 75, "reasoning": "Readable", "evidences": [], "improvement_suggestions": []},
+             {"dimension": "originality", "score": 85, "reasoning": "Original", "evidences": [], "improvement_suggestions": []},
+             {"dimension": "ai_flavor", "score": 70, "reasoning": "Natural", "evidences": [], "improvement_suggestions": []},
+             {"dimension": "virality_potential", "score": 72, "reasoning": "Viral", "evidences": [], "improvement_suggestions": []},
+         ]), \
          patch.object(agent, "_step_web_search", return_value=[]), \
          patch("app.core.agents.react_analyzer.dispatch_tool") as mock_dispatch:
         # Mock dispatch_tool for KB comparison
@@ -97,7 +105,7 @@ async def test_react_analyzer_step_scoring() -> None:
         }
     ]
 
-    score_details, scores = await agent._step_scoring_with_reasoning(dimension_results, None)
+    score_details, scores = await agent._step_scoring_with_reasoning(dimension_results, get_default_rubric())
 
     assert isinstance(score_details, list)
     assert len(score_details) == 1
@@ -159,7 +167,7 @@ async def test_react_analyzer_run_integration() -> None:
                 "avg_sentence_length": 25
             }
         }), tool_calls=[]),
-        # Step 4: Dimension analysis (called 4 times in parallel)
+        # Step 4: Dimension analysis (called 5 times in parallel for default rubric dimensions)
         ChatResponse(content=json.dumps({
             "score": 80,
             "reasoning": "Good content",
@@ -180,6 +188,12 @@ async def test_react_analyzer_run_integration() -> None:
         }), tool_calls=[]),
         ChatResponse(content=json.dumps({
             "score": 70,
+            "reasoning": "Natural",
+            "evidences": [],
+            "improvement_suggestions": [],
+        }), tool_calls=[]),
+        ChatResponse(content=json.dumps({
+            "score": 72,
             "reasoning": "Good potential",
             "evidences": [],
             "improvement_suggestions": [],
@@ -195,7 +209,6 @@ async def test_react_analyzer_run_integration() -> None:
     mock_llm.chat = AsyncMock(side_effect=llm_responses)
 
     with patch.object(agent, "_get_llm", return_value=mock_llm), \
-         patch.object(agent, "_get_active_rubric", return_value=None), \
          patch.object(agent, "_step_web_search", return_value=[]), \
          patch("app.core.agents.react_analyzer.dispatch_tool") as mock_dispatch:
         # Mock tool responses
